@@ -34,6 +34,13 @@ cd tools && uv sync             # once, installs lalsuite and sxs
 
 `npm run dev` rebuilds wasm only at startup; restart it after changing Rust code.
 
+## App URL options
+
+- `?q=3&chi1=0.6&chi2=0.2`: binary parameters (q ≤ 8, |χ| ≤ 0.8)
+- `?t=-300&zoom=250&paused`: start at a given time (M) and half-width (M), paused
+- `?selftest`: render off-screen and compare GPU pixels with the Rust CPU reference;
+  the verdict appears in the page title and status line
+
 ## Waveform data
 
 The app evaluates the NRHybSur3dq8 numerical-relativity surrogate
@@ -49,4 +56,5 @@ cd tools
 curl -L -o data/NRHybSur3dq8.h5 https://zenodo.org/record/3348115/files/NRHybSur3dq8.h5   # 213 MB
 uv run python export_surrogate.py data/NRHybSur3dq8.h5 ../web/public/nrhybsur3dq8.stsur
 uv run python gen_golden.py data/NRHybSur3dq8.h5 ../tests/golden/nrhybsur3dq8.json
+uv run python gen_harmonics_golden.py ../tests/golden/swsh_lal.json
 ```

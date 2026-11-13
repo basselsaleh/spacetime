@@ -5,8 +5,12 @@
 //!
 //! - [`surrogate`]: the NRHybSur3dq8 numerical-relativity waveform model.
 //! - [`spline`]: natural cubic splines used by the surrogate.
+//! - [`harmonics`]: spin-weighted spherical harmonics.
+//! - [`mode_table`]: GPU packing of a waveform, plus a CPU reference of the shader.
 //! - [`newtonian`]: Newtonian placeholder relations (drives the step 0 demo field).
 
+pub mod harmonics;
+pub mod mode_table;
 pub mod newtonian;
 pub mod spline;
 pub mod surrogate;

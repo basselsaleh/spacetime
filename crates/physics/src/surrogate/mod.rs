@@ -87,6 +87,19 @@ impl Waveform {
         self.t0 + self.dt * i as f64
     }
 
+    /// Angular frequency ω₂₂ = dφ₂₂/dt at each sample (central differences,
+    /// one-sided at the ends).
+    pub fn omega22(&self) -> Vec<f64> {
+        let p = &self.phase22;
+        let n = p.len();
+        (0..n)
+            .map(|i| {
+                let (a, b) = (i.saturating_sub(1), (i + 1).min(n - 1));
+                (p[b] - p[a]) / (self.dt * (b - a) as f64)
+            })
+            .collect()
+    }
+
     /// All available (l, m) modes, including negative m.
     pub fn modes(&self) -> Vec<(i32, i32)> {
         let mut out = vec![(2, 2), (2, -2)];

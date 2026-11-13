@@ -109,11 +109,15 @@ tests/golden/        Small reference files committed for the Rust tests
   - `tools/export_surrogate.py` trims the model; `tools/gen_golden.py` writes gwsurrogate output for 7 parameter sets across the trained range.
   - Result: every mode matches gwsurrogate to within 2e-7 of the peak strain (tolerance 1e-6), which is at the level of the reference's own interpolation noise.
   - Moved to step 3: remnant mass and spin (not part of this surrogate; candidates are the NRSur3dq8Remnant fits or published phenomenological fits).
-- **Step 2: Orbital-plane view.**
-  - Upload the mode texture. A fragment shader evaluates the mode sum at retarded time, applies the inner mask and maps the result through a diverging colormap.
-  - Controls: pan and zoom; play, pause, scrub and speed.
-  - Tests: pixel values match a CPU evaluation of the same sum, and h× in the plane is about 0.
-  - Done when: it runs at 60 fps at 1080p on an integrated GPU.
+- **Step 2: Orbital-plane view.** Built Nov 13, 2026; 60 fps at 1080p still to be confirmed on real hardware.
+  - Mode table: RG32F texture, 2048 texels wide (WebGL2's guaranteed minimum), read with texelFetch and interpolated by hand. φ₂₂ is stored mod 4π (exact for every e^{−imφ₂₂/2}) to keep GPU trig accurate.
+  - A fragment shader evaluates the full 11-mode sum at retarded time t − r, fades out the near zone (radius max(1/ω₂₂, 2 × Kepler separation)), and colours r·h₊ ÷ peak × gain on a tanh-saturating diverging scale.
+  - Controls: pan, zoom, play, pause, scrub, speed, gain; URL options `?q=&chi1=&chi2=`, `?t=`, `?zoom=`, `?paused`.
+  - Tests:
+    - spin-weighted harmonics match LAL to 1e-12
+    - h× = 0 in the orbital plane to 1e-12 (from the harmonics and mode symmetry together)
+    - the GPU table matches the exact mode sum to 1e-6 at samples and 1e-3 between them
+    - `?selftest` compares GPU pixels with the Rust CPU reference: 3.6e-4 of peak on the Apple GPU (Metal), 1.2e-3 under SwiftShader; tolerance 2e-3
 - **Step 3: Orbits and remnant.**
   - Hole positions come from the waveform phase and PN r(ω). Each disc is sized to its horizon radius. At t_peak the two blend into the remnant disc, radius M_f(1 + √(1−χ_f²)).
   - Check: the spiral arms leave the holes with the correct retarded-time lag.

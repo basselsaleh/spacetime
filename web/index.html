@@ -8,14 +8,37 @@
   </head>
   <body>
     <canvas id="view"></canvas>
-    <div id="hud">
-      <div id="title">Spacetime · step 1 waveform engine</div>
-      <div id="status">Loading physics…</div>
-      <div id="note">
-        Placeholder field: Newtonian (2,2) pattern at fixed separation, not yet GR.
-        Colour shows r·h normalised; the faded centre is where the far-zone formula is invalid.
+    <div id="hud" class="panel">
+      <div id="title">Spacetime · orbital plane</div>
+      <div id="params"></div>
+      <div id="legend">
+        <span>h₊ &lt; 0</span><div class="ramp"></div><span>h₊ &gt; 0</span>
       </div>
+      <div id="note">
+        Gravitational-wave strain in the orbital plane, seen from above. Colour is r·h₊
+        (the 1/r fall-off removed), divided by its peak (2,2) value and multiplied by the gain, on a smoothly saturating scale.
+        In this plane the wave is purely + polarised (h× = 0). Inside the ring is the near zone,
+        where this far-zone formula does not apply.
+      </div>
+      <div id="status">Loading…</div>
       <div id="credit"></div>
+    </div>
+    <div id="scale" aria-hidden="true"><div id="scale-bar"></div><span id="scale-label"></span></div>
+    <div id="controls" class="panel">
+      <button id="play" type="button">Pause</button>
+      <input id="scrub" type="range" aria-label="Time" />
+      <span id="time"></span>
+      <label>Speed
+        <select id="speed">
+          <option value="0.1">×0.1</option>
+          <option value="0.25">×0.25</option>
+          <option value="0.5">×0.5</option>
+          <option value="1" selected>×1</option>
+          <option value="2">×2</option>
+          <option value="5">×5</option>
+        </select>
+      </label>
+      <label>Gain <input id="gain" type="range" min="1" max="20" step="0.5" value="1.5" /><span id="gain-value"></span></label>
     </div>
     <script type="module" src="./src/main.ts"></script>
   </body>

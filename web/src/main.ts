@@ -1,52 +1,94 @@
-import init, {
-  newtonian_gw_omega_22,
-  physics_version,
-  WaveformModel,
-} from "./wasm/spacetime_wasm.js";
-import { createContext, createProgram, resizeToDisplay } from "./gl";
-import vertexSource from "./shaders/fullscreen.vert?raw";
-import fragmentSource from "./shaders/strain_placeholder.frag?raw";
+import init, { physics_version } from "./wasm/spacetime_wasm.js";
+import { createContext, resizeToDisplay } from "./gl";
+import { setupControls, type Playback } from "./controls";
+import { runSelfTest } from "./selftest";
+import { StrainView, type ViewState } from "./strainView";
+import { loadModel, nearZoneRadius, paramsFromUrl, prepare } from "./waveform";
 
-// Placeholder scene parameters, all in units of total mass M.
-const SEPARATION = 20; // binary separation
-const HALF_WIDTH = 600; // half the visible width
-const TIME_SCALE = 120; // M of coordinate time per second of wall-clock time
+const DEFAULT_VIEW: ViewState = {
+  centerX: 0,
+  centerY: 0,
+  halfWidth: 450,
+  time: -2500,
+  gain: 1.5,
+  maskRadius: 0,
+};
 
 async function main(): Promise<void> {
   const status = document.getElementById("status")!;
   try {
     await init();
-    const waveformInfo = await loadWaveformModel();
+    const model = await loadModel();
+    document.getElementById("credit")!.textContent = model.attribution;
 
-    const omega22 = newtonian_gw_omega_22(SEPARATION);
-    const innerRadius = 1 / omega22; // reduced wavelength: near/far-zone boundary
+    const params = paramsFromUrl();
+    const w = prepare(model, params);
 
     const canvas = document.getElementById("view") as HTMLCanvasElement;
     const gl = createContext(canvas);
-    const program = createProgram(gl, vertexSource, fragmentSource);
-    const vao = gl.createVertexArray();
+    const strainView = new StrainView(gl);
+    strainView.setWaveform(w);
 
-    const u = (name: string) => gl.getUniformLocation(program, name);
-    const uResolution = u("u_resolution");
-    const uTime = u("u_time");
-    gl.useProgram(program);
-    gl.uniform1f(u("u_halfWidth"), HALF_WIDTH);
-    gl.uniform1f(u("u_omega22"), omega22);
-    gl.uniform1f(u("u_innerRadius"), innerRadius);
+    document.getElementById("params")!.textContent =
+      `q = ${params.q}, χ₁ = ${params.chi1}, χ₂ = ${params.chi2} (aligned spins) · ` +
+      `${w.rows.length / 2} co-orbital rows, ${w.table.samples} samples, evaluated in ${w.evaluateMs.toFixed(1)} ms`;
 
-    status.textContent =
-      `physics v${physics_version()} · a = ${SEPARATION}M · ` +
-      `Mω₂₂ = ${omega22.toFixed(4)} · λ = ${((2 * Math.PI) / omega22).toFixed(0)}M\n` +
-      waveformInfo;
+    if (new URLSearchParams(window.location.search).has("selftest")) {
+      const r = runSelfTest(gl, strainView, w);
+      const verdict = `SELFTEST ${r.pass ? "PASS" : "FAIL"}: max |GPU−CPU|/peak = ${r.worst.toExponential(2)} over ${r.pixels} pixels (per frame: ${r.perFrame.map((e) => e.toExponential(1)).join(", ")})`;
+      document.title = verdict;
+      status.textContent = verdict;
+      status.classList.toggle("error", !r.pass);
+      console.log(verdict);
+      return;
+    }
 
-    const start = performance.now();
+    // Optional ?t=<time in M>, ?zoom=<half-width in M> and ?paused, for sharing a moment.
+    const url = new URLSearchParams(window.location.search);
+    const view: ViewState = {
+      ...DEFAULT_VIEW,
+      time: url.has("t") ? Number(url.get("t")) : DEFAULT_VIEW.time,
+      halfWidth: url.has("zoom") ? Number(url.get("zoom")) : DEFAULT_VIEW.halfWidth,
+    };
+    const playback: Playback = {
+      playing: !url.has("paused"),
+      speed: 100,
+      tMin: Math.ceil(w.t0 + 500),
+      tMax: Math.floor(w.tEnd + 3000),
+    };
+    const controls = setupControls(canvas, view, playback, DEFAULT_VIEW);
+    status.textContent = `physics v${physics_version()}`;
+    const scaleBar = document.getElementById("scale-bar")!;
+    const scaleLabel = document.getElementById("scale-label")!;
+
+    let last = performance.now();
+    let fpsFrames = 0;
+    let fpsSince = last;
     const frame = (now: number) => {
+      const dtWall = Math.min((now - last) / 1000, 0.1);
+      last = now;
+      if (playback.playing) {
+        view.time += dtWall * playback.speed;
+        if (view.time >= playback.tMax) {
+          view.time = playback.tMax;
+          playback.playing = false;
+        }
+        controls.sync();
+      }
+      view.maskRadius = nearZoneRadius(w, view.time);
+
       resizeToDisplay(canvas);
-      gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.uniform2f(uResolution, canvas.width, canvas.height);
-      gl.uniform1f(uTime, ((now - start) / 1000) * TIME_SCALE);
-      gl.bindVertexArray(vao);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      strainView.draw(view, canvas.width, canvas.height);
+      updateScaleBar(scaleBar, scaleLabel, view.halfWidth, canvas.clientWidth);
+
+      fpsFrames++;
+      if (now - fpsSince > 1000) {
+        status.textContent =
+          `physics v${physics_version()} · ${((fpsFrames * 1000) / (now - fpsSince)).toFixed(0)} fps · ` +
+          `${canvas.width}×${canvas.height}`;
+        fpsFrames = 0;
+        fpsSince = now;
+      }
       requestAnimationFrame(frame);
     };
     requestAnimationFrame(frame);
@@ -57,28 +99,14 @@ async function main(): Promise<void> {
   }
 }
 
-/** Loads the surrogate and times one evaluation (step 1 check; drawn in step 2). */
-async function loadWaveformModel(): Promise<string> {
-  const response = await fetch(`${import.meta.env.BASE_URL}nrhybsur3dq8.stsur`);
-  if (!response.ok) throw new Error(`Waveform data: HTTP ${response.status}`);
-  const model = new WaveformModel(new Uint8Array(await response.arrayBuffer()));
-  document.getElementById("credit")!.textContent = model.attribution;
-
-  const runs = 5;
-  const start = performance.now();
-  let wf = model.evaluate(2, 0.3, -0.1, -5000, 1);
-  for (let i = 1; i < runs; i++) {
-    wf.free();
-    wf = model.evaluate(2, 0.3, -0.1, -5000, 1);
-  }
-  const ms = (performance.now() - start) / runs;
-  const amp = wf.amp22();
-  const iPeak = amp.indexOf(Math.max(...amp));
-  const summary =
-    `${model.model}: ${wf.length} samples, ${wf.coorbitalModes().length / 2 + 1} modes, ` +
-    `evaluated in ${ms.toFixed(1)} ms · peak |h₂₂| = ${amp[iPeak].toFixed(3)} at t = ${(wf.t0 + iPeak * wf.dt).toFixed(0)}M`;
-  wf.free();
-  return summary;
+/** Sizes the scale bar to a round length (1, 2 or 5 × 10^k M) near 120 px. */
+function updateScaleBar(bar: HTMLElement, label: HTMLElement, halfWidth: number, cssWidth: number) {
+  const mPerPx = (2 * halfWidth) / cssWidth;
+  const target = 120 * mPerPx;
+  const pow = Math.pow(10, Math.floor(Math.log10(target)));
+  const nice = [1, 2, 5, 10].map((k) => k * pow).filter((v) => v <= target).pop() ?? pow;
+  bar.style.width = `${nice / mPerPx}px`;
+  label.textContent = `${nice} M`;
 }
 
 void main();

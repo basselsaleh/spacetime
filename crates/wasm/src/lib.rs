@@ -1,6 +1,8 @@
 //! Thin wasm-bindgen layer over `spacetime-physics`. Keep logic out of here:
 //! anything worth testing belongs in the physics crate.
 
+use spacetime_physics::harmonics::spin_weighted_ylm_theta;
+use spacetime_physics::mode_table::{ModeTable, equatorial_peak_22};
 use spacetime_physics::surrogate::{Params, Surrogate, Waveform};
 use wasm_bindgen::prelude::*;
 
@@ -15,6 +17,12 @@ pub fn physics_version() -> String {
 #[wasm_bindgen]
 pub fn newtonian_gw_omega_22(separation: f64) -> f64 {
     spacetime_physics::newtonian::gw_omega_22(separation)
+}
+
+/// Real, θ-dependent part of ₛY_lm: ₛY_lm(θ, φ) = this · e^{imφ}.
+#[wasm_bindgen(js_name = swshTheta)]
+pub fn swsh_theta(s: i32, l: i32, m: i32, theta: f64) -> f64 {
+    spin_weighted_ylm_theta(s, l, m, theta)
 }
 
 /// A loaded waveform model (NRHybSur3dq8 surrogate).
@@ -111,6 +119,23 @@ impl WaveformData {
         self.0.coorbital.iter().flat_map(|c| [c.l, c.m]).collect()
     }
 
+    /// ω₂₂ = dφ₂₂/dt at each sample.
+    pub fn omega22(&self) -> Vec<f64> {
+        self.0.omega22()
+    }
+
+    /// Peak r·|h₊| in the orbital plane from the (2,2) mode; the colour scale's unit.
+    #[wasm_bindgen(js_name = equatorialPeak22)]
+    pub fn equatorial_peak_22(&self) -> f64 {
+        equatorial_peak_22(&self.0)
+    }
+
+    /// Packs the waveform for the strain shader (see `mode_table` in the physics crate).
+    #[wasm_bindgen(js_name = modeTable)]
+    pub fn mode_table(&self, width: usize) -> ModeTableData {
+        ModeTableData(ModeTable::new(&self.0, width))
+    }
+
     /// Interleaved `[re, im, re, im, ...]` for the i-th co-orbital mode.
     #[wasm_bindgen(js_name = coorbitalData)]
     pub fn coorbital_data(&self, index: usize) -> Vec<f64> {
@@ -119,5 +144,56 @@ impl WaveformData {
             .get(index)
             .map(|c| c.data.iter().flat_map(|z| [z.re, z.im]).collect())
             .unwrap_or_default()
+    }
+}
+
+/// Waveform packed as an RG32F texture, plus a CPU reference of the shader.
+#[wasm_bindgen]
+pub struct ModeTableData(ModeTable);
+
+#[wasm_bindgen]
+impl ModeTableData {
+    #[wasm_bindgen(getter)]
+    pub fn t0(&self) -> f64 {
+        self.0.t0
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn dt(&self) -> f64 {
+        self.0.dt
+    }
+
+    /// Samples per mode row.
+    #[wasm_bindgen(getter)]
+    pub fn samples(&self) -> usize {
+        self.0.n
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn width(&self) -> usize {
+        self.0.width
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn height(&self) -> usize {
+        self.0.height()
+    }
+
+    /// Flat `[l0, m0, l1, m1, ...]`; row 0 is (2,2).
+    pub fn rows(&self) -> Vec<i32> {
+        self.0.rows.iter().flat_map(|&(l, m)| [l, m]).collect()
+    }
+
+    /// RG texel data, `width × height × 2` floats.
+    pub fn data(&self) -> Vec<f32> {
+        self.0.data.clone()
+    }
+
+    /// CPU reference: `[r·h₊, r·h×]` at retarded time `t_ret`, or NaNs outside the data.
+    pub fn strain(&self, theta: f64, phi: f64, t_ret: f64) -> Vec<f64> {
+        match self.0.strain(theta, phi, t_ret) {
+            Some(z) => vec![z.re, -z.im],
+            None => vec![f64::NAN, f64::NAN],
+        }
     }
 }
