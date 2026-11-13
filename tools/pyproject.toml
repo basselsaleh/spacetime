@@ -1,0 +1,13 @@
+[project]
+name = "spacetime-tools"
+version = "0.1.0"
+description = "Offline pipeline: golden waveforms from LAL for Rust tests, NR reference tables"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "lalsuite",
+    "numpy",
+    "sxs",
+]
+
+[tool.uv]
+package = false

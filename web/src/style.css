@@ -1,0 +1,18 @@
+:root {
+  --bg: #0b0d12;
+  --fg: #e6e8ee;
+  --muted: #9aa3b2;
+  --panel: rgba(11, 13, 18, 0.72);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); }
+body { font: 14px/1.4 system-ui, -apple-system, sans-serif; overflow: hidden; }
+#view { display: block; width: 100vw; height: 100vh; }
+#hud {
+  position: fixed; top: 16px; left: 16px; max-width: min(420px, calc(100vw - 32px));
+  padding: 12px 14px; border-radius: 8px; background: var(--panel);
+}
+#title { font-weight: 600; }
+#status { color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
+#note { color: var(--muted); margin-top: 8px; font-size: 12px; }
+#status.error { color: #ff8a80; }

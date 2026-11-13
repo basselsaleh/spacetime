@@ -1,0 +1,14 @@
+# Rust
+/target/
+
+# Web
+web/node_modules/
+web/dist/
+web/src/wasm/
+
+# Python
+tools/.venv/
+__pycache__/
+
+# OS
+.DS_Store
