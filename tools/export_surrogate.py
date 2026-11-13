@@ -10,7 +10,8 @@ resampled to --dense-dt; tests/golden measures the resulting error.
 Format: see crates/physics/src/surrogate/format.rs.
 
 Usage:
-    uv run python export_surrogate.py data/NRHybSur3dq8.h5 ../web/public/nrhybsur3dq8.stsur
+    uv run python export_surrogate.py data/NRHybSur3dq8.h5 ../web/public/nrhybsur3dq8.stsur \
+        --remnant data/fit_3dq8.h5
 """
 
 from __future__ import annotations
@@ -65,18 +66,18 @@ def scalar(v) -> float:
     return float(a[0])
 
 
-def export_node(node_function, blob: Blob) -> dict:
-    """Fold a GPR_fast node (ConstantKernel*RBF + White, linear fit) into
-    y(x) = scale * sum_j w_j exp(-0.5|(x-X_j)/l|^2) + linear.x + offset."""
+def export_gpr(fit: dict, blob: Blob) -> dict:
+    """Fold a GPR fit (ConstantKernel*RBF + WhiteKernel, linear fit subtracted)
+    into y(x) = scale * sum_j w_j exp(-0.5|(x-X_j)/l|^2) + linear.x + offset."""
     from gwsurrogate.eval_pysur.evaluate_fit import GPRPredictor
 
-    nf = node_function.node_function
-    cls = type(nf).__name__
-    if cls != "NRHybSur3dq8Fit":
-        raise NotImplementedError(f"node class {cls}")
-    fit = dict(nf.fit_data)
+    fit = dict(fit)
     if fit.get("fitType") not in ("GPR", "GPR_fast"):
         raise NotImplementedError(f"fit type {fit.get('fitType')}")
+    k = fit["GPR_params"]["kernel_"]
+    names = (k["name"], k["k1"]["name"], k["k1"]["k1"]["name"], k["k1"]["k2"]["name"], k["k2"]["name"])
+    if names != ("Sum", "Product", "ConstantKernel", "RBF", "WhiteKernel"):
+        raise NotImplementedError(f"kernel {names}")
 
     pred = GPRPredictor(fit)
     gpr = pred.GPR_obj
@@ -102,6 +103,27 @@ def export_node(node_function, blob: Blob) -> dict:
         "linear": coef.tolist(),
         "offset": y_mean * d_std + d_mean + intercept,
     }
+
+
+def export_node(node_function, blob: Blob) -> dict:
+    nf = node_function.node_function
+    cls = type(nf).__name__
+    if cls != "NRHybSur3dq8Fit":
+        raise NotImplementedError(f"node class {cls}")
+    return export_gpr(nf.fit_data, blob)
+
+
+def export_remnant(h5_path: Path, blob: Blob) -> dict:
+    """NRSur3dq8Remnant fits (Varma et al. 2019, arXiv:1809.09125). They use the
+    same fit coordinates (ln q, chi_hat, chi_a) as the waveform surrogate."""
+    import h5py
+    from surfinBH._fit_evaluators.fit_3dq8 import Fit3dq8
+    from surfinBH.surfinBH import SurFinBH
+
+    reader = Fit3dq8.__new__(Fit3dq8)
+    with h5py.File(h5_path, "r") as h:
+        return {key: export_gpr(SurFinBH._read_dict(reader, h[key]), blob)
+                for key in ("mf", "chifz", "vfx", "vfy")}
 
 
 class Grid:
@@ -157,6 +179,8 @@ def main() -> None:
                     help="earliest time kept, in M (default: -10000)")
     ap.add_argument("--dense-dt", type=float, default=1.0,
                     help="time step for the merger-ringdown region, in M (default: 1)")
+    ap.add_argument("--remnant", type=Path, default=None,
+                    help="NRSur3dq8Remnant fit file (fit_3dq8.h5) to embed")
     ap.add_argument("--keep-join", type=float, default=10.0,
                     help="M of original 0.1 M samples kept after the sparse/dense join (default: 10)")
     args = ap.parse_args()
@@ -189,6 +213,10 @@ def main() -> None:
         "phase22": export_piece(mode22.func_subs["phase"], grid, blob),
         "modes": modes,
     }
+    if args.remnant is not None:
+        header["remnant"] = export_remnant(args.remnant, blob)
+        header["attribution"] += (" Remnant: NRSur3dq8Remnant, V. Varma et al., arXiv:1809.09125,"
+                                  " same data record.")
 
     head = json.dumps(header, separators=(",", ":")).encode()
     pre = MAGIC + struct.pack("<I", len(head)) + head

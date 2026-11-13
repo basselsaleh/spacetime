@@ -36,9 +36,9 @@ export function runSelfTest(
   const perFrame: number[] = [];
   // Inspiral, merger near the source, and the merger burst further out.
   const frames: ViewState[] = [
-    { centerX: 0, centerY: 0, halfWidth: 400, time: -2500, gain: 1, maskRadius: 0 },
-    { centerX: 0, centerY: 0, halfWidth: 60, time: 20, gain: 1, maskRadius: 0 },
-    { centerX: 150, centerY: -80, halfWidth: 200, time: 250, gain: 1, maskRadius: 0 },
+    { centerX: 0, centerY: 0, halfWidth: 400, time: -2500, gain: 1, maskRadius: 0, discs: new Float32Array(12) },
+    { centerX: 0, centerY: 0, halfWidth: 60, time: 20, gain: 1, maskRadius: 0, discs: new Float32Array(12) },
+    { centerX: 150, centerY: -80, halfWidth: 200, time: 250, gain: 1, maskRadius: 0, discs: new Float32Array(12) },
   ];
   for (const f of frames) {
     let frameWorst = 0;

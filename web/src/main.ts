@@ -12,6 +12,7 @@ const DEFAULT_VIEW: ViewState = {
   time: -2500,
   gain: 1.5,
   maskRadius: 0,
+  discs: new Float32Array(12),
 };
 
 async function main(): Promise<void> {
@@ -32,6 +33,10 @@ async function main(): Promise<void> {
     document.getElementById("params")!.textContent =
       `q = ${params.q}, χ₁ = ${params.chi1}, χ₂ = ${params.chi2} (aligned spins) · ` +
       `${w.rows.length / 2} co-orbital rows, ${w.table.samples} samples, evaluated in ${w.evaluateMs.toFixed(1)} ms`;
+    const kickKmS = w.binary.kickSpeed * 299792.458;
+    document.getElementById("remnant")!.textContent =
+      `Remnant: mass ${w.binary.remnantMass.toFixed(4)} M (${((1 - w.binary.remnantMass) * 100).toFixed(1)}% radiated), ` +
+      `spin ${w.binary.remnantSpin.toFixed(3)}, recoil ${kickKmS.toFixed(0)} km/s`;
 
     if (new URLSearchParams(window.location.search).has("selftest")) {
       const r = runSelfTest(gl, strainView, w);
@@ -76,6 +81,7 @@ async function main(): Promise<void> {
         controls.sync();
       }
       view.maskRadius = nearZoneRadius(w, view.time);
+      view.discs.set(w.binary.state(view.time));
 
       resizeToDisplay(canvas);
       strainView.draw(view, canvas.width, canvas.height);

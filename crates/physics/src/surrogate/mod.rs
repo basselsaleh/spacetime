@@ -53,6 +53,18 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+/// Properties of the final black hole (NRSur3dq8Remnant, arXiv:1809.09125).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Remnant {
+    /// Final mass, in units of the initial total mass.
+    pub mass: f64,
+    /// Final dimensionless spin along the orbital angular momentum.
+    pub spin: f64,
+    /// Recoil velocity (units of c) in the co-orbital frame at t = −100 M,
+    /// x-axis from the lighter to the heavier black hole.
+    pub kick_coorbital: [f64; 2],
+}
+
 /// Co-orbital-frame data for one (l, m) mode with m ≥ 0, m ≠ 2 when l = 2.
 #[derive(Debug, Clone)]
 pub struct CoorbitalMode {
@@ -140,6 +152,8 @@ pub struct Surrogate {
     amp22: LoadedPiece,
     phase22: LoadedPiece,
     modes: Vec<LoadedMode>,
+    /// mf, chifz, vfx, vfy.
+    remnant: Option<[LoadedNode; 4]>,
 }
 
 #[derive(Debug)]
@@ -286,7 +300,21 @@ impl Surrogate {
             })
             .collect::<Result<_, Error>>()?;
 
+        let remnant = header
+            .remnant
+            .as_ref()
+            .map(|r| -> Result<[LoadedNode; 4], Error> {
+                Ok([
+                    blob.node(&r.mf)?,
+                    blob.node(&r.chifz)?,
+                    blob.node(&r.vfx)?,
+                    blob.node(&r.vfy)?,
+                ])
+            })
+            .transpose()?;
+
         Ok(Self {
+            remnant,
             amp22: blob.piece(&header.amp22, n)?,
             phase22: blob.piece(&header.phase22, n)?,
             modes,
@@ -310,6 +338,18 @@ impl Surrogate {
 
     pub fn bounds(&self) -> Bounds {
         self.bounds
+    }
+
+    /// Final black hole for these parameters, if the data file includes the
+    /// remnant fits.
+    pub fn remnant(&self, p: Params) -> Result<Option<Remnant>, Error> {
+        self.check(&p)?;
+        let x = Self::fit_coords(&p);
+        Ok(self.remnant.as_ref().map(|[mf, chi, vx, vy]| Remnant {
+            mass: mf.eval(&x),
+            spin: chi.eval(&x),
+            kick_coorbital: [vx.eval(&x), vy.eval(&x)],
+        }))
     }
 
     /// First and last time (in M) the model can be evaluated at.

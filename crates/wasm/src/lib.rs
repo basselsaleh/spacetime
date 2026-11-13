@@ -1,6 +1,7 @@
 //! Thin wasm-bindgen layer over `spacetime-physics`. Keep logic out of here:
 //! anything worth testing belongs in the physics crate.
 
+use spacetime_physics::binary::Binary;
 use spacetime_physics::harmonics::spin_weighted_ylm_theta;
 use spacetime_physics::mode_table::{ModeTable, equatorial_peak_22};
 use spacetime_physics::surrogate::{Params, Surrogate, Waveform};
@@ -62,6 +63,24 @@ impl WaveformModel {
     pub fn time_range(&self) -> Vec<f64> {
         let (a, b) = self.0.time_range();
         vec![a, b]
+    }
+
+    /// Black-hole orbits and remnant for a waveform evaluated with the same
+    /// parameters (it must start at or before t = −1000 M).
+    pub fn binary(
+        &self,
+        q: f64,
+        chi1: f64,
+        chi2: f64,
+        data: &WaveformData,
+    ) -> Result<BinaryTrack, JsError> {
+        let p = Params { q, chi1, chi2 };
+        let remnant = self
+            .0
+            .remnant(p)
+            .map_err(|e| JsError::new(&e.to_string()))?
+            .ok_or_else(|| JsError::new("data file has no remnant fits"))?;
+        Ok(BinaryTrack(Binary::new(&data.0, p, remnant)))
     }
 
     /// Evaluates all modes on a uniform grid from `t_start` (M) with step `dt`.
@@ -195,5 +214,40 @@ impl ModeTableData {
             Some(z) => vec![z.re, -z.im],
             None => vec![f64::NAN, f64::NAN],
         }
+    }
+}
+
+/// Black-hole discs over time, plus remnant properties.
+#[wasm_bindgen]
+pub struct BinaryTrack(Binary);
+
+#[wasm_bindgen]
+impl BinaryTrack {
+    /// `[x, y, radius, opacity]` for the heavier hole, lighter hole and remnant (M).
+    pub fn state(&self, t: f64) -> Vec<f64> {
+        let s = self.0.state(t);
+        [s.heavy, s.light, s.remnant]
+            .iter()
+            .flat_map(|d| [d.x, d.y, d.radius, d.opacity])
+            .collect()
+    }
+
+    /// Final mass, in units of the initial total mass.
+    #[wasm_bindgen(getter, js_name = remnantMass)]
+    pub fn remnant_mass(&self) -> f64 {
+        self.0.remnant.mass
+    }
+
+    /// Final dimensionless spin.
+    #[wasm_bindgen(getter, js_name = remnantSpin)]
+    pub fn remnant_spin(&self) -> f64 {
+        self.0.remnant.spin
+    }
+
+    /// Recoil speed as a fraction of c.
+    #[wasm_bindgen(getter, js_name = kickSpeed)]
+    pub fn kick_speed(&self) -> f64 {
+        let [x, y] = self.0.kick();
+        x.hypot(y)
     }
 }

@@ -1,7 +1,12 @@
 // Evaluates the surrogate for one binary and prepares everything the strain
 // view needs: the packed mode table, harmonic coefficients and timing info.
 
-import { swshTheta, WaveformModel, type ModeTableData } from "./wasm/spacetime_wasm.js";
+import {
+  swshTheta,
+  WaveformModel,
+  type BinaryTrack,
+  type ModeTableData,
+} from "./wasm/spacetime_wasm.js";
 
 export interface BinaryParams {
   q: number;
@@ -12,6 +17,8 @@ export interface BinaryParams {
 export interface PreparedWaveform {
   params: BinaryParams;
   table: ModeTableData;
+  /** Black-hole discs over time and remnant properties. */
+  binary: BinaryTrack;
   /** Flat [l0, m0, l1, m1, ...]; row 0 is (2,2). */
   rows: Int32Array;
   /** Per row: [Y_{l,m}(π/2,0), (−1)^l Y_{l,−m}(π/2,0)] flattened. */
@@ -43,6 +50,7 @@ export function prepare(model: WaveformModel, params: BinaryParams): PreparedWav
   const evaluateMs = performance.now() - start;
 
   const table = wf.modeTable(TABLE_WIDTH);
+  const binary = model.binary(params.q, params.chi1, params.chi2, wf);
   const rows = Int32Array.from(table.rows());
   const coefficients = new Float32Array(rows.length);
   for (let k = 0; k < rows.length / 2; k++) {
@@ -55,6 +63,7 @@ export function prepare(model: WaveformModel, params: BinaryParams): PreparedWav
   const prepared: PreparedWaveform = {
     params,
     table,
+    binary,
     rows,
     coefficients,
     peak: wf.equatorialPeak22(),

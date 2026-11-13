@@ -12,6 +12,8 @@ export interface ViewState {
   time: number; // M
   gain: number;
   maskRadius: number; // M
+  /** Heavier, lighter, remnant: [x, y, radius, opacity] × 3, in M. */
+  discs: Float32Array;
 }
 
 const MAX_ROWS = 16;
@@ -29,7 +31,7 @@ export class StrainView {
     this.texture = gl.createTexture();
     for (const name of [
       "u_table", "u_width", "u_samples", "u_rows", "u_t0", "u_dt", "u_lm", "u_coef",
-      "u_resolution", "u_center", "u_halfWidth", "u_time", "u_scale", "u_maskRadius", "u_raw",
+      "u_resolution", "u_center", "u_halfWidth", "u_time", "u_scale", "u_maskRadius", "u_raw", "u_discs", "u_minDiscRadius",
     ]) {
       this.u[name] = gl.getUniformLocation(this.program, name);
     }
@@ -79,6 +81,8 @@ export class StrainView {
     gl.uniform1f(this.u.u_scale, view.gain / this.waveform.peak);
     gl.uniform1f(this.u.u_maskRadius, view.maskRadius);
     gl.uniform1i(this.u.u_raw, raw ? 1 : 0);
+    gl.uniform4fv(this.u.u_discs, view.discs);
+    gl.uniform1f(this.u.u_minDiscRadius, (2.5 * view.halfWidth) / (0.5 * width));
     gl.bindVertexArray(this.vao);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }

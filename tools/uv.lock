@@ -1214,6 +1214,7 @@ dependencies = [
     { name = "lalsuite" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "surfinbh" },
     { name = "sxs", version = "2026.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "sxs", version = "2026.0.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
@@ -1224,6 +1225,7 @@ requires-dist = [
     { name = "h5py", specifier = ">=3.16.0" },
     { name = "lalsuite" },
     { name = "numpy" },
+    { name = "surfinbh", specifier = ">=1.2.7" },
     { name = "sxs" },
 ]
 
@@ -1257,6 +1259,25 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/96/fa/1aa646a4e9b0562389296c71b44a7e86d47bd0a3f63401b162bab339bbea/spinsfast-2022.4.11-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1d5815565b5edbc9ed54abebdff788a8854c403c62c1e1e26ce29751699527b0", size = 1014947, upload-time = "2026-07-01T03:29:43.547Z" },
     { url = "https://files.pythonhosted.org/packages/cb/44/4e1c36e27eb69d29dc588e2e56b3b86deaece57fdffb8578d4677afdb5a3/spinsfast-2022.4.11-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:06370a6d95c6779844d9c1b1fa0ade02d5a3576add56be22dae61e00c7f661b8", size = 421992, upload-time = "2026-07-01T03:29:44.804Z" },
     { url = "https://files.pythonhosted.org/packages/92/93/6d5b5b169eb13b2c6b3f8b0d8bbf3ebc429a5b340993c2a44855f5567f61/spinsfast-2022.4.11-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:a2a74a3758209bce943cf56f18573375f5009f4036b13057e9376af6217c0f67", size = 1014990, upload-time = "2026-07-01T03:29:46.32Z" },
+]
+
+[[package]]
+name = "surfinbh"
+version = "1.2.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "gwsurrogate" },
+    { name = "h5py" },
+    { name = "lalsuite" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "scikit-learn" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9e/e4/2de4a6d4855a67057ee0f5e2f6afa81a14d11cb7cfcfe930e15f3d3f1d1a/surfinbh-1.2.7.tar.gz", hash = "sha256:6e584218c464844d50597062288e0f9f0c90d6995911941e070a1543d004e3b7", size = 2932975, upload-time = "2025-07-21T14:24:49.757Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/31/eb/1ab0e102f15d1c38723d269e7ef0c4143bb8a5c9108dfe29e71c92da2947/surfinbh-1.2.7-py3-none-any.whl", hash = "sha256:04f81c8a61c90566ebeae6744619fc6de4bedb309476441bac84cb7c3b19268b", size = 39645, upload-time = "2025-07-21T14:24:48.603Z" },
 ]
 
 [[package]]

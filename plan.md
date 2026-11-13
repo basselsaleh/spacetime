@@ -108,7 +108,7 @@ tests/golden/        Small reference files committed for the Rust tests
   - Units: total mass M = 1, t = 0 at the waveform peak. Frame: the surrogate's raw frame (heavier hole on +x at t = −1000 M).
   - `tools/export_surrogate.py` trims the model; `tools/gen_golden.py` writes gwsurrogate output for 7 parameter sets across the trained range.
   - Result: every mode matches gwsurrogate to within 2e-7 of the peak strain (tolerance 1e-6), which is at the level of the reference's own interpolation noise.
-  - Moved to step 3: remnant mass and spin (not part of this surrogate; candidates are the NRSur3dq8Remnant fits or published phenomenological fits).
+  - Remnant mass and spin were moved to step 3 (they are not part of this surrogate).
 - **Step 2: Orbital-plane view.** Built Nov 13, 2026; 60 fps at 1080p still to be confirmed on real hardware.
   - Mode table: RG32F texture, 2048 texels wide (WebGL2's guaranteed minimum), read with texelFetch and interpolated by hand. φ₂₂ is stored mod 4π (exact for every e^{−imφ₂₂/2}) to keep GPU trig accurate.
   - A fragment shader evaluates the full 11-mode sum at retarded time t − r, fades out the near zone (radius max(1/ω₂₂, 2 × Kepler separation)), and colours r·h₊ ÷ peak × gain on a tanh-saturating diverging scale.
@@ -118,9 +118,13 @@ tests/golden/        Small reference files committed for the Rust tests
     - h× = 0 in the orbital plane to 1e-12 (from the harmonics and mode symmetry together)
     - the GPU table matches the exact mode sum to 1e-6 at samples and 1e-3 between them
     - `?selftest` compares GPU pixels with the Rust CPU reference: 3.6e-4 of peak on the Apple GPU (Metal), 1.2e-3 under SwiftShader; tolerance 2e-3
-- **Step 3: Orbits and remnant.**
-  - Hole positions come from the waveform phase and PN r(ω). Each disc is sized to its horizon radius. At t_peak the two blend into the remnant disc, radius M_f(1 + √(1−χ_f²)).
-  - Check: the spiral arms leave the holes with the correct retarded-time lag.
+- **Step 3: Orbits and remnant.** Done Nov 13, 2026.
+  - Remnant: NRSur3dq8Remnant fits (mass, spin, recoil kick) from the same Zenodo record (CC BY 4.0), embedded in the same data file and evaluated by the same Rust GPR code. Matches surfinBH to 1e-10.
+  - Heavier hole's angle Φ(t) = (φ₂₂(t) − φ₂₂(−1000 M))/2: the surrogate frame puts it on +x at t = −1000 M. Separation from the 2PN harmonic-coordinate r(ω), non-spinning. Discs are horizon-sized, r₊ = m(1 + √(1 − χ²)), with a few pixels minimum so they stay visible. The holes cross-fade into the remnant over [−20, +5] M, and the remnant then drifts with its kick.
+  - **Convention finding.** The surrogate, like LAL, uses the LAL polarisation convention, which flips the overall sign of h relative to Blanchet/Kidder. So h₊ = ½(h_φφ − h_θθ) in the orbital plane, and h₊ is largest along the binary axis. Checked against LAL's PN modes in both conventions: only the LAL convention makes the (2,2), (2,1) and (3,3) modes agree on where the heavier hole is.
+  - Tests:
+    - wave arms follow the binary axis at the retarded time to 0.01 rad
+    - the heavier hole's angle matches LAL PN to within 0.25 rad, compared modulo 2π so a swap of the holes fails; the observed offset of ~0.15 rad is the PN tail ambiguity between orbital and wave phase
 - **Step 4: Side slice, probe, chirp plot, parameters.**
   - Add the side-slice view (it reuses the shader with a different slice), the probe point with its particle ring, and the chirp plot with its playhead.
   - Parameter panel: q from 1 to 8, χ1 and χ2 from −0.8 to 0.8 (the surrogate's trained range). Changing a parameter regenerates the waveform.
@@ -151,7 +155,7 @@ Each later phase adds physics nearer the black holes, where the approximations g
 **Open questions**
 
 - [x] Which waveform source ships first? NRHybSur3dq8 surrogate, evaluated in Rust from a trimmed data file (IMRPhenomT ruled out on licensing; see Core approach).
-- [ ] Remnant mass and spin for step 3: NRSur3dq8Remnant fits, or published phenomenological fits?
+- [x] Remnant mass and spin for step 3: NRSur3dq8Remnant fits (same data record and licence as the waveform).
 - [x] How wide a parameter range at launch? Aligned spins only.
 - [x] 2D or 3D first? 2D first; 3D is a Phase 3 decision.
 - [ ] Retarded time: plain t − r, or the tortoise coordinate r\*? Start with t − r and compare.
@@ -163,7 +167,7 @@ Each later phase adds physics nearer the black holes, where the approximations g
 - **Waveform accuracy.** Everything rests on it. Mitigation: golden tests against gwsurrogate (in place, passing).
 - **Data licensing.** The surrogate data is CC BY 4.0. Mitigation: the attribution string travels inside the data file and is shown in the app.
 - **Parameter range.** The surrogate is only trained for q ≤ 8, |χ| ≤ 0.8; the evaluator refuses values outside that.
-- **Phase conventions.** Sign and offset mismatches between orbits and waves. Mitigation: the retarded-lag check in step 3.
+- **Phase conventions.** Sign and offset mismatches between orbits and waves. Mitigation: the retarded-lag and LAL-PN orientation tests in step 3, which caught the Blanchet-vs-LAL polarisation sign.
 - **Later phases:** stitching the near zone to the wave zone, 32-bit precision for light paths that skim a horizon, and performance of the ray tracing on mid-range GPUs.
 
 **References** (from memory; verify before citing)

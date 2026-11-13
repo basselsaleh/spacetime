@@ -8,6 +8,7 @@ dependencies = [
     "h5py>=3.16.0",
     "lalsuite",
     "numpy",
+    "surfinbh>=1.2.7",
     "sxs",
 ]
 

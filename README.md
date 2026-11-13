@@ -44,8 +44,9 @@ cd tools && uv sync             # once, installs lalsuite and sxs
 ## Waveform data
 
 The app evaluates the NRHybSur3dq8 numerical-relativity surrogate
-(V. Varma et al., Phys. Rev. D 99, 064045 (2019), arXiv:1812.07865). Its data
-is licensed CC BY 4.0 (doi:10.5281/zenodo.3348115); the trimmed copy in
+(V. Varma et al., Phys. Rev. D 99, 064045 (2019), arXiv:1812.07865) and the
+NRSur3dq8Remnant fits (arXiv:1809.09125). Their data is licensed CC BY 4.0
+(doi:10.5281/zenodo.3348115, records 3348115 and 1435751); the trimmed copy in
 `web/public/nrhybsur3dq8.stsur` is a derivative of it, and the app displays the
 required attribution. The code in this repo is MIT.
 
@@ -54,7 +55,10 @@ The trimmed file and the golden test data are committed. To regenerate them:
 ```sh
 cd tools
 curl -L -o data/NRHybSur3dq8.h5 https://zenodo.org/record/3348115/files/NRHybSur3dq8.h5   # 213 MB
-uv run python export_surrogate.py data/NRHybSur3dq8.h5 ../web/public/nrhybsur3dq8.stsur
+curl -L -o data/fit_3dq8.h5 https://zenodo.org/records/1435751/files/remnant_fits/fit_3dq8.h5  # 0.45 MB
+uv run python export_surrogate.py data/NRHybSur3dq8.h5 ../web/public/nrhybsur3dq8.stsur --remnant data/fit_3dq8.h5
 uv run python gen_golden.py data/NRHybSur3dq8.h5 ../tests/golden/nrhybsur3dq8.json
+uv run python gen_remnant_golden.py data/fit_3dq8.h5 ../tests/golden/nrsur3dq8remnant.json
+uv run python gen_orientation_golden.py data/NRHybSur3dq8.h5 ../tests/golden/orientation_lal.json
 uv run python gen_harmonics_golden.py ../tests/golden/swsh_lal.json
 ```

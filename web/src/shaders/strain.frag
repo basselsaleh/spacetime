@@ -34,6 +34,9 @@ uniform float u_time;         // coordinate time at the source, M
 uniform float u_scale;        // colour units per r·h (1/peak × gain)
 uniform float u_maskRadius;   // near zone: far-zone formula not valid inside, M
 uniform bool u_raw;           // self-test: output raw (r·h₊, r·h×, valid)
+// Heavier hole, lighter hole, remnant: (x, y, horizon radius, opacity), in M.
+uniform vec4 u_discs[3];
+uniform float u_minDiscRadius; // M; keeps discs visible when zoomed out
 
 vec2 cmul(vec2 a, vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x); }
 vec2 conj2(vec2 a) { return vec2(a.x, -a.y); }
@@ -116,5 +119,18 @@ void main() {
   // Faint ring marking the near-zone boundary.
   float ring = 1.0 - smoothstep(0.0, 1.5 * u_halfWidth / u_resolution.x, abs(r - u_maskRadius));
   color = mix(color, vec3(0.55, 0.6, 0.7), 0.35 * ring);
+
+  // Black holes: black discs at horizon size with a thin bright rim.
+  float px = u_halfWidth / (0.5 * u_resolution.x);  // M per pixel
+  for (int k = 0; k < 3; k++) {
+    vec4 d = u_discs[k];
+    if (d.w <= 0.0) continue;
+    float radius = max(d.z, u_minDiscRadius);
+    float dist = length(p - d.xy);
+    float inside = 1.0 - smoothstep(radius - px, radius + px, dist);
+    float rim = 1.0 - smoothstep(0.0, 1.5 * px, abs(dist - radius));
+    color = mix(color, vec3(0.0), inside * d.w);
+    color = mix(color, vec3(0.92, 0.94, 1.0), 0.8 * rim * d.w);
+  }
   outColor = vec4(color, 1.0);
 }

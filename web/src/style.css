@@ -14,7 +14,7 @@ body { font: 14px/1.4 system-ui, -apple-system, sans-serif; overflow: hidden; }
 .panel { position: fixed; background: var(--panel); border-radius: 8px; backdrop-filter: blur(4px); }
 #hud { top: 16px; left: 16px; max-width: min(440px, calc(100vw - 32px)); padding: 12px 14px; }
 #title { font-weight: 600; }
-#params, #status { color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
+#params, #remnant, #status { color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
 #status.error { color: #ff8a80; }
 #note { color: var(--muted); margin-top: 8px; font-size: 12px; }
 #credit { color: var(--muted); margin-top: 8px; font-size: 11px; opacity: 0.8; }

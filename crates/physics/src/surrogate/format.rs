@@ -35,6 +35,20 @@ pub struct Header {
     pub amp22: Piece,
     pub phase22: Piece,
     pub modes: Vec<HeaderMode>,
+    /// Optional NRSur3dq8Remnant fits (same fit coordinates as the waveform).
+    #[serde(default)]
+    pub remnant: Option<HeaderRemnant>,
+}
+
+/// Remnant mass and spin in units of the initial total mass; kick velocity
+/// components (units of c) in the co-orbital frame at t = −100 M, whose x-axis
+/// points from the lighter to the heavier black hole.
+#[derive(Debug, Deserialize)]
+pub struct HeaderRemnant {
+    pub mf: Node,
+    pub chifz: Node,
+    pub vfx: Node,
+    pub vfy: Node,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
