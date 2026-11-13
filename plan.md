@@ -24,9 +24,9 @@ A full numerical-relativity merger takes thousands of CPU hours, but its outputs
 
 These give the true GR strain far from the source. That strain is the backbone of the app. Everything closer in is layered on with clearly documented approximations.
 
-The app evaluates **IMRPhenomT / IMRPhenomTHM** live: time-domain, aligned-spin phenomenological models with higher modes. They're implemented in Rust from the published papers, so any mass ratio and spin works without downloading data. Offline, Python tools (lalsuite, SXS data) produce small reference tables used as the test oracle and for validation mode.
+The app evaluates the **NRHybSur3dq8** numerical-relativity surrogate live (Varma et al. 2019). It is trained directly on NR simulations hybridized with PN/EOB inspirals, covers aligned spins with q ≤ 8 and |χ| ≤ 0.8, and includes 11 modes up to l = 5. The evaluator is written in Rust and reads a trimmed data file (about 2.3 MB) that an offline Python tool cuts from the public model (213 MB), keeping the last ~10,000 M. One evaluation takes about 1 ms in wasm.
 
-**Licensing.** The reference implementation of IMRPhenomT lives in LALSimulation (GPL). This repo is MIT. Implement from the papers' equations and published coefficients rather than translating the LAL source. LAL is used only to generate comparison data in tests.
+**Why not IMRPhenomT (decided Nov 13, 2026).** Its fit coefficients are published only in a supplementary Mathematica package, and the only complete implementation is GPL code in LALSimulation, which clashes with this MIT repo. The surrogate is more faithful (it is NR-based), its code (gwsurrogate) is MIT, and its data is CC BY 4.0, which requires the on-screen credit the app shows.
 
 ## Why 2D first
 
@@ -61,7 +61,7 @@ The physics splits into five layers, ordered from most faithful to most approxim
 | 2. Orbits | Very good | Derived from the waveform: orbital phase = Φ₂₂/2 + fixed offset, separation from a PN r(ω) relation, remnant mass and spin from the model's own fits | PN r(ω) breaks down near merger; switch to the remnant at peak \|h₂₂\| | 1 |
 | 3. Tendex and vortex lines | Exact far out; good near in | Far zone: computed directly from the strain's second time derivative. Near zone: eigenvectors of the electric and magnetic parts of the Weyl tensor, from an approximate metric | Near-zone part depends on the approximate metric | 2 (far), 4 (near) |
 | 4. Near zone: lensing and horizons | Honest approximation | GPU ray marching of light paths (null geodesics) through superposed boosted Kerr–Schild metrics or a PN near-zone metric | Metric frozen while each ray travels; merger shapes keyframed or faded to the remnant Kerr black hole | 3+ |
-| 5. Validation mode | Reference | Overlays the app's result on LAL / NR data | None. This is the check on every other layer. Tests against LAL run from day one | 1 (tests), 2 (in-app) |
+| 5. Validation mode | Reference | Overlays the app's result on NR / reference data | None. This is the check on every other layer. Tests against gwsurrogate run from day one | 1 (tests), 2 (in-app) |
 
 The far-zone strain is written as a mode sum:
 
@@ -80,16 +80,17 @@ Browser only.
 - **Physics core: Rust → WebAssembly.** One pure-Rust crate (f64, no GPU or web dependencies) holds the waveform model, orbit model, spherical harmonics and remnant fits. It's built with `wasm-pack` and tested on your own machine with `cargo test`.
 - **Frontend: TypeScript + Vite.** Handles the UI, layout, linked views and the chirp plot.
 - **Rendering: WebGL2 fragment shaders.** The strain field is evaluated per pixel. WebGL2 runs in every browser today. WebGPU is needed only if and when geodesic ray tracing (Layer 4) starts.
-- **Data flow.** When parameters change, Rust generates h\_lm(t) once (target under 20 ms). The result is uploaded as a float texture: one row per mode, one column per time sample, storing (amplitude, phase), which interpolate smoothly. Each frame, the shader only does texture lookups and the mode sum.
-- **Offline pipeline: Python, managed with `uv`.** lalsuite generates golden waveforms for the Rust tests. sxs provides NR data for validation mode.
+- **Data flow.** When parameters change, Rust generates h\_lm(t) once (about 1 ms). The result is uploaded as a float texture in the surrogate's co-orbital form: A₂₂ and φ₂₂, plus each other mode as H\_lm = h\_lm e^{i m φ₂₂/2}. These vary slowly and interpolate cleanly; the shader rotates back with h\_lm = H\_lm e^{−i m φ₂₂/2}. Each frame, the shader only does texture lookups and the mode sum.
+- **Offline pipeline: Python, managed with `uv`.** gwsurrogate exports the trimmed model and generates golden waveforms for the Rust tests. sxs provides NR data for validation mode; lalsuite is kept for cross-checks.
 
 ## Repo layout
 
 ```
-crates/physics/      Rust: waveform (IMRPhenomT/THM), orbits, harmonics, remnant fits
+crates/physics/      Rust: waveform (NRHybSur3dq8 evaluator), orbits, harmonics, remnant fits
 crates/wasm/         Thin wasm-bindgen layer over crates/physics (no logic of its own)
 web/                 TypeScript + Vite app; shaders in web/src/shaders/*.glsl
-tools/               Python (uv project): golden-data generation, NR reference tables
+tools/               Python (uv project): surrogate export, golden-data generation, NR reference tables
+web/public/          Static data served to the app, incl. the trimmed surrogate (nrhybsur3dq8.stsur)
 tests/golden/        Small reference files committed for the Rust tests
 ```
 
@@ -101,13 +102,13 @@ tests/golden/        Small reference files committed for the Rust tests
   - Set up the layout above.
   - CI runs `cargo test`, `clippy`, the wasm build and the web build. No deployment while the repo is private.
   - Done when: a Vite page loads the wasm module, calls a Rust function and draws a shader-filled canvas locally.
-- **Step 1: Waveform engine.**
-  - Implement IMRPhenomT (the (2,2) mode) from the paper, then add the higher modes (THM).
-  - Interface: `generate(q, χ1, χ2, f_start) -> ModeSet { t0, dt, modes: [(l, m, amp[], phase[])], remnant: (M_f, χ_f), t_peak }`.
-  - Units: total mass M = 1, with t = 0 at peak |h₂₂|. Use LAL's sign conventions.
-  - `tools/gen_golden.py` writes LAL output for q ∈ {1, 2, 4, 8} and χ ∈ {−0.8, 0, 0.8}.
-  - Done when: phase error is under about 1e-3 rad, amplitude error under about 1e-4, and the remnant matches.
-  - In parallel: a stub (TaylorT4 chirp + damped ringdown) unblocks the rendering work.
+- **Step 1: Waveform engine.** Done Nov 13, 2026.
+  - NRHybSur3dq8 evaluator in Rust: Gaussian-process node fits, empirical-interpolation basis, TaylorT3 phase, natural cubic splines, co-orbital → inertial rotation.
+  - Interface: `Surrogate::evaluate(Params { q, chi1, chi2 }, t_start, dt) -> Waveform { t0, dt, amp22, phase22, coorbital }`, with `Waveform::h(l, m, i)` for inertial modes (m < 0 by symmetry).
+  - Units: total mass M = 1, t = 0 at the waveform peak. Frame: the surrogate's raw frame (heavier hole on +x at t = −1000 M).
+  - `tools/export_surrogate.py` trims the model; `tools/gen_golden.py` writes gwsurrogate output for 7 parameter sets across the trained range.
+  - Result: every mode matches gwsurrogate to within 2e-7 of the peak strain (tolerance 1e-6), which is at the level of the reference's own interpolation noise.
+  - Moved to step 3: remnant mass and spin (not part of this surrogate; candidates are the NRSur3dq8Remnant fits or published phenomenological fits).
 - **Step 2: Orbital-plane view.**
   - Upload the mode texture. A fragment shader evaluates the mode sum at retarded time, applies the inner mask and maps the result through a diverging colormap.
   - Controls: pan and zoom; play, pause, scrub and speed.
@@ -118,13 +119,13 @@ tests/golden/        Small reference files committed for the Rust tests
   - Check: the spiral arms leave the holes with the correct retarded-time lag.
 - **Step 4: Side slice, probe, chirp plot, parameters.**
   - Add the side-slice view (it reuses the shader with a different slice), the probe point with its particle ring, and the chirp plot with its playhead.
-  - Parameter panel: q from 1 to 8, χ1 and χ2 from −0.9 to 0.9. Changing a parameter regenerates the waveform.
+  - Parameter panel: q from 1 to 8, χ1 and χ2 from −0.8 to 0.8 (the surrogate's trained range). Changing a parameter regenerates the waveform.
   - Done when: the production build loads in under 3 s. Hosting is decided when the repo goes public.
 
 **Phase 2: Depth without new risk.**
 
 - Far-zone tendex and vortex lines drawn on the slices
-- In-app validation mode overlaying LAL / NR data
+- In-app validation mode overlaying NR data
 - Audio
 - Arbitrary slice orientation
 
@@ -145,7 +146,8 @@ Each later phase adds physics nearer the black holes, where the approximations g
 
 **Open questions**
 
-- [x] Which waveform source ships first? IMRPhenomT / IMRPhenomTHM, implemented in Rust from the papers. LAL, NR and surrogate data stay as the validation reference.
+- [x] Which waveform source ships first? NRHybSur3dq8 surrogate, evaluated in Rust from a trimmed data file (IMRPhenomT ruled out on licensing; see Core approach).
+- [ ] Remnant mass and spin for step 3: NRSur3dq8Remnant fits, or published phenomenological fits?
 - [x] How wide a parameter range at launch? Aligned spins only.
 - [x] 2D or 3D first? 2D first; 3D is a Phase 3 decision.
 - [ ] Retarded time: plain t − r, or the tortoise coordinate r\*? Start with t − r and compare.
@@ -154,14 +156,15 @@ Each later phase adds physics nearer the black holes, where the approximations g
 
 **Risks**
 
-- **Waveform port accuracy.** Everything rests on it. Mitigation: golden tests against LAL from day one.
-- **Licensing.** GPL reference code versus this MIT repo. Mitigation: implement from the papers; use LAL only in tests.
+- **Waveform accuracy.** Everything rests on it. Mitigation: golden tests against gwsurrogate (in place, passing).
+- **Data licensing.** The surrogate data is CC BY 4.0. Mitigation: the attribution string travels inside the data file and is shown in the app.
+- **Parameter range.** The surrogate is only trained for q ≤ 8, |χ| ≤ 0.8; the evaluator refuses values outside that.
 - **Phase conventions.** Sign and offset mismatches between orbits and waves. Mitigation: the retarded-lag check in step 3.
 - **Later phases:** stitching the near zone to the wave zone, 32-bit precision for light paths that skim a horizon, and performance of the ray tracing on mid-range GPUs.
 
 **References** (from memory; verify before citing)
 
-- Estellés et al., IMRPhenomT (2020) and IMRPhenomTHM (2021): the time-domain phenomenological waveform models
+- Varma et al., "Surrogate model of hybridized numerical relativity binary black hole waveforms", Phys. Rev. D 99, 064045 (2019), arXiv:1812.07865 (journal and arXiv numbers verified against gwsurrogate); data doi:10.5281/zenodo.3348115
 - Bohn et al., "What does a binary black hole merger look like?" (2015): the reference for ray-traced merger imagery
 - Owen et al., "Frame-dragging vortexes and tidal tendexes attached to colliding black holes" (PRL 2011)
 - Nichols et al., "Visualizing spacetime curvature via frame-drag vortexes and tidal tendexes" (PRD 2011)

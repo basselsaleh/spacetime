@@ -13,6 +13,7 @@ body { font: 14px/1.4 system-ui, -apple-system, sans-serif; overflow: hidden; }
   padding: 12px 14px; border-radius: 8px; background: var(--panel);
 }
 #title { font-weight: 600; }
-#status { color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
+#status { color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; white-space: pre-line; }
+#credit { color: var(--muted); margin-top: 8px; font-size: 11px; opacity: 0.8; }
 #note { color: var(--muted); margin-top: 8px; font-size: 12px; }
 #status.error { color: #ff8a80; }

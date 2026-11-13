@@ -6,3 +6,6 @@ license.workspace = true
 description = "Physics core: waveforms, orbits, harmonics"
 
 [dependencies]
+num-complex = "0.4.6"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"

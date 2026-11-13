@@ -12,3 +12,6 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# Large downloaded model data (regenerate trimmed files with tools/*.py)
+tools/data/
