@@ -1,7 +1,7 @@
 // Renders raw strain values off-screen and compares them with the Rust CPU
 // reference (`ModeTable::strain`). Run by opening the page with ?selftest.
 
-import type { StrainView, ViewState } from "./strainView";
+import type { Camera, SceneState, SliceConfig, StrainView } from "./strainView";
 import type { PreparedWaveform } from "./waveform";
 
 export interface SelfTestResult {
@@ -14,6 +14,24 @@ export interface SelfTestResult {
 const TOLERANCE = 2e-3;
 const W = 64;
 const H = 40;
+
+interface Frame {
+  time: number;
+  camera: Camera;
+  slice: SliceConfig;
+}
+
+const plane: SliceConfig = { kind: "plane", azimuth: 0, component: "plus" };
+const vertical: SliceConfig = { kind: "vertical", azimuth: 0.7, component: "plus" };
+
+// Inspiral, merger near the source, the burst further out; then vertical slices.
+const FRAMES: Frame[] = [
+  { time: -2500, camera: { centerX: 0, centerY: 0, halfWidth: 400 }, slice: plane },
+  { time: 20, camera: { centerX: 0, centerY: 0, halfWidth: 60 }, slice: plane },
+  { time: 250, camera: { centerX: 150, centerY: -80, halfWidth: 200 }, slice: plane },
+  { time: -1800, camera: { centerX: 0, centerY: 0, halfWidth: 300 }, slice: vertical },
+  { time: 120, camera: { centerX: -40, centerY: 30, halfWidth: 150 }, slice: vertical },
+];
 
 export function runSelfTest(
   gl: WebGL2RenderingContext,
@@ -34,23 +52,27 @@ export function runSelfTest(
   let worst = 0;
   let count = 0;
   const perFrame: number[] = [];
-  // Inspiral, merger near the source, and the merger burst further out.
-  const frames: ViewState[] = [
-    { centerX: 0, centerY: 0, halfWidth: 400, time: -2500, gain: 1, maskRadius: 0, discs: new Float32Array(12) },
-    { centerX: 0, centerY: 0, halfWidth: 60, time: 20, gain: 1, maskRadius: 0, discs: new Float32Array(12) },
-    { centerX: 150, centerY: -80, halfWidth: 200, time: 250, gain: 1, maskRadius: 0, discs: new Float32Array(12) },
-  ];
-  for (const f of frames) {
-    let frameWorst = 0;
-    view.draw(f, W, H, true);
+  for (const f of FRAMES) {
+    const scene: SceneState = { time: f.time, gain: 1, maskRadius: 0, discs: new Float32Array(12) };
+    view.draw(scene, f.camera, f.slice, W, H, true);
     gl.readPixels(0, 0, W, H, gl.RGBA, gl.FLOAT, pixels);
+    let frameWorst = 0;
     const aspect = W / H;
     for (let py = 0; py < H; py++) {
       for (let px = 0; px < W; px++) {
         const k = 4 * (py * W + px);
-        const x = f.centerX + (((px + 0.5) / W) * 2 - 1) * f.halfWidth;
-        const y = f.centerY + (((py + 0.5) / H) * 2 - 1) * (f.halfWidth / aspect);
-        const [hp, hc] = w.table.strain(Math.PI / 2, Math.atan2(y, x), f.time - Math.hypot(x, y));
+        // Same pixel-centre mapping as the shader (row 0 is the bottom row here).
+        const sx = f.camera.centerX + (((px + 0.5) / W) * 2 - 1) * f.camera.halfWidth;
+        const sy = f.camera.centerY + (((py + 0.5) / H) * 2 - 1) * (f.camera.halfWidth / aspect);
+        let r: number, theta: number, phi: number;
+        if (f.slice.kind === "plane") {
+          [r, theta, phi] = [Math.hypot(sx, sy), Math.PI / 2, Math.atan2(sy, sx)];
+        } else {
+          r = Math.hypot(sx, sy);
+          theta = Math.atan2(Math.abs(sx), sy);
+          phi = sx >= 0 ? f.slice.azimuth : f.slice.azimuth + Math.PI;
+        }
+        const [hp, hc] = w.table.strain(theta, phi, f.time - r);
         const cpuValid = Number.isFinite(hp);
         if (cpuValid !== (pixels[k + 2] === 1)) continue; // boundary pixel, rounding
         if (!cpuValid) continue;

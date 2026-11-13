@@ -1,12 +1,7 @@
-// Evaluates the surrogate for one binary and prepares everything the strain
-// view needs: the packed mode table, harmonic coefficients and timing info.
+// Evaluates the surrogate for one binary and prepares everything the views
+// need: the packed mode table, harmonic table, orbits and timing info.
 
-import {
-  swshTheta,
-  WaveformModel,
-  type BinaryTrack,
-  type ModeTableData,
-} from "./wasm/spacetime_wasm.js";
+import { WaveformModel, type BinaryTrack, type ModeTableData } from "./wasm/spacetime_wasm.js";
 
 export interface BinaryParams {
   q: number;
@@ -17,12 +12,14 @@ export interface BinaryParams {
 export interface PreparedWaveform {
   params: BinaryParams;
   table: ModeTableData;
-  /** Black-hole discs over time and remnant properties. */
-  binary: BinaryTrack;
+  tableData: Float32Array;
   /** Flat [l0, m0, l1, m1, ...]; row 0 is (2,2). */
   rows: Int32Array;
-  /** Per row: [Y_{l,m}(π/2,0), (−1)^l Y_{l,−m}(π/2,0)] flattened. */
-  coefficients: Float32Array;
+  /** θ-dependence of the harmonics, RG × thetaSamples × rows. */
+  harmonics: Float32Array;
+  thetaSamples: number;
+  /** Black-hole discs over time and remnant properties. */
+  binary: BinaryTrack;
   /** Colour-scale unit: peak r·|h₊| in the plane from the (2,2) mode. */
   peak: number;
   /** ω₂₂(t) at each sample, for the near-zone radius. */
@@ -34,7 +31,11 @@ export interface PreparedWaveform {
 }
 
 export const TABLE_WIDTH = 2048; // WebGL2 guarantees at least this texture size
+export const THETA_SAMPLES = 1025; // odd, so θ = π/2 is sampled exactly
 const SAMPLE_DT = 1; // M
+
+export const PARAM_RANGE = { q: [1, 8], chi: [-0.8, 0.8] } as const;
+export const DEFAULT_PARAMS: BinaryParams = { q: 3, chi1: 0.6, chi2: 0.2 };
 
 export async function loadModel(): Promise<WaveformModel> {
   const response = await fetch(`${import.meta.env.BASE_URL}nrhybsur3dq8.stsur`);
@@ -51,21 +52,14 @@ export function prepare(model: WaveformModel, params: BinaryParams): PreparedWav
 
   const table = wf.modeTable(TABLE_WIDTH);
   const binary = model.binary(params.q, params.chi1, params.chi2, wf);
-  const rows = Int32Array.from(table.rows());
-  const coefficients = new Float32Array(rows.length);
-  for (let k = 0; k < rows.length / 2; k++) {
-    const l = rows[2 * k];
-    const m = rows[2 * k + 1];
-    const parity = l % 2 === 0 ? 1 : -1;
-    coefficients[2 * k] = swshTheta(-2, l, m, Math.PI / 2);
-    coefficients[2 * k + 1] = m === 0 ? 0 : parity * swshTheta(-2, l, -m, Math.PI / 2);
-  }
   const prepared: PreparedWaveform = {
     params,
     table,
+    tableData: table.data(),
+    rows: Int32Array.from(table.rows()),
+    harmonics: table.harmonicTable(THETA_SAMPLES),
+    thetaSamples: THETA_SAMPLES,
     binary,
-    rows,
-    coefficients,
     peak: wf.equatorialPeak22(),
     omega22: Float64Array.from(wf.omega22()),
     t0: table.t0,
@@ -75,6 +69,12 @@ export function prepare(model: WaveformModel, params: BinaryParams): PreparedWav
   };
   wf.free();
   return prepared;
+}
+
+/** Releases the wasm-side memory of a prepared waveform. */
+export function release(w: PreparedWaveform): void {
+  w.table.free();
+  w.binary.free();
 }
 
 /**
@@ -90,12 +90,18 @@ export function nearZoneRadius(w: PreparedWaveform, t: number): number {
   return Math.max(1 / omega, 2 * Math.pow(2 / omega, 2 / 3));
 }
 
-/** Reads ?q=&chi1=&chi2= from the URL, with defaults. */
+const clamp = (v: number, [lo, hi]: readonly [number, number]) => Math.min(Math.max(v, lo), hi);
+
+/** Reads ?q=&chi1=&chi2= from the URL, clamped to the model's range. */
 export function paramsFromUrl(): BinaryParams {
   const url = new URLSearchParams(window.location.search);
   const num = (key: string, fallback: number) => {
     const v = Number(url.get(key));
     return url.has(key) && Number.isFinite(v) ? v : fallback;
   };
-  return { q: num("q", 3), chi1: num("chi1", 0.6), chi2: num("chi2", 0.2) };
+  return {
+    q: clamp(num("q", DEFAULT_PARAMS.q), PARAM_RANGE.q),
+    chi1: clamp(num("chi1", DEFAULT_PARAMS.chi1), PARAM_RANGE.chi),
+    chi2: clamp(num("chi2", DEFAULT_PARAMS.chi2), PARAM_RANGE.chi),
+  };
 }

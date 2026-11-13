@@ -7,43 +7,94 @@
     <link rel="stylesheet" href="./src/style.css" />
   </head>
   <body>
-    <canvas id="view"></canvas>
-    <div id="hud" class="panel">
-      <div id="title">Spacetime · orbital plane</div>
-      <div id="params"></div>
-      <div id="remnant"></div>
-      <div id="legend">
-        <span>h₊ &lt; 0</span><div class="ramp"></div><span>h₊ &gt; 0</span>
-      </div>
-      <div id="note">
-        Gravitational-wave strain in the orbital plane, seen from above. Colour is r·h₊
-        (the 1/r fall-off removed), divided by its peak (2,2) value and multiplied by the gain, on a smoothly saturating scale.
-        In this plane the wave is purely + polarised (h× = 0); h₊ &gt; 0 (LAL convention) means space
-        is stretched around the circle centred on the source and squeezed perpendicular to the plane.
-        Inside the ring is the near zone, where this far-zone formula does not apply.
-        Black discs: horizons at true size (at least a few pixels), on post-Newtonian orbits
-        derived from the wave phase; schematic in the last orbits.
-      </div>
-      <div id="status">Loading…</div>
-      <div id="credit"></div>
-    </div>
-    <div id="scale" aria-hidden="true"><div id="scale-bar"></div><span id="scale-label"></span></div>
-    <div id="controls" class="panel">
-      <button id="play" type="button">Pause</button>
-      <input id="scrub" type="range" aria-label="Time" />
-      <span id="time"></span>
-      <label>Speed
-        <select id="speed">
-          <option value="0.1">×0.1</option>
-          <option value="0.25">×0.25</option>
-          <option value="0.5">×0.5</option>
-          <option value="1" selected>×1</option>
-          <option value="2">×2</option>
-          <option value="5">×5</option>
-        </select>
-      </label>
-      <label>Gain <input id="gain" type="range" min="1" max="20" step="0.5" value="1.5" /><span id="gain-value"></span></label>
-    </div>
+    <main id="app">
+      <section id="stage" aria-label="Orbital plane">
+        <canvas id="view"></canvas>
+        <div id="plane-marker" class="marker" aria-hidden="true"></div>
+        <div id="hud" class="panel">
+          <div id="title">Spacetime · binary black hole</div>
+          <fieldset id="params">
+            <legend>Binary (aligned spins)</legend>
+            <label>Mass ratio q <input id="param-q" type="range" step="0.1" /><span id="param-q-value"></span></label>
+            <label>Spin χ₁ (heavier) <input id="param-chi1" type="range" step="0.05" /><span id="param-chi1-value"></span></label>
+            <label>Spin χ₂ (lighter) <input id="param-chi2" type="range" step="0.05" /><span id="param-chi2-value"></span></label>
+            <button id="param-reset" type="button">Reset</button>
+          </fieldset>
+          <div id="remnant"></div>
+          <div id="legend">
+            <span>h &lt; 0</span><div class="ramp"></div><span>h &gt; 0</span>
+          </div>
+          <details id="about">
+            <summary>About these views</summary>
+            <p>
+              Gravitational-wave strain seen from above the orbital plane (main view) and in a
+              vertical slice through the orbital axis (side view). Colour is r·h (the 1/r fall-off
+              removed), divided by its peak (2,2) value in the plane and multiplied by the gain, on
+              a smoothly saturating scale.
+            </p>
+            <p>
+              In the orbital plane the wave is purely + polarised (h× = 0). h₊ &gt; 0 (LAL convention)
+              means space is stretched around the circle centred on the source and squeezed
+              perpendicular to the plane. Off the plane both polarisations appear; the side view can
+              show either.
+            </p>
+            <p>
+              Inside the ring is the near zone, where this far-zone formula does not apply. Black
+              discs: horizons at true size (at least a few pixels), on post-Newtonian orbits derived
+              from the wave phase; schematic in the last orbits. Click either view to move the probe.
+            </p>
+          </details>
+          <div id="eval"></div>
+          <div id="status">Loading…</div>
+          <div id="credit"></div>
+        </div>
+        <div id="scale" aria-hidden="true"><div id="scale-bar"></div><span id="scale-label"></span></div>
+        <div id="controls" class="panel">
+          <button id="play" type="button">Pause</button>
+          <input id="scrub" type="range" aria-label="Time" />
+          <span id="time"></span>
+          <label>Speed
+            <select id="speed">
+              <option value="0.1">×0.1</option>
+              <option value="0.25">×0.25</option>
+              <option value="0.5">×0.5</option>
+              <option value="1" selected>×1</option>
+              <option value="2">×2</option>
+              <option value="5">×5</option>
+            </select>
+          </label>
+          <label>Gain <input id="gain" type="range" min="1" max="20" step="0.5" /><span id="gain-value"></span></label>
+        </div>
+      </section>
+
+      <aside id="side">
+        <section class="card">
+          <header>
+            <h2>Side view <span class="muted">vertical slice, orbital axis up</span></h2>
+            <div class="toggle" role="group" aria-label="Polarisation">
+              <button type="button" data-component="plus" aria-pressed="true">h₊</button>
+              <button type="button" data-component="cross" aria-pressed="false">h×</button>
+            </div>
+          </header>
+          <div class="canvas-wrap">
+            <canvas id="slice"></canvas>
+            <div id="slice-marker" class="marker" aria-hidden="true"></div>
+          </div>
+        </section>
+        <section class="card">
+          <header><h2>Probe <span class="muted">free test particles at the marker</span></h2></header>
+          <div class="probe-row">
+            <canvas id="ring"></canvas>
+            <div id="probe-info"></div>
+          </div>
+          <canvas id="chirp"></canvas>
+          <div class="chirp-legend">
+            <span class="plus">h₊</span> <span class="cross">h×</span>
+            <span class="muted">received at the probe vs retarded time; ring deformation exaggerated</span>
+          </div>
+        </section>
+      </aside>
+    </main>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>

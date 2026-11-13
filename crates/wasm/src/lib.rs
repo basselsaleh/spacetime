@@ -208,6 +208,23 @@ impl ModeTableData {
         self.0.data.clone()
     }
 
+    /// θ-dependence of the harmonics as RG texels (`rows × n_theta`); see
+    /// `ModeTable::harmonic_table`.
+    #[wasm_bindgen(js_name = harmonicTable)]
+    pub fn harmonic_table(&self, n_theta: usize) -> Vec<f32> {
+        self.0.harmonic_table(n_theta)
+    }
+
+    /// Interleaved `[r·h₊, r·h×, ...]` at every sample, as received in direction (θ, φ).
+    #[wasm_bindgen(js_name = strainSeries)]
+    pub fn strain_series(&self, theta: f64, phi: f64) -> Vec<f64> {
+        self.0
+            .strain_series(theta, phi)
+            .iter()
+            .flat_map(|z| [z.re, -z.im])
+            .collect()
+    }
+
     /// CPU reference: `[r·h₊, r·h×]` at retarded time `t_ret`, or NaNs outside the data.
     pub fn strain(&self, theta: f64, phi: f64, t_ret: f64) -> Vec<f64> {
         match self.0.strain(theta, phi, t_ret) {

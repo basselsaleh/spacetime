@@ -34,6 +34,13 @@ cd tools && uv sync             # once, installs lalsuite and sxs
 
 `npm run dev` rebuilds wasm only at startup; restart it after changing Rust code.
 
+## Using the app
+
+- Main view: the orbital plane from above. Drag to pan, scroll to zoom, double-click to reset.
+- Side view: a vertical slice through the orbital axis, showing h₊ or h×.
+- Click either view to move the probe; its ring and chirp plot update.
+- The sliders change the binary; the URL updates so the view can be shared.
+
 ## App URL options
 
 - `?q=3&chi1=0.6&chi2=0.2`: binary parameters (q ≤ 8, |χ| ≤ 0.8)

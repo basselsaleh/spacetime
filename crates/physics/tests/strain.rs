@@ -112,3 +112,44 @@ fn table_matches_exact_sum() {
     assert!(table.strain(PI / 2.0, 0.0, table.t0 - 1.0).is_none());
     assert!(table.strain(PI / 2.0, 0.0, table.t_end() + 1.0).is_none());
 }
+
+#[test]
+fn harmonic_table_is_exact_in_the_plane_and_smooth_elsewhere() {
+    let wf = waveform(2.0, 0.1, 0.4, -1500.0, 1.0);
+    let table = ModeTable::new(&wf, 2048);
+    let n = 1025;
+    let h = table.harmonic_table(n);
+    assert_eq!(h.len(), 2 * n * table.rows.len());
+    for (k, &(l, m)) in table.rows.iter().enumerate() {
+        let parity = if l % 2 == 0 { 1.0 } else { -1.0 };
+        // θ = π/2 is sample 512.
+        let j = 512;
+        let want = spin_weighted_ylm(-2, l, m, PI / 2.0, 0.0).re;
+        assert!((f64::from(h[2 * (k * n + j)]) - want).abs() < 1e-6);
+        if m != 0 {
+            let want = parity * spin_weighted_ylm(-2, l, -m, PI / 2.0, 0.0).re;
+            assert!((f64::from(h[2 * (k * n + j) + 1]) - want).abs() < 1e-6);
+        }
+        // Linear interpolation midway between samples stays within 1e-4.
+        for j in (0..n - 1).step_by(37) {
+            let theta = PI * (j as f64 + 0.5) / (n - 1) as f64;
+            let lerp = 0.5 * (f64::from(h[2 * (k * n + j)]) + f64::from(h[2 * (k * n + j + 1)]));
+            let want = spin_weighted_ylm(-2, l, m, theta, 0.0).re;
+            assert!((lerp - want).abs() < 1e-4, "l={l} m={m} θ={theta}");
+        }
+    }
+}
+
+#[test]
+fn strain_series_is_the_signal_at_a_fixed_direction() {
+    let wf = waveform(2.0, 0.1, 0.4, -1500.0, 1.0);
+    let table = ModeTable::new(&wf, 2048);
+    let series = table.strain_series(1.0, 0.3);
+    assert_eq!(series.len(), table.n);
+    for i in (0..table.n).step_by(97) {
+        let want = table
+            .strain(1.0, 0.3, table.t0 + table.dt * i as f64)
+            .unwrap();
+        assert!((series[i] - want).norm() < 1e-12);
+    }
+}

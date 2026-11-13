@@ -1,6 +1,8 @@
-// Playback controls (play/pause, time scrubber, speed, gain) and pan/zoom.
+// Playback controls, per-view pan/zoom with click-to-probe, and the binary
+// parameter sliders.
 
-import type { ViewState } from "./strainView";
+import { pixelToSlice, type Camera, type SceneState } from "./strainView";
+import { PARAM_RANGE, type BinaryParams } from "./waveform";
 
 export interface Playback {
   playing: boolean;
@@ -10,14 +12,9 @@ export interface Playback {
 }
 
 const BASE_SPEED = 100; // M per second at ×1
+const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
-export function setupControls(
-  canvas: HTMLCanvasElement,
-  view: ViewState,
-  playback: Playback,
-  defaults: ViewState,
-): { sync: () => void } {
-  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+export function setupPlayback(scene: SceneState, playback: Playback): { sync: () => void } {
   const playBtn = $<HTMLButtonElement>("play");
   const scrub = $<HTMLInputElement>("scrub");
   const timeLabel = $<HTMLSpanElement>("time");
@@ -25,84 +22,146 @@ export function setupControls(
   const gain = $<HTMLInputElement>("gain");
   const gainLabel = $<HTMLSpanElement>("gain-value");
 
-  scrub.min = String(playback.tMin);
-  scrub.max = String(playback.tMax);
   scrub.step = "1";
-
   const togglePlay = () => {
-    if (!playback.playing && view.time >= playback.tMax) view.time = playback.tMin;
+    if (!playback.playing && scene.time >= playback.tMax) scene.time = playback.tMin;
     playback.playing = !playback.playing;
     sync();
   };
   playBtn.addEventListener("click", togglePlay);
   window.addEventListener("keydown", (e) => {
-    if (e.code === "Space" && e.target === document.body) {
+    const target = e.target as HTMLElement;
+    if (e.code === "Space" && !["INPUT", "SELECT", "BUTTON"].includes(target.tagName)) {
       e.preventDefault();
       togglePlay();
     }
   });
   scrub.addEventListener("input", () => {
-    view.time = Number(scrub.value);
+    scene.time = Number(scrub.value);
     sync();
   });
-  speed.addEventListener("change", () => {
-    playback.speed = BASE_SPEED * Number(speed.value);
-  });
-  playback.speed = BASE_SPEED * Number(speed.value);
+  const setSpeed = () => (playback.speed = BASE_SPEED * Number(speed.value));
+  speed.addEventListener("change", setSpeed);
+  setSpeed();
+  gain.value = String(scene.gain);
   gain.addEventListener("input", () => {
-    view.gain = Number(gain.value);
+    scene.gain = Number(gain.value);
     sync();
   });
 
-  // Pan with drag, zoom with wheel around the cursor, double-click to reset.
-  const toWorld = (clientX: number, clientY: number) => {
+  function sync() {
+    scrub.min = String(playback.tMin);
+    scrub.max = String(playback.tMax);
+    playBtn.textContent = playback.playing ? "Pause" : "Play";
+    scrub.value = String(scene.time);
+    timeLabel.textContent = `t = ${scene.time.toFixed(0)} M`;
+    gainLabel.textContent = `×${scene.gain.toFixed(1)}`;
+  }
+  sync();
+  return { sync };
+}
+
+/**
+ * Drag to pan, wheel to zoom around the cursor, double-click to reset, and a
+ * click without dragging calls `onClick` with the point in slice coordinates.
+ */
+export function setupCamera(
+  canvas: HTMLCanvasElement,
+  camera: Camera,
+  defaults: Camera,
+  onClick: (x: number, y: number) => void,
+): void {
+  const local = (e: { clientX: number; clientY: number }) => {
     const rect = canvas.getBoundingClientRect();
-    const u = (clientX - rect.left) / rect.width;
-    const v = 1 - (clientY - rect.top) / rect.height;
-    const aspect = rect.width / rect.height;
-    return {
-      x: view.centerX + (u * 2 - 1) * view.halfWidth,
-      y: view.centerY + (v * 2 - 1) * (view.halfWidth / aspect),
-    };
+    return { px: e.clientX - rect.left, py: e.clientY - rect.top, w: rect.width, h: rect.height };
   };
-  let drag: { x: number; y: number } | null = null;
+  let drag: { x: number; y: number; moved: number } | null = null;
   canvas.addEventListener("pointerdown", (e) => {
-    drag = { x: e.clientX, y: e.clientY };
+    drag = { x: e.clientX, y: e.clientY, moved: 0 };
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener("pointermove", (e) => {
     if (!drag) return;
-    const perPixel = (2 * view.halfWidth) / canvas.getBoundingClientRect().width;
-    view.centerX -= (e.clientX - drag.x) * perPixel;
-    view.centerY += (e.clientY - drag.y) * perPixel;
-    drag = { x: e.clientX, y: e.clientY };
+    const { w } = local(e);
+    const perPixel = (2 * camera.halfWidth) / w;
+    camera.centerX -= (e.clientX - drag.x) * perPixel;
+    camera.centerY += (e.clientY - drag.y) * perPixel;
+    drag.moved += Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y);
+    drag.x = e.clientX;
+    drag.y = e.clientY;
   });
-  canvas.addEventListener("pointerup", () => (drag = null));
+  canvas.addEventListener("pointerup", (e) => {
+    if (drag && drag.moved < 4) {
+      const { px, py, w, h } = local(e);
+      const p = pixelToSlice(camera, px, py, w, h);
+      onClick(p.x, p.y);
+    }
+    drag = null;
+  });
   canvas.addEventListener(
     "wheel",
     (e) => {
       e.preventDefault();
-      const before = toWorld(e.clientX, e.clientY);
-      const factor = Math.exp(e.deltaY * 0.0015);
-      view.halfWidth = Math.min(Math.max(view.halfWidth * factor, 10), 6000);
-      const after = toWorld(e.clientX, e.clientY);
-      view.centerX += before.x - after.x;
-      view.centerY += before.y - after.y;
+      const { px, py, w, h } = local(e);
+      const before = pixelToSlice(camera, px, py, w, h);
+      camera.halfWidth = Math.min(Math.max(camera.halfWidth * Math.exp(e.deltaY * 0.0015), 5), 6000);
+      const after = pixelToSlice(camera, px, py, w, h);
+      camera.centerX += before.x - after.x;
+      camera.centerY += before.y - after.y;
     },
     { passive: false },
   );
-  canvas.addEventListener("dblclick", () => {
-    view.centerX = defaults.centerX;
-    view.centerY = defaults.centerY;
-    view.halfWidth = defaults.halfWidth;
-  });
+  canvas.addEventListener("dblclick", () => Object.assign(camera, defaults));
+}
 
-  function sync() {
-    playBtn.textContent = playback.playing ? "Pause" : "Play";
-    scrub.value = String(view.time);
-    timeLabel.textContent = `t = ${view.time.toFixed(0)} M`;
-    gainLabel.textContent = `×${view.gain.toFixed(1)}`;
+/** Parameter sliders; `onChange` fires (at most once per frame) while dragging. */
+export function setupParams(
+  initial: BinaryParams,
+  defaults: BinaryParams,
+  onChange: (p: BinaryParams) => void,
+): void {
+  const inputs = {
+    q: $<HTMLInputElement>("param-q"),
+    chi1: $<HTMLInputElement>("param-chi1"),
+    chi2: $<HTMLInputElement>("param-chi2"),
+  };
+  const labels = {
+    q: $<HTMLSpanElement>("param-q-value"),
+    chi1: $<HTMLSpanElement>("param-chi1-value"),
+    chi2: $<HTMLSpanElement>("param-chi2-value"),
+  };
+  inputs.q.min = String(PARAM_RANGE.q[0]);
+  inputs.q.max = String(PARAM_RANGE.q[1]);
+  for (const k of ["chi1", "chi2"] as const) {
+    inputs[k].min = String(PARAM_RANGE.chi[0]);
+    inputs[k].max = String(PARAM_RANGE.chi[1]);
   }
-  sync();
-  return { sync };
+  const read = (): BinaryParams => ({
+    q: Number(inputs.q.value),
+    chi1: Number(inputs.chi1.value),
+    chi2: Number(inputs.chi2.value),
+  });
+  const write = (p: BinaryParams) => {
+    for (const k of ["q", "chi1", "chi2"] as const) {
+      inputs[k].value = String(p[k]);
+      labels[k].textContent = k === "q" ? p[k].toFixed(1) : p[k].toFixed(2);
+    }
+  };
+  write(initial);
+
+  let pending = false;
+  const schedule = () => {
+    write(read());
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(() => {
+      pending = false;
+      onChange(read());
+    });
+  };
+  for (const input of Object.values(inputs)) input.addEventListener("input", schedule);
+  $<HTMLButtonElement>("param-reset").addEventListener("click", () => {
+    write(defaults);
+    schedule();
+  });
 }

@@ -15,7 +15,7 @@
 use num_complex::Complex64;
 use std::f64::consts::{PI, TAU};
 
-use crate::harmonics::spin_weighted_ylm;
+use crate::harmonics::{spin_weighted_ylm, spin_weighted_ylm_theta};
 use crate::surrogate::Waveform;
 
 const FOUR_PI: f64 = 2.0 * TAU;
@@ -119,6 +119,44 @@ impl ModeTable {
             }
         }
         Some(sum)
+    }
+}
+
+impl ModeTable {
+    /// Strain at every sample time in direction (θ, φ), i.e. the signal an
+    /// observer there receives, against retarded time `t0 + i·dt`.
+    pub fn strain_series(&self, theta: f64, phi: f64) -> Vec<Complex64> {
+        (0..self.n)
+            .map(|i| {
+                let t = (self.t0 + self.dt * i as f64).min(self.t_end());
+                self.strain(theta, phi, t).unwrap_or_default()
+            })
+            .collect()
+    }
+
+    /// θ-dependence of the harmonics for the shader: RG texels, one row per
+    /// table row, `n_theta` columns at θ_j = jπ/(n_theta − 1). Texel (j, k) is
+    /// (₋₂Y_{l,m}(θ_j, 0), (−1)^l ₋₂Y_{l,−m}(θ_j, 0)) for row k = (l, m);
+    /// the second value is 0 for m = 0. Use an odd `n_theta` so θ = π/2 is a
+    /// sample and the orbital plane is exact.
+    pub fn harmonic_table(&self, n_theta: usize) -> Vec<f32> {
+        assert!(n_theta >= 2);
+        let mut out = Vec::with_capacity(2 * n_theta * self.rows.len());
+        for &(l, m) in &self.rows {
+            let parity = if l % 2 == 0 { 1.0 } else { -1.0 };
+            for j in 0..n_theta {
+                let theta = PI * j as f64 / (n_theta - 1) as f64;
+                let pos = spin_weighted_ylm_theta(-2, l, m, theta);
+                let neg = if m == 0 {
+                    0.0
+                } else {
+                    parity * spin_weighted_ylm_theta(-2, l, -m, theta)
+                };
+                out.push(pos as f32);
+                out.push(neg as f32);
+            }
+        }
+        out
     }
 }
 

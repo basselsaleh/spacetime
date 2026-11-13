@@ -125,10 +125,14 @@ tests/golden/        Small reference files committed for the Rust tests
   - Tests:
     - wave arms follow the binary axis at the retarded time to 0.01 rad
     - the heavier hole's angle matches LAL PN to within 0.25 rad, compared modulo 2π so a swap of the holes fails; the observed offset of ~0.15 rad is the PN tail ambiguity between orbital and wave phase
-- **Step 4: Side slice, probe, chirp plot, parameters.**
-  - Add the side-slice view (it reuses the shader with a different slice), the probe point with its particle ring, and the chirp plot with its playhead.
-  - Parameter panel: q from 1 to 8, χ1 and χ2 from −0.8 to 0.8 (the surrogate's trained range). Changing a parameter regenerates the waveform.
-  - Done when: the production build loads in under 3 s. Hosting is decided when the repo goes public.
+- **Step 4: Side slice, probe, chirp plot, parameters.** Built Nov 13, 2026.
+  - Layout: the orbital plane is the main view; a side column holds the vertical slice (h₊/h× toggle), the probe ring and the chirp plot. Below 900 px wide, the column stacks under the main view.
+  - One shader serves both slices. The harmonics' θ-dependence is an RG32F lookup texture (1025 samples, θ = π/2 exact), and horizons are drawn as the slice's cross-section of each horizon sphere.
+  - Probe: click either view. The ring shows ξ → ξ + ½hξ in the (φ̂, −θ̂) basis, exaggerated with a smooth saturation. The chirp plot shows h₊ and h× received at the probe against retarded time, with a playhead at t − r.
+  - Parameter sliders regenerate the waveform, orbits and remnant live, and update the URL.
+  - Tests: harmonic table exact at θ = π/2 and within 1e-4 between samples; `?selftest` now includes two vertical-slice frames (both polarisations), worst 4.4e-4 of peak on Metal.
+  - Size: 180 KB of wasm plus the 2.28 MB data file (1.7 MB gzipped), so loading is dominated by the data file: well under 3 s on broadband, and slower on mobile data. Hosting is decided when the repo goes public.
+  - Deferred to Phase 2: audio (needs a physical-mass control) and arbitrary slice orientation.
 
 **Phase 2: Depth without new risk.**
 
@@ -158,7 +162,7 @@ Each later phase adds physics nearer the black holes, where the approximations g
 - [x] Remnant mass and spin for step 3: NRSur3dq8Remnant fits (same data record and licence as the waveform).
 - [x] How wide a parameter range at launch? Aligned spins only.
 - [x] 2D or 3D first? 2D first; 3D is a Phase 3 decision.
-- [ ] Retarded time: plain t − r, or the tortoise coordinate r\*? Start with t − r and compare.
+- [ ] Retarded time: plain t − r, or the tortoise coordinate r\*? Phase 1 uses t − r. The difference, 2M ln(r/2M − 1), is a slowly growing delay (~8 M at r = 100 M, ~12 M at 1000 M). It shifts where the pattern sits relative to the holes by that much retarded time, which is within the near-zone ambiguity. Revisit with the near zone.
 - [ ] Which near-zone metric (Phase 4): superposed boosted Kerr–Schild or a PN near-zone metric? Prototype both and compare against NR.
 - [ ] How to show merger-phase horizons (Phase 4): keyframed NR horizon shapes, or a fade to the remnant?
 
