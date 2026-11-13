@@ -32,7 +32,3 @@ cd tools && uv sync             # once, installs lalsuite and sxs
 ```
 
 `npm run dev` rebuilds wasm only at startup; restart it after changing Rust code.
-
-## Deployment
-
-Pushes to `main` deploy `web/dist` to GitHub Pages via `.github/workflows/ci.yml`.

@@ -99,8 +99,8 @@ tests/golden/        Small reference files committed for the Rust tests
 
 - **Step 0: Scaffold.**
   - Set up the layout above.
-  - CI runs `cargo test`, `clippy`, the wasm build, the web build, and deploys to GitHub Pages.
-  - Done when: a Vite page loads the wasm module, calls a Rust function and draws a shader-filled canvas from the deployed link.
+  - CI runs `cargo test`, `clippy`, the wasm build and the web build. No deployment while the repo is private.
+  - Done when: a Vite page loads the wasm module, calls a Rust function and draws a shader-filled canvas locally.
 - **Step 1: Waveform engine.**
   - Implement IMRPhenomT (the (2,2) mode) from the paper, then add the higher modes (THM).
   - Interface: `generate(q, χ1, χ2, f_start) -> ModeSet { t0, dt, modes: [(l, m, amp[], phase[])], remnant: (M_f, χ_f), t_peak }`.
@@ -119,7 +119,7 @@ tests/golden/        Small reference files committed for the Rust tests
 - **Step 4: Side slice, probe, chirp plot, parameters.**
   - Add the side-slice view (it reuses the shader with a different slice), the probe point with its particle ring, and the chirp plot with its playhead.
   - Parameter panel: q from 1 to 8, χ1 and χ2 from −0.9 to 0.9. Changing a parameter regenerates the waveform.
-  - Done when: a shareable link loads in under 3 s.
+  - Done when: the production build loads in under 3 s. Hosting is decided when the repo goes public.
 
 **Phase 2: Depth without new risk.**
 

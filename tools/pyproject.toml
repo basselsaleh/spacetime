@@ -11,3 +11,5 @@ dependencies = [
 
 [tool.uv]
 package = false
+# Always use a uv-managed CPython, never a system/conda/pyenv interpreter.
+python-preference = "only-managed"
