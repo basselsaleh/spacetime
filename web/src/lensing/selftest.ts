@@ -8,6 +8,7 @@
 import * as THREE from "three";
 import { rayMatrix } from "../common/rays";
 import type { Lens } from "./lens";
+import { shadowEdge, shadowExtent } from "./shadow";
 
 const W = 64;
 const H = 40;
@@ -78,6 +79,20 @@ export interface LensSelfTest {
   rays: number;
   skipped: number;
   mismatches: number;
+  /** Largest difference (rad) between the readout's shadow size (shadow.ts) and the Rust edge's. */
+  readoutError: number;
+}
+
+/** Shadow width and height from shadow.ts vs from the Rust edge, for the views with spin. */
+function readoutError(wasm: { lensShadowEdge(cam: Float64Array, a: number, n: number): Float64Array }): number {
+  let worst = 0;
+  for (const v of VIEWS) {
+    if (!v.spin) continue;
+    const ts = shadowExtent(shadowEdge(v.eye, v.spin, EDGE_POINTS), v.eye);
+    const rs = shadowExtent(wasm.lensShadowEdge(Float64Array.from(v.eye), v.spin, EDGE_POINTS), v.eye);
+    worst = Math.max(worst, Math.abs(ts.width - rs.width), Math.abs(ts.height - rs.height));
+  }
+  return worst;
 }
 
 function viewLabel(v: View): string {
@@ -135,7 +150,18 @@ export async function runLensSelfTest(renderer: THREE.WebGLRenderer, lens: Lens)
     perView.push({ label: viewLabel(v), worst: viewWorst });
     worst = Math.max(worst, viewWorst);
   }
-  return { pass: mismatches === 0 && rays > 0 && worst < TOLERANCE, worst, perView, rays, skipped, mismatches };
+  const readout = readoutError(wasm);
+  return {
+    // The edge's ends (where the photons' polar motion vanishes) take a square root of a
+    // number near zero, so rounding (1e-16) shows up as ~1e-8 rad; the readout shows 0.1°.
+    pass: mismatches === 0 && rays > 0 && worst < TOLERANCE && readout < 1e-7,
+    worst,
+    perView,
+    rays,
+    skipped,
+    mismatches,
+    readoutError: readout,
+  };
 }
 
 type Test = (x: number, y: number, z: number) => boolean;
