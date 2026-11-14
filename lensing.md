@@ -1,6 +1,6 @@
 # Black hole lensing app: plan
 
-Nov 13, 2026 (updated Nov 14) · @Bassel · **steps 0 and 1 done**, merged to `main` (PR #3). Step 2 (Kerr) in progress: **2a and 2b done** (branches `lensing-2a-kerr-reference`, `lensing-2b-kerr-shader`), 2c next.
+Nov 13, 2026 (updated Nov 14) · @Bassel · **steps 0 and 1 done**, merged to `main` (PR #3). Step 2 (Kerr) in progress: **2a, 2b and 2c done** (branches `lensing-2a-kerr-reference`, `lensing-2b-kerr-shader`, `lensing-2c-kerr-app`), 2d next.
 
 A second app in this repository, alongside the binary black hole (BBH) wave visualizer ([bbh.md](bbh.md)).
 
@@ -306,6 +306,17 @@ The physics is under "Step 2 physics" above. Split into sub-steps, each on its o
 - The camera minimum stays at 3.5 M. It is outside the ergosphere (2 M at the equator) for every spin, so the ZAMO is never moving close to light speed.
 - **Visual checks:** a round shadow from on the axis; at a = 0.998, the D-shape with its flat side on the approaching side from the equator; and the twisted sky.
 
+**Done (Nov 14, 2026).** Branch `lensing-2c-kerr-app`.
+
+- **Spin slider** in the panel: a/M from 0 to 0.998 in steps of 0.001. It writes `?a=` to the URL with `history.replaceState`, as the BBH app does, and leaves it out at 0. The app loads at spin 0 (decided Nov 14).
+- **Readouts:**
+  - "Shadow W° wide × H° tall": the angular extent across the spin axis (along φ̂) and along it (along θ̂), measured from the direction to the hole. The orbit camera keeps +z up, so these are the screen's horizontal and vertical. At spin 0 both equal twice step 1's radius readout (14.5° at 40 M).
+  - "Horizon radius r₊ · N of them away".
+  - Recomputed only when the camera or the spin changes.
+- **`web/src/lensing/shadow.ts`:** the exact edge (`kerr::shadow_edge`) ported to TypeScript, so the app still loads no wasm. The self-test now also compares the readout's width and height with the Rust edge's for the spinning views: 5.6e-9 rad. The tolerance is 1e-7 rad, because the edge's two ends take a square root of a number near zero, which turns rounding into about 1e-8.
+- **About text:** spin, the flattened and shifted shadow, the round shadow from above the pole, and the camera as an observer turning with the spacetime.
+- **Checks:** at a = 0.998 from 15 M near the equator, the shadow is 33.1° wide × 37.9° tall. GPU self-test: PASS, unchanged otherwise.
+
 #### 2d: wrap-up
 
 - **One integrator or two:** if the Kerr shader at a = 0 matches step 1's accuracy and speed closely enough, retire the planar Schwarzschild path and keep one integrator. Otherwise keep the planar path as the a = 0 fast path. Record the measurements.
@@ -371,7 +382,7 @@ The physics is under "Step 3 physics" above. Built on the step 2 integrator, so 
 - [x] Camera model for step 1: a static observer at 3.5–300 M (outside the photon sphere, so the planar escape logic holds). An orbiting or falling camera remains a "maybe later".
 - [x] Integration variable and step control for the GPU, Schwarzschild: RK4 in φ, step min(0.02, ½u/|du/dφ|) ≥ 0.002; 3.3e-5 rad worst against the reference.
 - [x] Kerr formulation: Boyer–Lindquist in Mino time with u = 1/r and the angular position as a unit vector (frame dragging split off as a rotation about z), for the shader and its mirror in Rust; a Kerr–Schild Hamiltonian as the independent reference. Confirmed in 2a.
-- [ ] Default spin on load: 0 (the step 1 look, with the Einstein ring on load) or high (the D-shaped shadow shows at once)?
+- [x] Default spin on load: 0 (decided Nov 14).
 - [ ] Disk look: a smooth Novikov–Thorne profile only, or with procedural texture so the rotation and shearing are readable? If textured, animated?
 - [ ] Disk default: on when the app loads, or off so the lensed sky comes first?
 - [ ] Should the lensing app and the BBH app share one URL-parameter and panel style, or diverge?
