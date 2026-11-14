@@ -1,10 +1,10 @@
 // Gravitational-wave strain on a slice plane through the source, from the
-// NRHybSur3dq8 modes. Drawn on a plane mesh in the 3D scene (three.js
+// NRSur7dq4 modes. Drawn on a plane mesh in the 3D scene (three.js
 // RawShaderMaterial; three prepends "#version 300 es").
 //
-// Each fragment is a 3D point at distance r, polar angle θ (from the orbital
-// angular momentum, +z) and azimuth φ. It shows r·h₊ or r·h× at retarded time
-// t − r, where h₊ − i h× = (1/r) Σ_lm h_lm(t − r) ₋₂Y_lm(θ, φ) (LAL convention).
+// Each fragment is a 3D point at distance r in direction n. It shows r·h₊ or
+// r·h× at retarded time t − r, where h₊ − i h× = (1/r) Σ_lm h_lm(t − r) ₋₂Y_lm(n)
+// (LAL convention; polarizations against the display frame's θ̂, φ̂).
 // The slice is spanned by u_axisU and u_axisV: the orbital plane is (x̂, ŷ), the
 // side view (x̂, ẑ), and any tilt in between is a genuine slice too.
 //
@@ -43,11 +43,11 @@ void main() {
   }
   // Rebuild the point on the slice, so the orbital plane has z = 0 exactly.
   vec3 p3 = q.x * u_axisU + q.y * u_axisV;
-  float r, theta, phi;
-  sphericalAngles(p3, r, theta, phi);
+  float r = length(p3);
+  vec3 n = r > 0.0 ? p3 / r : vec3(0.0, 0.0, 1.0);
 
   bool valid;
-  vec2 h = strain(u_time - r, theta, phi, valid);
+  vec2 h = strain(u_time - r, n, valid);
   float hplus = h.x;
   float hcross = -h.y;
 

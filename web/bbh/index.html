@@ -53,11 +53,15 @@
 
       <aside id="side">
         <section class="card">
-          <header><h2>Binary <span class="muted">aligned spins</span></h2></header>
+          <header><h2>Binary <span class="muted">spins at t = −4300 M</span></h2></header>
           <div id="params">
             <label>Mass ratio q <input id="param-q" type="range" step="0.1" /><span id="param-q-value"></span></label>
-            <label>Spin χ₁ (heavier) <input id="param-chi1" type="range" step="0.05" /><span id="param-chi1-value"></span></label>
-            <label>Spin χ₂ (lighter) <input id="param-chi2" type="range" step="0.05" /><span id="param-chi2-value"></span></label>
+            <label>Spin χ₁ (heavier) <input id="param-chi1-mag" type="range" /><span id="param-chi1-mag-value"></span></label>
+            <label class="sub">tilt from L̂ <input id="param-chi1-tilt" type="range" /><span id="param-chi1-tilt-value"></span></label>
+            <label class="sub">azimuth <input id="param-chi1-azimuth" type="range" /><span id="param-chi1-azimuth-value"></span></label>
+            <label>Spin χ₂ (lighter) <input id="param-chi2-mag" type="range" /><span id="param-chi2-mag-value"></span></label>
+            <label class="sub">tilt from L̂ <input id="param-chi2-tilt" type="range" /><span id="param-chi2-tilt-value"></span></label>
+            <label class="sub">azimuth <input id="param-chi2-azimuth" type="range" /><span id="param-chi2-azimuth-value"></span></label>
             <button id="param-reset" type="button">Reset</button>
           </div>
           <div id="remnant"></div>
@@ -86,15 +90,26 @@
               a smoothly saturating scale.
             </p>
             <p>
-              In the orbital plane the wave is purely + polarized (h× = 0). h₊ &gt; 0 (LAL convention)
-              means space is stretched around the circle centered on the source and squeezed
-              perpendicular to the plane. Off the plane both polarizations appear.
+              For aligned spins the wave in the orbital plane is purely + polarized (h× = 0).
+              h₊ &gt; 0 (LAL convention) means space is stretched around the circle centered on the
+              source and squeezed perpendicular to the plane. Off the plane both polarizations
+              appear.
+            </p>
+            <p>
+              Spins tilted away from the orbital axis make the orbit precess: the orbital plane and
+              its axis L̂ wobble around the total angular momentum J, which points up (+z), and the
+              wave pattern swings with them. The spins are set at the start of the model's data
+              (t = −4300 M), relative to the orbit there: tilt from L̂, azimuth from the direction to
+              the heavier hole. Arrows show them as they precess. The views are fixed to J: the
+              "top view" is the plane perpendicular to J.
             </p>
             <p>
               Inside the ring is the near zone, where this far-zone formula does not apply. Black
-              disks: horizons where the slice cuts them, at true size (at least a few pixels); faint
-              outlines: the parts of holes hidden behind a slice. Orbits are post-Newtonian, derived
-              from the wave phase, and schematic in the last orbits. Click a slice to move the
+              disks: horizons where the slice cuts them, at true size, or all magnified by the same
+              factor when too small to see, so their relative sizes stay true; faint
+              outlines: the parts of holes hidden behind a slice. The orbital plane and phase come from
+              the waveform model's own dynamics; the separation is post-Newtonian and schematic in
+              the last orbits. Click a slice to move the
               probe (the ring marker).
             </p>
             <p>
@@ -103,9 +118,9 @@
               show as sheets, which for h₊ form the two spiral arms of the binary and move outward
               at the speed of light. Same normalization as the slices (r·h, so distant sheets are
               as bright as near ones); the near zone is left empty. h₊ and h× are measured
-              against directions that wind around the orbital axis, so the sheets meet along it;
+              against directions that wind around the vertical axis, so the sheets meet along it;
               a narrow cone around the axis is faded out. To keep it fast, the volume sums the
-              three strongest modes (the slices use all of them) and is drawn at reduced
+              three strongest mode pairs (the slices use all of them) and is drawn at reduced
               resolution, adapted to the frame rate. Drag to orbit, scroll to zoom, double-click
               to reset.
             </p>

@@ -118,37 +118,60 @@ export function setupPointer(
   canvas.addEventListener("dblclick", onDoubleClick);
 }
 
-/** Parameter sliders; `onChange` fires (at most once per frame) while dragging. */
+type SpinKey = "spin1" | "spin2";
+type Field = "mag" | "tilt" | "azimuth";
+const FIELDS: { field: Field; min: number; max: number; step: number; format: (v: number) => string }[] = [
+  { field: "mag", min: 0, max: PARAM_RANGE.chi, step: 0.05, format: (v) => v.toFixed(2) },
+  { field: "tilt", min: 0, max: 180, step: 5, format: (v) => `${v.toFixed(0)}°` },
+  { field: "azimuth", min: 0, max: 355, step: 5, format: (v) => `${v.toFixed(0)}°` },
+];
+
+/**
+ * Parameter sliders: q, and each spin as magnitude, tilt from L̂ and azimuth
+ * (from the direction to the heavier hole). `onChange` fires (at most once
+ * per frame) while dragging. Tilt and azimuth are disabled while the
+ * magnitude is zero, azimuth also while the tilt is 0° or 180°.
+ */
 export function setupParams(
   initial: BinaryParams,
   defaults: BinaryParams,
   onChange: (p: BinaryParams) => void,
 ): void {
-  const inputs = {
-    q: $<HTMLInputElement>("param-q"),
-    chi1: $<HTMLInputElement>("param-chi1"),
-    chi2: $<HTMLInputElement>("param-chi2"),
+  const q = $<HTMLInputElement>("param-q");
+  const qLabel = $<HTMLSpanElement>("param-q-value");
+  q.min = String(PARAM_RANGE.q[0]);
+  q.max = String(PARAM_RANGE.q[1]);
+  const spinInputs = (["spin1", "spin2"] as SpinKey[]).map((key, n) =>
+    FIELDS.map((f) => {
+      const input = $<HTMLInputElement>(`param-chi${n + 1}-${f.field}`);
+      input.min = String(f.min);
+      input.max = String(f.max);
+      input.step = String(f.step);
+      return { key, ...f, input, label: $<HTMLSpanElement>(`param-chi${n + 1}-${f.field}-value`) };
+    }),
+  );
+  const all = spinInputs.flat();
+
+  const read = (): BinaryParams => {
+    const spin = (k: SpinKey) => {
+      const get = (field: Field) => Number(all.find((x) => x.key === k && x.field === field)!.input.value);
+      return { mag: get("mag"), tilt: get("tilt"), azimuth: get("azimuth") };
+    };
+    return { q: Number(q.value), spin1: spin("spin1"), spin2: spin("spin2") };
   };
-  const labels = {
-    q: $<HTMLSpanElement>("param-q-value"),
-    chi1: $<HTMLSpanElement>("param-chi1-value"),
-    chi2: $<HTMLSpanElement>("param-chi2-value"),
-  };
-  inputs.q.min = String(PARAM_RANGE.q[0]);
-  inputs.q.max = String(PARAM_RANGE.q[1]);
-  for (const k of ["chi1", "chi2"] as const) {
-    inputs[k].min = String(PARAM_RANGE.chi[0]);
-    inputs[k].max = String(PARAM_RANGE.chi[1]);
-  }
-  const read = (): BinaryParams => ({
-    q: Number(inputs.q.value),
-    chi1: Number(inputs.chi1.value),
-    chi2: Number(inputs.chi2.value),
-  });
   const write = (p: BinaryParams) => {
-    for (const k of ["q", "chi1", "chi2"] as const) {
-      inputs[k].value = String(p[k]);
-      labels[k].textContent = k === "q" ? p[k].toFixed(1) : p[k].toFixed(2);
+    q.value = String(p.q);
+    qLabel.textContent = p.q.toFixed(1);
+    for (const x of all) {
+      const v = p[x.key][x.field];
+      x.input.value = String(v);
+      x.label.textContent = x.format(v);
+    }
+    for (const row of spinInputs) {
+      const mag = Number(row[0].input.value);
+      const tilt = Number(row[1].input.value);
+      row[1].input.disabled = mag === 0;
+      row[2].input.disabled = mag === 0 || tilt === 0 || tilt === 180;
     }
   };
   write(initial);
@@ -163,7 +186,7 @@ export function setupParams(
       onChange(read());
     });
   };
-  for (const input of Object.values(inputs)) input.addEventListener("input", schedule);
+  for (const input of [q, ...all.map((x) => x.input)]) input.addEventListener("input", schedule);
   $<HTMLButtonElement>("param-reset").addEventListener("click", () => {
     write(defaults);
     schedule();

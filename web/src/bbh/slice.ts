@@ -6,8 +6,12 @@ export interface SceneState {
   time: number; // M
   gain: number;
   maskRadius: number; // M
-  /** Heavier, lighter, remnant: [x, y, radius, opacity] × 3, in M. */
+  /** Heavier, lighter, remnant: [x, y, z, radius, opacity] × 3, in M. */
   disks: Float32Array;
+  /** Heavier, lighter, remnant: dimensionless spin [x, y, z] × 3. */
+  spins: Float32Array;
+  /** Direction of the orbital angular momentum, [x, y, z]. */
+  orbitalAxis: Float32Array;
 }
 
 /** Per-view pan/zoom, in the slice's own 2D coordinates (M). */

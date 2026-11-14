@@ -4,8 +4,8 @@
 use spacetime_physics::binary::Binary;
 use spacetime_physics::geodesic;
 use spacetime_physics::harmonics::spin_weighted_ylm_theta;
-use spacetime_physics::mode_table::{ModeTable, equatorial_peak_22};
-use spacetime_physics::surrogate::{Params, Surrogate, Waveform};
+use spacetime_physics::mode_table::{FRAME_ROWS, ModeTable, equatorial_peak_22};
+use spacetime_physics::nrsur7dq4::{Nrsur7dq4, Params, Remnant, Waveform};
 use wasm_bindgen::prelude::*;
 
 /// Version of the physics crate this module was built from.
@@ -27,16 +27,21 @@ pub fn swsh_theta(s: i32, l: i32, m: i32, theta: f64) -> f64 {
     spin_weighted_ylm_theta(s, l, m, theta)
 }
 
-/// A loaded waveform model (NRHybSur3dq8 surrogate).
+/// A loaded waveform model (NRSur7dq4 surrogate with its remnant fits).
 #[wasm_bindgen]
-pub struct WaveformModel(Surrogate);
+pub struct WaveformModel(Nrsur7dq4);
+
+fn vec3(v: &[f64], name: &str) -> Result<[f64; 3], JsError> {
+    v.try_into()
+        .map_err(|_| JsError::new(&format!("{name} must have 3 components")))
+}
 
 #[wasm_bindgen]
 impl WaveformModel {
     /// Parses the `.stsur` data file fetched by the page.
     #[wasm_bindgen(constructor)]
     pub fn new(bytes: &[u8]) -> Result<WaveformModel, JsError> {
-        Surrogate::from_bytes(bytes)
+        Nrsur7dq4::from_bytes(bytes)
             .map(WaveformModel)
             .map_err(|e| JsError::new(&e.to_string()))
     }
@@ -52,11 +57,12 @@ impl WaveformModel {
         self.0.attribution().to_string()
     }
 
-    /// `[q_min, q_max, chi1_min, chi1_max, chi2_min, chi2_max]`.
+    /// `[q_min, q_max, chi_max, q_max_extrapolated, chi_max_extrapolated]`:
+    /// the trained range, then the range the evaluator accepts.
     #[wasm_bindgen(getter)]
     pub fn bounds(&self) -> Vec<f64> {
         let b = self.0.bounds();
-        [b.q, b.chi1, b.chi2].concat()
+        vec![b.q[0], b.q[1], b.chi, b.q_extrap, b.chi_extrap]
     }
 
     /// `[t_min, t_max]` in M.
@@ -66,104 +72,103 @@ impl WaveformModel {
         vec![a, b]
     }
 
-    /// Black-hole orbits and remnant for a waveform evaluated with the same
-    /// parameters (it must start at or before t = −1000 M).
-    pub fn binary(
-        &self,
-        q: f64,
-        chi1: f64,
-        chi2: f64,
-        data: &WaveformData,
-    ) -> Result<BinaryTrack, JsError> {
-        let p = Params { q, chi1, chi2 };
-        let remnant = self
-            .0
-            .remnant(p)
-            .map_err(|e| JsError::new(&e.to_string()))?
-            .ok_or_else(|| JsError::new("data file has no remnant fits"))?;
-        Ok(BinaryTrack(Binary::new(&data.0, p, remnant)))
+    /// The initial frame (`[w, x, y, z]`) that puts the total angular momentum
+    /// at the start of the data on +z, with L̂ there in the x–z plane; pass it
+    /// to `evaluate` as `init_quat`. The identity for aligned spins.
+    #[wasm_bindgen(js_name = displayFrame)]
+    pub fn display_frame(&self, q: f64, chi_a: &[f64], chi_b: &[f64]) -> Result<Vec<f64>, JsError> {
+        let p = Params {
+            q,
+            chi_a: vec3(chi_a, "chi_a")?,
+            chi_b: vec3(chi_b, "chi_b")?,
+        };
+        self.0
+            .display_frame(p)
+            .map(|f| f.to_vec())
+            .map_err(|e| JsError::new(&e.to_string()))
     }
 
-    /// Evaluates all modes on a uniform grid from `t_start` (M) with step `dt`.
+    /// Evaluates the binary on a uniform grid from `t_start` (M) with step `dt`.
+    /// Spins (`[x, y, z]`, heavier hole A, lighter hole B) are given at the
+    /// start of the data in the co-orbital frame there; `init_quat`
+    /// (`[w, x, y, z]`, or empty for the identity) is the coprecessing frame
+    /// there, which sets the display frame.
     pub fn evaluate(
         &self,
         q: f64,
-        chi1: f64,
-        chi2: f64,
+        chi_a: &[f64],
+        chi_b: &[f64],
+        init_quat: &[f64],
         t_start: f64,
         dt: f64,
     ) -> Result<WaveformData, JsError> {
-        self.0
-            .evaluate(Params { q, chi1, chi2 }, t_start, dt)
-            .map(WaveformData)
-            .map_err(|e| JsError::new(&e.to_string()))
+        let p = Params {
+            q,
+            chi_a: vec3(chi_a, "chi_a")?,
+            chi_b: vec3(chi_b, "chi_b")?,
+        };
+        let frame = match init_quat.len() {
+            0 => None,
+            4 => Some([init_quat[0], init_quat[1], init_quat[2], init_quat[3]]),
+            _ => return Err(JsError::new("init_quat must be empty or have 4 components")),
+        };
+        let (wf, dynm) = self
+            .0
+            .evaluate(p, frame, t_start, dt)
+            .map_err(|e| JsError::new(&e.to_string()))?;
+        let remnant = self
+            .0
+            .remnant(p, &dynm)
+            .ok_or_else(|| JsError::new("data file has no remnant fits"))?;
+        Ok(WaveformData { wf, p, remnant })
     }
 }
 
-/// Waveform samples in the co-orbital representation the shaders consume.
+/// An evaluated binary: modes, frame dynamics and remnant.
 #[wasm_bindgen]
-pub struct WaveformData(Waveform);
+pub struct WaveformData {
+    wf: Waveform,
+    p: Params,
+    remnant: Remnant,
+}
 
 #[wasm_bindgen]
 impl WaveformData {
     #[wasm_bindgen(getter)]
     pub fn t0(&self) -> f64 {
-        self.0.t0
+        self.wf.t[0]
     }
 
     #[wasm_bindgen(getter)]
     pub fn dt(&self) -> f64 {
-        self.0.dt
+        self.wf.t[1] - self.wf.t[0]
     }
 
     #[wasm_bindgen(getter)]
     pub fn length(&self) -> usize {
-        self.0.len()
+        self.wf.len()
     }
 
-    /// |h₂₂| at each sample.
-    #[wasm_bindgen(js_name = amp22)]
-    pub fn amp22(&self) -> Vec<f64> {
-        self.0.amp22.clone()
-    }
-
-    /// φ₂₂ with h₂₂ = A₂₂ e^{−iφ₂₂}.
-    #[wasm_bindgen(js_name = phase22)]
-    pub fn phase22(&self) -> Vec<f64> {
-        self.0.phase22.clone()
-    }
-
-    /// Co-orbital modes other than (2,2), as flat `[l0, m0, l1, m1, ...]`.
-    #[wasm_bindgen(js_name = coorbitalModes)]
-    pub fn coorbital_modes(&self) -> Vec<i32> {
-        self.0.coorbital.iter().flat_map(|c| [c.l, c.m]).collect()
-    }
-
-    /// ω₂₂ = dφ₂₂/dt at each sample.
+    /// Twice the orbital angular frequency, 2 dΦ/dt (≈ ω₂₂), at each sample.
     pub fn omega22(&self) -> Vec<f64> {
-        self.0.omega22()
+        self.wf.omega_orb().iter().map(|w| 2.0 * w).collect()
     }
 
-    /// Peak r·|h₊| in the orbital plane from the (2,2) mode; the color scale's unit.
+    /// Peak r·|h₊| in the orbital plane from the (2,±2) modes; the color scale's unit.
     #[wasm_bindgen(js_name = equatorialPeak22)]
     pub fn equatorial_peak_22(&self) -> f64 {
-        equatorial_peak_22(&self.0)
+        equatorial_peak_22(&self.wf)
     }
 
     /// Packs the waveform for the strain shader (see `mode_table` in the physics crate).
     #[wasm_bindgen(js_name = modeTable)]
     pub fn mode_table(&self, width: usize) -> ModeTableData {
-        ModeTableData(ModeTable::new(&self.0, width))
+        ModeTableData(ModeTable::new(&self.wf, width))
     }
 
-    /// Interleaved `[re, im, re, im, ...]` for the i-th co-orbital mode.
-    #[wasm_bindgen(js_name = coorbitalData)]
-    pub fn coorbital_data(&self, index: usize) -> Vec<f64> {
-        self.0
-            .coorbital
-            .get(index)
-            .map(|c| c.data.iter().flat_map(|z| [z.re, z.im]).collect())
-            .unwrap_or_default()
+    /// Black-hole orbits and remnant.
+    pub fn binary(&self) -> BinaryTrack {
+        BinaryTrack(Binary::new(&self.wf, self.p, self.remnant))
     }
 }
 
@@ -183,7 +188,7 @@ impl ModeTableData {
         self.0.dt
     }
 
-    /// Samples per mode row.
+    /// Samples per row.
     #[wasm_bindgen(getter)]
     pub fn samples(&self) -> usize {
         self.0.n
@@ -199,7 +204,19 @@ impl ModeTableData {
         self.0.height()
     }
 
-    /// Flat `[l0, m0, l1, m1, ...]`; row 0 is (2,2).
+    /// Rows before the first mode row (frame quaternion and orbital phase).
+    #[wasm_bindgen(getter, js_name = frameRows)]
+    pub fn frame_rows(&self) -> usize {
+        FRAME_ROWS
+    }
+
+    /// Mode rows forming the three strongest (l, ±m) groups.
+    #[wasm_bindgen(getter, js_name = leadingRows)]
+    pub fn leading_rows(&self) -> usize {
+        self.0.leading3
+    }
+
+    /// Flat `[l0, m0, l1, m1, ...]` of the mode rows.
     pub fn rows(&self) -> Vec<i32> {
         self.0.rows.iter().flat_map(|&(l, m)| [l, m]).collect()
     }
@@ -216,38 +233,58 @@ impl ModeTableData {
         self.0.harmonic_table(n_theta)
     }
 
-    /// Interleaved `[r·h₊, r·h×, ...]` at every sample, as received in direction (θ, φ).
+    /// Interleaved `[r·h₊, r·h×, ...]` at every sample, as received in direction (x, y, z).
     #[wasm_bindgen(js_name = strainSeries)]
-    pub fn strain_series(&self, theta: f64, phi: f64) -> Vec<f64> {
+    pub fn strain_series(&self, x: f64, y: f64, z: f64) -> Vec<f64> {
         self.0
-            .strain_series(theta, phi)
+            .strain_series([x, y, z])
             .iter()
-            .flat_map(|z| [z.re, -z.im])
+            .flat_map(|h| [h.re, -h.im])
             .collect()
     }
 
-    /// CPU reference: `[r·h₊, r·h×]` at retarded time `t_ret`, or NaNs outside the data.
-    pub fn strain(&self, theta: f64, phi: f64, t_ret: f64) -> Vec<f64> {
-        match self.0.strain(theta, phi, t_ret) {
-            Some(z) => vec![z.re, -z.im],
+    /// CPU reference: `[r·h₊, r·h×]` at retarded time `t_ret` in direction
+    /// (x, y, z), or NaNs outside the data.
+    pub fn strain(&self, x: f64, y: f64, z: f64, t_ret: f64) -> Vec<f64> {
+        match self.0.strain([x, y, z], t_ret) {
+            Some(h) => vec![h.re, -h.im],
             None => vec![f64::NAN, f64::NAN],
         }
     }
 }
 
-/// Black-hole disks over time, plus remnant properties.
+/// Black holes over time, plus remnant properties.
 #[wasm_bindgen]
 pub struct BinaryTrack(Binary);
 
 #[wasm_bindgen]
 impl BinaryTrack {
-    /// `[x, y, radius, opacity]` for the heavier hole, lighter hole and remnant (M).
+    /// `[x, y, z, radius, opacity]` for the heavier hole, lighter hole and remnant (M).
     pub fn state(&self, t: f64) -> Vec<f64> {
         let s = self.0.state(t);
         [s.heavy, s.light, s.remnant]
             .iter()
-            .flat_map(|d| [d.x, d.y, d.radius, d.opacity])
+            .flat_map(|d| [d.x, d.y, d.z, d.radius, d.opacity])
             .collect()
+    }
+
+    /// `[x, y, z]`: direction of the orbital angular momentum at time t.
+    #[wasm_bindgen(js_name = orbitalAxis)]
+    pub fn orbital_axis(&self, t: f64) -> Vec<f64> {
+        self.0.orbital_axis(t).to_vec()
+    }
+
+    /// `[ax, ay, az, bx, by, bz]`: dimensionless spins of the heavier (A) and
+    /// lighter (B) holes at time t.
+    pub fn spins(&self, t: f64) -> Vec<f64> {
+        let (a, b) = self.0.spins(t);
+        [a, b].concat()
+    }
+
+    /// `[x, y, z]`: the final dimensionless spin vector.
+    #[wasm_bindgen(getter, js_name = remnantSpinVector)]
+    pub fn remnant_spin_vector(&self) -> Vec<f64> {
+        self.0.remnant.spin.to_vec()
     }
 
     /// Final mass, in units of the initial total mass.
@@ -256,17 +293,18 @@ impl BinaryTrack {
         self.0.remnant.mass
     }
 
-    /// Final dimensionless spin.
+    /// Magnitude of the final dimensionless spin.
     #[wasm_bindgen(getter, js_name = remnantSpin)]
     pub fn remnant_spin(&self) -> f64 {
-        self.0.remnant.spin
+        let [x, y, z] = self.0.remnant.spin;
+        (x * x + y * y + z * z).sqrt()
     }
 
     /// Recoil speed as a fraction of c.
     #[wasm_bindgen(getter, js_name = kickSpeed)]
     pub fn kick_speed(&self) -> f64 {
-        let [x, y] = self.0.kick();
-        x.hypot(y)
+        let [x, y, z] = self.0.kick();
+        (x * x + y * y + z * z).sqrt()
     }
 }
 

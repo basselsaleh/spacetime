@@ -7,7 +7,7 @@ crates/physics/   Rust physics core (pure, f64, units of total mass M)
 crates/wasm/      wasm-bindgen bindings over the physics crate
 web/              TypeScript + Vite multi-page site (three.js): index.html (landing),
                   <app>/index.html per app, code in web/src/<app>/, shared code in web/src/common/
-web/public/       Static files served as-is: the trimmed waveform surrogate, the logo
+web/public/       Static files served as-is: the trimmed waveform model (NRSur7dq4), the logo
 tools/            Python (uv): golden data from LAL, NR reference tables
 tests/golden/     Small reference files used by the Rust tests
 docs/             This file and the README's images
@@ -39,12 +39,14 @@ CI (`.github/workflows/ci.yml`) runs `cargo fmt --check`, `clippy -D warnings`, 
 
 Gravitational waves (`/bbh/`):
 
-- `?q=3&chi1=0.6&chi2=0.2`: binary parameters (q ≤ 8, |χ| ≤ 0.8)
+- `?q=3&chi1=0.6&chi2=0.2`: binary parameters (q ≤ 4, |χ| ≤ 0.8). A spin is one number (along
+  the orbital axis L̂; negative = anti-aligned) or `x,y,z` in the co-orbital frame at the start
+  of the data (t ≈ −4300 M; z along L̂, x toward the heavier hole), e.g. `?q=4&chi1=0.8,0,0`
 - `?t=-300&zoom=250&tilt=40&paused`: start at a given time (M), half-width (M) and slice tilt
   (degrees), paused
 - `?3d`: start in the 3D view
-- `?selftest`: render off-screen and compare GPU pixels with the Rust CPU reference; the verdict
-  appears in the page title and status line
+- `?selftest`: render off-screen and compare GPU pixels with the Rust CPU reference, for the URL's
+  binary and a precessing one; the verdict appears in the page title and status line
 - `?volbench`: GPU timing of the 3D volume (needs real time; see below)
 - `?vdensity=0.035&vsharp=8`: tuning knobs for the volume's look
 
@@ -74,18 +76,21 @@ FLAGS="--headless=new --use-angle=metal --enable-gpu --ignore-gpu-blocklist"
 
 ## Waveform data
 
-The trimmed surrogate (`web/public/nrhybsur3dq8.stsur`) and the golden test data are committed.
-To regenerate them:
+The waveform model is NRSur7dq4 with its NRSur7dq4Remnant fits, trimmed and packed into
+`web/public/nrsur7dq4.stsur` (the STSUR002 format, which `tools/nrsur7dq4_ref.py` documents and
+evaluates in plain NumPy; `crates/physics/src/nrsur7dq4/` reads it). The file and the golden test
+data are committed. To regenerate them:
 
 ```sh
 cd tools
-curl -L -o data/NRHybSur3dq8.h5 https://zenodo.org/record/3348115/files/NRHybSur3dq8.h5   # 213 MB
-curl -L -o data/fit_3dq8.h5 https://zenodo.org/records/1435751/files/remnant_fits/fit_3dq8.h5  # 0.45 MB
-uv run python export_surrogate.py data/NRHybSur3dq8.h5 ../web/public/nrhybsur3dq8.stsur --remnant data/fit_3dq8.h5
-uv run python gen_golden.py data/NRHybSur3dq8.h5 ../tests/golden/nrhybsur3dq8.json
-uv run python gen_remnant_golden.py data/fit_3dq8.h5 ../tests/golden/nrsur3dq8remnant.json
-uv run python gen_orientation_golden.py data/NRHybSur3dq8.h5 ../tests/golden/orientation_lal.json
+curl -L -o data/NRSur7dq4.h5 https://zenodo.org/records/3348115/files/NRSur7dq4.h5   # 17.5 MB
+curl -L -o data/fit_7dq4.h5 https://zenodo.org/records/3455886/files/remnant_fits/fit_7dq4.h5  # 132 MB
+uv run python export_nrsur7dq4.py data/NRSur7dq4.h5 ../web/public/nrsur7dq4.stsur --remnant data/fit_7dq4.h5
+uv run python compare_nrsur7dq4.py data/NRSur7dq4.h5 data/fit_7dq4.h5 ../web/public/nrsur7dq4.stsur
+uv run python gen_golden_nrsur7dq4.py data/NRSur7dq4.h5 data/fit_7dq4.h5 ../tests/golden/nrsur7dq4.json
+uv run python gen_orientation_golden.py data/NRSur7dq4.h5 ../tests/golden/orientation_lal.json
 uv run python gen_harmonics_golden.py ../tests/golden/swsh_lal.json
+uv run python proto_precession.py ../web/public/nrsur7dq4.stsur   # figures and animations in out/
 ```
 
 The data is CC BY 4.0; the attribution travels inside the `.stsur` file and the app shows it.

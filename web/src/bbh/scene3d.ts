@@ -22,7 +22,7 @@ import type { PreparedWaveform } from "./waveform";
 
 export type ViewMode = "flat" | "3d";
 
-const MAX_ROWS = 16;
+const MAX_ROWS = 24; // strain.glsl
 const FLAT_FOV = 1; // degrees
 const ORBIT_FOV = 40; // degrees
 const ORBIT_ELEVATION = (55 * Math.PI) / 180; // camera angle from the slice normal in 3D
@@ -236,6 +236,10 @@ export class SpacetimeScene {
   private readonly probeMarker: THREE.Sprite;
   private readonly probeMarkerPx: number; // marker texture size, CSS px
   private readonly guides = new THREE.Group();
+  /** The orbital plane's outline and L̂, turned to follow the precessing orbit. */
+  private readonly orbitGuide = new THREE.Group();
+  /** Spin arrows: heavier hole, lighter hole, remnant. */
+  private readonly spinArrows: THREE.ArrowHelper[];
   private textures: THREE.DataTexture[] = [];
   private peak = 1;
   private extent = 600; // half-size of the slice planes, M
@@ -287,6 +291,10 @@ export class SpacetimeScene {
       const mat = s.material as THREE.SpriteMaterial;
       mat.map = halo;
       mat.color.set(LOOK.holeRim);
+      // Depth-tested (placed in front of its own horizon each frame), so a hole
+      // in front hides the halo of one behind it.
+      mat.depthTest = true;
+      s.renderOrder = 4;
       this.scene.add(s);
       return s;
     });
@@ -296,17 +304,35 @@ export class SpacetimeScene {
     this.probeMarkerPx = marker.sizePx;
     this.scene.add(this.probeMarker);
 
-    // Guides for the 3D view: the orbital axis and the outline of the orbital plane.
+    // Guides for the 3D view: the z-axis (the total angular momentum J), and the
+    // outline of the orbital plane with its axis L̂, which precess around it.
     const line = new THREE.LineBasicMaterial({ color: 0x5b6478, transparent: true, opacity: LOOK.guideOpacity });
+    const lLine = new THREE.LineBasicMaterial({ color: LOOK.spinColor, transparent: true, opacity: LOOK.guideOpacity });
     const axis = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 0, 1)]);
+    const lAxis = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0.6)]);
     const circle = new THREE.BufferGeometry().setFromPoints(
       Array.from({ length: 129 }, (_, i) => {
         const a = (2 * Math.PI * i) / 128;
         return new THREE.Vector3(Math.cos(a), Math.sin(a), 0);
       }),
     );
-    this.guides.add(new THREE.Line(axis, line), new THREE.Line(circle, line));
+    this.orbitGuide.add(new THREE.Line(circle, line), new THREE.Line(lAxis, lLine));
+    this.guides.add(new THREE.Line(axis, line), this.orbitGuide);
     this.scene.add(this.guides);
+
+    // Spin arrows, drawn over everything (they start at the horizon).
+    this.spinArrows = [0, 1, 2].map(() => {
+      const arrow = new THREE.ArrowHelper(Z_UP, new THREE.Vector3(), 1, LOOK.spinColor);
+      for (const m of [arrow.line.material, arrow.cone.material] as THREE.Material[]) {
+        m.depthTest = false;
+        m.transparent = true;
+      }
+      arrow.renderOrder = 10;
+      arrow.line.renderOrder = 10;
+      arrow.cone.renderOrder = 10;
+      this.scene.add(arrow);
+      return arrow;
+    });
 
     this.camera.up.copy(Z_UP); // OrbitControls orbits around camera.up, fixed at construction
     this.controls = new OrbitControls(this.camera, canvas);
@@ -336,6 +362,7 @@ export class SpacetimeScene {
       u.u_dt.value = w.dt;
       u.u_lm.value = lm;
     }
+    this.volume.material.uniforms.u_volumeRows.value = w.volumeRows;
     this.peak = w.peak;
   }
 
@@ -499,21 +526,49 @@ export class SpacetimeScene {
     mu.u_halfWidth.value = flat.halfWidth;
     this.guides.visible = blend > 0;
     this.guides.scale.setScalar(VOLUME_EXTENT * this.extent);
+    const lhat = new THREE.Vector3(...scene.orbitalAxis);
+    if (lhat.lengthSq() > 0) this.orbitGuide.quaternion.setFromUnitVectors(Z_UP, lhat.normalize());
 
-    // Black holes and probe, at least a few pixels across.
+    // Black holes: when too small to see, all are magnified by one common factor
+    // (the largest visible one at least LOOK.holeMinPx), so their relative sizes
+    // stay true; the smallest is kept at least LOOK.holeFloorPx.
     const pxWorld = (p: THREE.Vector3) =>
       (2 * this.camera.position.distanceTo(p) * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2)) / Math.max(h, 1);
     const d = scene.disks;
+    const at = (k: number) => new THREE.Vector3(d[5 * k], d[5 * k + 1], d[5 * k + 2]);
+    let magnify = 1;
+    let biggest = -1;
+    for (let k = 0; k < 3; k++) {
+      if (d[5 * k + 4] > 0.001 && (biggest < 0 || d[5 * k + 3] > d[5 * biggest + 3])) biggest = k;
+    }
+    if (biggest >= 0) magnify = Math.max(1, (LOOK.holeMinPx * pxWorld(at(biggest))) / d[5 * biggest + 3]);
     this.holes.forEach((ball, k) => {
-      const p = new THREE.Vector3(d[4 * k], d[4 * k + 1], 0);
-      const radius = Math.max(d[4 * k + 2], LOOK.holeMinPx * pxWorld(p));
-      const opacity = d[4 * k + 3];
-      ball.set([p.x, p.y, 0], radius, opacity);
+      const p = at(k);
+      const radius = Math.max(d[5 * k + 3] * magnify, LOOK.holeFloorPx * pxWorld(p));
+      const opacity = d[5 * k + 4];
+      ball.set([p.x, p.y, p.z], radius, opacity);
       const sprite = this.halos[k];
       sprite.visible = opacity > 0.001;
-      sprite.position.copy(p);
+      // In front of its own horizon (the halo is zero inside it), so the slice
+      // through the hole doesn't hide it but a nearer hole does.
+      sprite.position.copy(p).addScaledVector(this.camera.position.clone().sub(p).normalize(), 1.02 * radius);
       sprite.scale.setScalar(2 * HALO_SCALE * radius);
       (sprite.material as THREE.SpriteMaterial).opacity = LOOK.haloStrength * opacity;
+
+      // Spin arrow from the horizon outward, length ∝ |χ| (at least a few pixels).
+      const arrow = this.spinArrows[k];
+      const chi = new THREE.Vector3(scene.spins[3 * k], scene.spins[3 * k + 1], scene.spins[3 * k + 2]);
+      const mag = chi.length();
+      arrow.visible = opacity > 0.01 && mag > 0.01;
+      if (arrow.visible) {
+        const dir = chi.divideScalar(mag);
+        const len = mag * Math.max(LOOK.spinLength * d[5 * k + 3], LOOK.spinMinPx * pxWorld(p));
+        arrow.position.copy(p).addScaledVector(dir, radius);
+        arrow.setDirection(dir);
+        arrow.setLength(len, 0.35 * len, 0.2 * len);
+        (arrow.line.material as THREE.LineBasicMaterial).opacity = opacity;
+        (arrow.cone.material as THREE.MeshBasicMaterial).opacity = opacity;
+      }
     });
     const pp = new THREE.Vector3(...probe);
     this.probeMarker.position.copy(pp);

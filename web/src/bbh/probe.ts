@@ -46,7 +46,7 @@ export class Probe {
   }
 
   private ensureSeries(w: PreparedWaveform): Float64Array {
-    this.series ??= w.table.strainSeries(this.theta, this.phi);
+    this.series ??= w.table.strainSeries(this.point.x, this.point.y, this.point.z);
     return this.series;
   }
 
