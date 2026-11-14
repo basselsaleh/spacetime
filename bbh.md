@@ -72,7 +72,7 @@ Don't solve Einstein's equations in the browser. Play back and evaluate the resu
   - play/pause, scrubber, speed and gain
   - loop (on by default). Playback ends once the merger burst leaves the visible area.
 - **Display conventions** (labelled in the app): the colour is r·h ÷ peak (2,2) value in the orbital plane × gain, on a tanh-saturating diverging scale. The near zone, where the far-zone formula is invalid, is faded out inside a faint ring.
-- **URL options:** `?q=&chi1=&chi2=`, `?t=`, `?zoom=`, `?tilt=` (degrees), `?3d`, `?paused`, `?selftest`, `?volbench` (GPU timing of the volume; needs real time, see Gotchas). Tuning: `?vdensity=` (default 0.035), `?vsharp=` (default 8).
+- **URL options** (the app is at `/bbh/`): `?q=&chi1=&chi2=`, `?t=`, `?zoom=`, `?tilt=` (degrees), `?3d`, `?paused`, `?selftest`, `?volbench` (GPU timing of the volume; needs real time, see Gotchas). Tuning: `?vdensity=` (default 0.035), `?vsharp=` (default 8).
 
 ## Physics layers
 
@@ -156,14 +156,17 @@ crates/physics/tests/
   strain.rs            harmonics vs LAL, h× = 0 in the plane, table vs exact sum, θ table, probe series
   binary.rs            remnant vs surfinBH, wave/orbit retarded lag, heavier-hole angle vs LAL PN
 crates/wasm/src/lib.rs WaveformModel, WaveformData, ModeTableData, BinaryTrack bindings
-web/src/
+web/bbh/index.html  The app's page (the site is multi-page; web/index.html is the landing page)
+web/src/common/     Shared with other apps: rays.ts (rayMatrix), reducedPass.ts (adaptive reduced-resolution
+                    full-screen pass + composite), theme.css
+web/src/bbh/
   main.ts           Wiring: load model, scene, view panel, playback loop, URL handling
   scene3d.ts        three.js scene: slice plane, volume pass, spheres (solid + ghost pass), guides,
                     camera poses, flat ⇄ 3D dolly zoom, ray-cast picking, raw render for the self-test
   shaders/strain.glsl  Shared GLSL: mode table, mode sum (`strain`, `strainRows`), colour map, angles
   shaders/slice.*   Slice shader (near-zone ring, exact pixel mapping) on plane meshes
   shaders/volume.frag  Volume ray march (front-to-back, premultiplied alpha)
-  volume.ts         Volume pass: reduced-resolution target, adaptive scale, composite, raw self-test path
+  volume.ts         Volume shader uniforms and camera, on common/reducedPass.ts; raw self-test path
   slice.ts          Slice geometry: tilt/azimuth axes, slice ⇄ 3D ⇄ pixel conversions, shared types
   waveform.ts       Evaluate + pack a waveform for the views; near-zone radius; URL params
   probe.ts          Test-particle ring and chirp plot (Canvas 2D)
@@ -206,9 +209,9 @@ cd web && npm run build                     # wasm + typecheck + bundle into web
 cd web && npx vite preview --port 4173 &
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 "$CHROME" --headless=new --use-angle=metal --enable-gpu --ignore-gpu-blocklist \
-  --virtual-time-budget=8000 --dump-dom "http://localhost:4173/?selftest" | grep -o "<title>[^<]*</title>"
+  --virtual-time-budget=8000 --dump-dom "http://localhost:4173/bbh/?selftest" | grep -o "<title>[^<]*</title>"
 "$CHROME" --headless=new --use-angle=metal --enable-gpu --ignore-gpu-blocklist --window-size=1440,900 \
-  --virtual-time-budget=12000 --screenshot=out.png "http://localhost:4173/?paused&t=-400&3d"
+  --virtual-time-budget=12000 --screenshot=out.png "http://localhost:4173/bbh/?paused&t=-400&3d"
 ```
 
 - The self-test must pass (tolerance 2e-3 of peak; currently 4.4e-4 on Metal).
