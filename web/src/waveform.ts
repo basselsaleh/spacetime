@@ -1,7 +1,7 @@
 // Evaluates the surrogate for one binary and prepares everything the views
 // need: the packed mode table, harmonic table, orbits and timing info.
 
-import { WaveformModel, type BinaryTrack, type ModeTableData } from "./wasm/spacetime_wasm.js";
+import { WaveformModel, type BinaryTrack, type ModeTableData, type TendexField } from "./wasm/spacetime_wasm.js";
 
 export interface BinaryParams {
   q: number;
@@ -20,6 +20,8 @@ export interface PreparedWaveform {
   thetaSamples: number;
   /** Black-hole discs over time and remnant properties. */
   binary: BinaryTrack;
+  /** Quadrupole field for tendex/vortex lines (owned and freed by the scene). */
+  tendex: TendexField;
   /** Colour-scale unit: peak r·|h₊| in the plane from the (2,2) mode. */
   peak: number;
   /** ω₂₂(t) at each sample, for the near-zone radius. */
@@ -60,6 +62,7 @@ export function prepare(model: WaveformModel, params: BinaryParams): PreparedWav
     harmonics: table.harmonicTable(THETA_SAMPLES),
     thetaSamples: THETA_SAMPLES,
     binary,
+    tendex: wf.tendex(),
     peak: wf.equatorialPeak22(),
     omega22: Float64Array.from(wf.omega22()),
     t0: table.t0,

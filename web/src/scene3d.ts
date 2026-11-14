@@ -1,18 +1,20 @@
-// The 3D scene: strain slices as planes, black holes and the probe as spheres,
-// and one perspective camera that serves both the flat view and the 3D view.
+// The 3D scene: the strain slice as a plane, tendex/vortex lines, black holes
+// and the probe as spheres, and one perspective camera that serves both the
+// flat view and the 3D view.
 //
-// Flat view: the camera looks straight at the slice with a 1° field of view
-// from far away, which is indistinguishable from an orthographic view, so the
-// picture matches the 2D app. 3D view: a 40° orbit camera with +z (the orbital
-// axis) up. Switching between them is a dolly zoom: the field of view and the
-// camera's orientation are interpolated while the distance is chosen to keep
-// the slice framed.
+// Flat view: the strain on a slice. The camera looks straight at it with a 1°
+// field of view from far away, which is indistinguishable from an orthographic
+// view, so the picture matches the 2D app. 3D view: tendex and vortex lines,
+// with a 40° orbit camera and +z (the orbital axis) up. Switching is a dolly
+// zoom (the field of view and the camera's orientation are interpolated while
+// the distance keeps the slice framed) with the slice cross-fading into the lines.
 
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import sliceVertex from "./shaders/slice.vert?raw";
 import sliceFragment from "./shaders/slice.frag?raw";
 import { sliceAxes, sliceTo3D, type Camera, type SceneState, type SliceConfig, type Vec3 } from "./slice";
+import { TendexLines } from "./tendex";
 import type { PreparedWaveform } from "./waveform";
 
 export type ViewMode = "flat" | "3d";
@@ -24,6 +26,7 @@ const ORBIT_ELEVATION = (55 * Math.PI) / 180; // camera angle from the slice nor
 const TRANSITION_MS = 1600;
 const BACKGROUND = 0x090a0e;
 const Z_UP = new THREE.Vector3(0, 0, 1);
+const LINES_EXTENT = 0.6; // tendex/vortex lines fill this fraction of the framed region
 
 /** A camera pose: orientation, the point looked at, and the half-height framed there. */
 interface Pose {
@@ -149,9 +152,9 @@ export class SpacetimeScene {
   private readonly scene = new THREE.Scene();
   private readonly controls: OrbitControls;
   private readonly mainPlane: THREE.Mesh;
-  private readonly orbitalPlane: THREE.Mesh;
   private readonly mainMaterial: THREE.RawShaderMaterial;
-  private readonly orbitalMaterial: THREE.RawShaderMaterial;
+  /** Tendex and vortex lines (3D view). */
+  readonly lines = new TendexLines();
   private readonly holes: Ball[];
   private readonly probeBall: Ball;
   private readonly guides = new THREE.Group();
@@ -160,34 +163,22 @@ export class SpacetimeScene {
   private extent = 600; // half-size of the slice planes, M
   private transition: { from: Pose; to: ViewMode; start: number } | null = null;
   mode: ViewMode = "flat";
-  /** In 3D, also draw the orbital plane (translucent) when the main slice is tilted. */
-  showOrbitalPlane = true;
 
   constructor(readonly canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     this.renderer.setClearColor(BACKGROUND);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 
-    const geometry = new THREE.PlaneGeometry(2, 2);
-    const material = (opacity: number) =>
-      new THREE.RawShaderMaterial({
-        glslVersion: THREE.GLSL3,
-        vertexShader: sliceVertex,
-        fragmentShader: sliceFragment,
-        uniforms: { ...sliceUniforms(), u_opacity: { value: opacity } },
-        side: THREE.DoubleSide,
-        transparent: opacity < 1,
-        depthWrite: opacity >= 1,
-      });
-    this.mainMaterial = material(1);
-    this.orbitalMaterial = material(0.4);
-    this.mainPlane = new THREE.Mesh(geometry, this.mainMaterial);
-    this.orbitalPlane = new THREE.Mesh(geometry, this.orbitalMaterial);
-    for (const m of [this.mainPlane, this.orbitalPlane]) {
-      m.matrixAutoUpdate = false;
-      this.scene.add(m);
-    }
-    this.orbitalPlane.renderOrder = 1;
+    this.mainMaterial = new THREE.RawShaderMaterial({
+      glslVersion: THREE.GLSL3,
+      vertexShader: sliceVertex,
+      fragmentShader: sliceFragment,
+      uniforms: sliceUniforms(),
+      side: THREE.DoubleSide,
+    });
+    this.mainPlane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.mainMaterial);
+    this.mainPlane.matrixAutoUpdate = false;
+    this.scene.add(this.mainPlane, this.lines.group);
 
     const sphere = new THREE.SphereGeometry(1, 48, 24);
     const white = new THREE.Color(0.92, 0.94, 1.0);
@@ -223,8 +214,9 @@ export class SpacetimeScene {
     this.textures = [table, harmonics];
     const lm = new Int32Array(2 * MAX_ROWS);
     lm.set(w.rows);
-    for (const mat of [this.mainMaterial, this.orbitalMaterial]) {
-      const u = mat.uniforms;
+    this.lines.setField(w.tendex);
+    {
+      const u = this.mainMaterial.uniforms;
       u.u_table.value = table;
       u.u_harmonics.value = harmonics;
       u.u_width.value = w.table.width;
@@ -307,9 +299,9 @@ export class SpacetimeScene {
     if (dir.z < 0) dir.z = -dir.z; // stay above the orbital plane
     return {
       quaternion: lookQuaternion(dir.normalize(), Z_UP),
-      // Centred on the source, framing the whole slice so it reads as a plane in space.
+      // Centred on the source, framing the region filled by the field lines.
       target: new THREE.Vector3(0, 0, 0),
-      halfHeight: this.extent * 1.35,
+      halfHeight: LINES_EXTENT * this.extent * 1.25,
       fov: ORBIT_FOV,
     };
   }
@@ -335,7 +327,8 @@ export class SpacetimeScene {
     if (size.x !== w || size.y !== h) this.renderer.setSize(w, h, false);
     this.camera.aspect = w / Math.max(h, 1);
 
-    // Camera.
+    // Camera, and how far the view is from flat (0, slice) to 3D (1, lines).
+    let blend = this.mode === "3d" ? 1 : 0;
     if (this.transition) {
       // Same clock as `start`; requestAnimationFrame timestamps can lag it.
       const u = Math.min(Math.max((performance.now() - this.transition.start) / TRANSITION_MS, 0), 1);
@@ -350,6 +343,7 @@ export class SpacetimeScene {
         halfHeight: from.halfHeight + (to.halfHeight - from.halfHeight) * e,
         fov,
       });
+      blend = this.transition.to === "3d" ? e : 1 - e;
       if (u >= 1) {
         this.transition = null;
         if (this.mode === "3d") {
@@ -369,17 +363,14 @@ export class SpacetimeScene {
       this.camera.updateProjectionMatrix();
     }
 
-    // Slices.
-    const tilted = Math.abs(slice.tilt) > 1e-3;
+    // The slice (flat view), fading out towards 3D.
     placePlane(this.mainPlane, slice, this.extent);
-    placePlane(this.orbitalPlane, { tilt: 0, azimuth: 0, component: slice.component }, this.extent);
-    const show3d = this.mode === "3d" || this.transition !== null;
-    this.orbitalPlane.visible = show3d && tilted && this.showOrbitalPlane;
-    for (const [mat, s] of [
-      [this.mainMaterial, slice],
-      [this.orbitalMaterial, { ...slice, tilt: 0, azimuth: 0 }],
-    ] as const) {
-      const axes = sliceAxes(s);
+    this.mainPlane.visible = blend < 0.999;
+    const mat = this.mainMaterial;
+    mat.transparent = blend > 0;
+    mat.depthWrite = blend === 0;
+    {
+      const axes = sliceAxes(slice);
       const u = mat.uniforms;
       (u.u_axisU.value as THREE.Vector3).set(...axes.u);
       (u.u_axisV.value as THREE.Vector3).set(...axes.v);
@@ -388,7 +379,11 @@ export class SpacetimeScene {
       u.u_scale.value = scene.gain / this.peak;
       u.u_maskRadius.value = scene.maskRadius;
       u.u_raw.value = false;
+      u.u_opacity.value = 1 - blend;
     }
+    // Tendex/vortex lines (3D view), fading in.
+    const resolution = this.renderer.getSize(new THREE.Vector2());
+    this.lines.update(scene.time, scene.maskRadius, LINES_EXTENT * this.extent, scene.gain, resolution, blend);
     // Exact pixel-to-slice mapping while the camera looks straight at the main slice.
     const flatNow = this.mode === "flat" && !this.transition;
     const mu = this.mainMaterial.uniforms;
@@ -396,8 +391,8 @@ export class SpacetimeScene {
     this.renderer.getDrawingBufferSize(mu.u_resolution.value as THREE.Vector2);
     (mu.u_center.value as THREE.Vector2).set(flat.centerX, flat.centerY);
     mu.u_halfWidth.value = flat.halfWidth;
-    this.guides.visible = show3d;
-    this.guides.scale.setScalar(this.extent);
+    this.guides.visible = blend > 0;
+    this.guides.scale.setScalar(LINES_EXTENT * this.extent);
 
     // Black holes and probe, at least a few pixels across.
     const pxWorld = (p: THREE.Vector3) =>
@@ -413,15 +408,14 @@ export class SpacetimeScene {
     this.renderer.render(this.scene, this.camera);
   }
 
-  /** The 3D point on a visible slice under a canvas pixel (CSS px), or null. */
+  /** The 3D point on the slice under a canvas pixel (CSS px), in the flat view; otherwise null. */
   pick(px: number, py: number): Vec3 | null {
+    if (this.mode !== "flat" || this.transition) return null;
     const ndc = new THREE.Vector2((px / this.canvas.clientWidth) * 2 - 1, 1 - (py / this.canvas.clientHeight) * 2);
     const ray = new THREE.Raycaster();
     ray.setFromCamera(ndc, this.camera);
     this.mainPlane.updateMatrixWorld(true);
-    this.orbitalPlane.updateMatrixWorld(true);
-    const targets = [this.mainPlane, ...(this.orbitalPlane.visible ? [this.orbitalPlane] : [])];
-    const hit = ray.intersectObjects(targets, false)[0];
+    const hit = ray.intersectObject(this.mainPlane, false)[0];
     return hit ? [hit.point.x, hit.point.y, hit.point.z] : null;
   }
 

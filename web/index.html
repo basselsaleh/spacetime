@@ -12,7 +12,7 @@
         <canvas id="view"></canvas>
         <div id="view-panel" class="panel">
           <div id="view-title">Top view · orbital plane</div>
-          <div class="view-row">
+          <div class="view-row flat-only">
             <div class="toggle" role="group" aria-label="Polarisation">
               <button type="button" data-component="plus" aria-pressed="true">h₊</button>
               <button type="button" data-component="cross" aria-pressed="false">h×</button>
@@ -20,10 +20,14 @@
             <button id="swap" type="button">⇄ Side view</button>
           </div>
           <button id="mode" type="button" class="wide">3D view</button>
-          <label class="check" hidden><input id="orbital-plane" type="checkbox" /> Also show the orbital plane</label>
-          <label class="tilt">Tilt <input id="tilt" type="range" min="0" max="90" step="1" value="0" /><span id="tilt-value">0°</span></label>
+          <div id="line-controls" class="lines three-d-only" role="group" aria-label="Field lines">
+            <label class="check"><input id="show-stretch" type="checkbox" /><span class="chip stretch"></span>Stretching (tendex)</label>
+            <label class="check"><input id="show-squeeze" type="checkbox" /><span class="chip squeeze"></span>Squeezing (tendex)</label>
+            <label class="check"><input id="show-vortex" type="checkbox" /><span class="chip vortex"></span>Twisting (vortex)</label>
+          </div>
+          <label class="tilt flat-only">Tilt <input id="tilt" type="range" min="0" max="90" step="1" value="0" /><span id="tilt-value">0°</span></label>
           <canvas id="gizmo" aria-label="Orientation of the slice relative to the orbit"></canvas>
-          <div id="legend">
+          <div id="legend" class="flat-only">
             <span>h &lt; 0</span><div class="ramp"></div><span>h &gt; 0</span>
           </div>
           <p id="view-caption" hidden>
@@ -99,8 +103,19 @@
               probe (the warm sphere).
             </p>
             <p>
-              The 3D view shows the same slices placed in space, with the orbital axis and the
-              outline of the orbital plane; drag to orbit, scroll to zoom, double-click to reset.
+              The 3D view shows tendex and vortex lines: field lines of the tidal tensor (how
+              space stretches and squeezes nearby objects) and of the frame-drag tensor (how it
+              twists them). Red lines stretch along their length and blue lines squeeze; green
+              and violet lines twist in opposite senses. Close to the source the tidal lines are
+              those of a single mass; further out they bend into spirals and become the outgoing
+              wave, lying across its direction of travel. Brightness is the strength (times r,
+              like the strain colours), on a logarithmic scale.
+            </p>
+            <p>
+              The field is linearised gravity of the binary's mass quadrupole, taken from the
+              (2,2) mode, so it is exact far away and approximate close in. Lines stop at the
+              near zone, where this description fails. Drag to orbit, scroll to zoom,
+              double-click to reset.
             </p>
           </details>
           <div id="status">Loading…</div>

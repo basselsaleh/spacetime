@@ -46,7 +46,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    // Optional ?t=, ?zoom=, ?tilt=<degrees>, ?3d, ?paused, for sharing a moment.
+    // Optional ?t=, ?zoom=, ?tilt=<degrees>, ?3d, ?lines=, ?paused, for sharing a moment.
     const scene: SceneState = {
       time: url.has("t") ? Number(url.get("t")) : LOOP_START,
       gain: 1.5,
@@ -137,7 +137,8 @@ async function main(): Promise<void> {
       if (now - fpsSince > 1000) {
         status.textContent =
           `physics v${physics_version()} · ${((fpsFrames * 1000) / (now - fpsSince)).toFixed(0)} fps · ` +
-          `${view.renderer.domElement.width}×${view.renderer.domElement.height}`;
+          `${view.renderer.domElement.width}×${view.renderer.domElement.height}` +
+          (view.mode === "3d" ? ` · lines ${view.lines.lastMs.toFixed(1)} ms` : "");
         fpsFrames = 0;
         fpsSince = now;
       }
@@ -187,9 +188,21 @@ function setupViewPanel(slice: SliceConfig, view: SpacetimeScene, flat: Camera) 
   });
   const modeBtn = $<HTMLButtonElement>("mode");
   modeBtn.addEventListener("click", () => view.setMode(view.mode === "flat" ? "3d" : "flat", flat));
-  const orbital = $<HTMLInputElement>("orbital-plane");
-  orbital.checked = view.showOrbitalPlane;
-  orbital.addEventListener("change", () => (view.showOrbitalPlane = orbital.checked));
+  // Line families shown in 3D: stretching tendex lines by default, or ?lines=stretch,squeeze,vortex.
+  const linesParam = new URLSearchParams(window.location.search).get("lines");
+  if (linesParam !== null) {
+    const want = new Set(linesParam.split(","));
+    for (const kind of ["stretch", "squeeze", "vortex"] as const) view.lines.enabled[kind] = want.has(kind);
+  }
+  for (const [id, kind] of [
+    ["show-stretch", "stretch"],
+    ["show-squeeze", "squeeze"],
+    ["show-vortex", "vortex"],
+  ] as const) {
+    const box = $<HTMLInputElement>(id);
+    box.checked = view.lines.enabled[kind];
+    box.addEventListener("change", () => (view.lines.enabled[kind] = box.checked));
+  }
 
   return {
     update(now: number) {
@@ -202,15 +215,19 @@ function setupViewPanel(slice: SliceConfig, view: SpacetimeScene, flat: Camera) 
       const deg = Math.round((slice.tilt * 180) / Math.PI);
       tiltInput.value = String(deg);
       tiltLabel.textContent = `${deg}°`;
-      title.textContent =
-        deg === 0 ? "Top view · orbital plane" : deg === 90 ? "Side view · x–z plane, orbital axis up" : `Tilted slice · ${deg}° from the orbital plane`;
+      const is3d = view.mode === "3d";
+      title.textContent = is3d
+        ? "3D · tendex and vortex lines"
+        : deg === 0
+          ? "Top view · orbital plane"
+          : deg === 90
+            ? "Side view · x–z plane, orbital axis up"
+            : `Tilted slice · ${deg}° from the orbital plane`;
       swap.textContent = deg < 45 ? "⇄ Side view" : "⇄ Top view";
       for (const b of buttons) b.setAttribute("aria-pressed", String(b.dataset.component === slice.component));
-      caption.hidden = !(deg === 0 && slice.component === "cross");
-      const is3d = view.mode === "3d";
+      caption.hidden = is3d || !(deg === 0 && slice.component === "cross");
       modeBtn.textContent = is3d ? "Flat view" : "3D view";
       document.body.classList.toggle("mode-3d", is3d);
-      orbital.parentElement!.hidden = !is3d || deg === 0;
     },
   };
 }

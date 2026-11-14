@@ -140,6 +140,48 @@ def stf_matrix(c) -> np.ndarray:
     return np.array([[xx, xy, xz], [xy, yy, yz], [xz, yz, -xx - yy]])
 
 
+# ---------------------------------------------------------------- closed form
+#
+# By rotational covariance E and B are built from n = x/r and each STF
+# derivative Q = I^(k) (Qn = Q n, Qnn = n Q n) with radial coefficients, which
+# sympy extracts from the field on the z axis. With s = r^-(5-k):
+#
+#   E_ij = M/r^3 (d_ij - 3 n_i n_j)
+#        + sum_k s [a Q_ij + b (n_i Qn_j + Qn_i n_j) + c d_ij Qnn + d n_i n_j Qnn]
+#   B_ij = sum_k s [e sym(eps_ipq n_p Q_qj) + f sym(eps_ipq n_p Qn_q n_j)]
+#
+# with sym(X)_ij = (X_ij + X_ji)/2. The k = 4 row is the transverse-traceless
+# projection: far away E = -(1/r) (d^4 I/dt^4)^TT. crates/physics/src/tendex.rs
+# implements this; `_check` verifies it against the symbolic field.
+
+E_COEF = ((-3, 15, 7.5, -52.5), (-3, 15, 7.5, -52.5), (-3, 9, 1.5, -22.5), (-2, 4, -1, -5), (-1, 1, -0.5, -0.5))
+B_COEF = ((0, 0), (-3, 15), (-3, 15), (-2, 6), (-1, 1))
+_EPS = np.zeros((3, 3, 3))
+_EPS[0, 1, 2] = _EPS[1, 2, 0] = _EPS[2, 0, 1] = 1
+_EPS[0, 2, 1] = _EPS[2, 1, 0] = _EPS[1, 0, 2] = -1
+
+
+def closed_form(p, M, ider):
+    """E and B at one point from the closed form above (ider: (5, NDER))."""
+    p = np.asarray(p, float)
+    r = np.linalg.norm(p)
+    n = p / r
+    E = M / r**3 * (np.eye(3) - 3 * np.outer(n, n))
+    B = np.zeros((3, 3))
+    for k in range(NDER):
+        Q = stf_matrix(ider[:, k])
+        Qn = Q @ n
+        Qnn = n @ Qn
+        s = r ** -(5 - k)
+        a, b, c, d = E_COEF[k]
+        E += s * (a * Q + b * (np.outer(n, Qn) + np.outer(Qn, n)) + c * Qnn * np.eye(3) + d * Qnn * np.outer(n, n))
+        e, f = B_COEF[k]
+        X1 = np.einsum("ipq,p,qj->ij", _EPS, n, Q)
+        X2 = np.outer(np.einsum("ipq,p,q->i", _EPS, n, Qn), n)
+        B += s * (e * (X1 + X1.T) / 2 + f * (X2 + X2.T) / 2)
+    return E, B
+
+
 # ---------------------------------------------------------------- checks
 
 
@@ -193,6 +235,16 @@ def _check() -> None:
             errB = max(errB, np.abs(B[k] - bexp).max() / np.abs(bexp).max())
         print(f"far zone r = {R:.0e}: r·E vs -I''''^TT {errE:.1e}   B vs n×E {errB:.1e}")
     assert errE < 1e-3 and errB < 1e-3
+    worst = 0.0
+    for _ in range(30):
+        p = rng.normal(size=3) * rng.uniform(1, 50)
+        d = rng.normal(size=(5, NDER))
+        m = rng.uniform(0, 2)
+        Ec, Bc = closed_form(p, m, d)
+        E0, B0 = tidal(p, m, d), frame_drag(p, m, d)
+        worst = max(worst, np.abs(Ec - E0).max() / np.abs(E0).max(), np.abs(Bc - B0).max() / np.abs(B0).max())
+    print(f"closed form vs symbolic: {worst:.1e}")
+    assert worst < 1e-12
     print("all checks passed")
 
 

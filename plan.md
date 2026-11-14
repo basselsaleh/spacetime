@@ -9,10 +9,11 @@ Nov 12, 2026 · @Bassel · last revised Nov 14, 2026 (handoff edition: written s
 - Phase 1 (2D wave-zone app) is merged into `main` (PR #1).
 - Phase 3 stage 1 (3D scene) is built and committed on `step-5-3d-scene`, branched from `main`. It is **not pushed** and has no PR yet.
 - Phase 3 stage 1b (strain on spherical shells) was built and then **dropped** (see the decision log). The work is kept, unmerged, on `step-5b-shells`.
-- **Phase 3 stage 2 (tendex and vortex lines)** is in progress on `step-6-tendex`, branched from `step-5-3d-scene`. The offline Python prototype is done (see "Next step" below); the next task is the Rust/wasm implementation. Until the lines are in the app, the 3D view stays as in stage 1 (the slice placed in space).
+- **Phase 3 stage 2 (tendex and vortex lines)** is built in the app on `step-6-tendex`, branched from `step-5-3d-scene` (not pushed): the 3D view now shows the lines instead of the slice. Awaiting the user's interactive review; the look is a first version (see "Next step" below).
 
 **Not yet verified by a person**
 
+- The tendex/vortex lines in motion: readability while playing and orbiting, and whether the lines flicker near degeneracies. Only headless still frames so far. Headless Chrome sometimes screenshots before the flat → 3D switch has rendered (about 1 in 3 runs); retake rather than debug.
 - Orbiting and zooming in the 3D view, and the flat ⇄ 3D dolly-zoom animation. These were only checked as headless still frames. The top ⇄ side swap animation was checked by the user.
 - Frame rate on real hardware, and the phone layout. The user chose to skip both checks for now.
 
@@ -59,12 +60,10 @@ Don't solve Einstein's equations in the browser. Play back and evaluate the resu
 - **One main view.** A strain slice through the source: the orbital plane seen from above (tilt 0°), a side view through the orbital axis (90°), or any tilt in between.
   - "⇄" animates the tilt; a slider sets it directly.
   - h₊/h× toggle. Choosing h× in the orbital plane shows a blank field with a caption explaining the mirror symmetry.
-- **Flat ⇄ 3D.** The flat view looks straight at the slice and matches the old 2D app. The 3D view is an orbit camera showing the slice as a sheet in space, with:
-  - an optional translucent orbital plane
-  - the orbital axis
-  - the outline of the orbital plane
+- **Flat ⇄ 3D.** The flat view looks straight at the slice and matches the old 2D app. The 3D view is an orbit camera showing tendex and vortex lines (no slice), with the orbital axis and the outline of the orbital plane; the dolly zoom cross-fades the slice into the lines. Tilt, the top ⇄ side swap and h₊/h× are flat-view controls.
+- **Tendex/vortex lines (3D):** stretching tendex lines (red) by default; toggles for squeezing tendex lines (blue) and vortex lines (green/violet, the two twist senses). Brightness is log-scaled r·|eigenvalue| relative to the peak far-zone value, times the gain. Lines stop at the near-zone radius.
 - **Black holes and the remnant** are horizon-sized spheres: solid where visible, a faint outline where hidden behind a slice. The remnant drifts with its recoil kick.
-- **Probe** (warm sphere): click a slice to place it. The side column shows:
+- **Probe** (warm sphere): click the slice (flat view) to place it. The side column shows:
   - a ring of free test particles deforming in the + and × patterns
   - h₊ and h× at the probe
   - a chirp plot of the signal received there, with a playhead
@@ -73,7 +72,7 @@ Don't solve Einstein's equations in the browser. Play back and evaluate the resu
   - play/pause, scrubber, speed and gain
   - loop (on by default). Playback ends once the merger burst leaves the visible area.
 - **Display conventions** (labelled in the app): the colour is r·h ÷ peak (2,2) value in the orbital plane × gain, on a tanh-saturating diverging scale. The near zone, where the far-zone formula is invalid, is faded out inside a faint ring.
-- **URL options:** `?q=&chi1=&chi2=`, `?t=`, `?zoom=`, `?tilt=` (degrees), `?3d`, `?paused`, `?selftest`.
+- **URL options:** `?q=&chi1=&chi2=`, `?t=`, `?zoom=`, `?tilt=` (degrees), `?3d`, `?lines=stretch,squeeze,vortex`, `?paused`, `?selftest`.
 
 ## Physics layers
 
@@ -155,11 +154,14 @@ crates/physics/src/
                     per-direction strain series for the probe
   binary.rs         Black-hole positions, horizon radii, merger cross-fade, kick
   newtonian.rs      Newtonian placeholder relations (step 0 leftovers)
+  tendex.rs         Tidal/frame-drag tensors (closed form), quadrupole from h22, 3×3 eigensolver,
+                    seeds, RK4 field-line tracer with adaptive steps near degeneracies
 crates/physics/tests/
   surrogate_golden.rs  modes vs gwsurrogate (tolerance 1e-6 of peak; observed 1.8e-7)
   strain.rs            harmonics vs LAL, h× = 0 in the plane, table vs exact sum, θ table, probe series
   binary.rs            remnant vs surfinBH, wave/orbit retarded lag, heavier-hole angle vs LAL PN
-crates/wasm/src/lib.rs WaveformModel, WaveformData, ModeTableData, BinaryTrack bindings
+  tendex.rs            E/B vs sympy golden, limits, quadrupole far field vs (2,2) mode sum, tracer
+crates/wasm/src/lib.rs WaveformModel, WaveformData, ModeTableData, BinaryTrack, TendexField bindings
 web/src/
   main.ts           Wiring: load model, scene, view panel, playback loop, URL handling
   scene3d.ts        three.js scene: slice planes, spheres (solid + ghost pass), guides, camera
@@ -167,6 +169,7 @@ web/src/
   shaders/slice.*   Strain shader (mode sum, colour map, near-zone ring) on plane meshes
   slice.ts          Slice geometry: tilt/azimuth axes, slice ⇄ 3D ⇄ pixel conversions, shared types
   waveform.ts       Evaluate + pack a waveform for the views; near-zone radius; URL params
+  tendex.ts         Tendex/vortex line families: tracing via wasm, brightness, fat-line buffers
   probe.ts          Test-particle ring and chirp plot (Canvas 2D)
   controls.ts       Playback, flat-view pan/zoom/click, parameter sliders
   gizmo.ts          Orientation sketch shown in the flat view
@@ -177,6 +180,7 @@ tools/              uv project: export_surrogate.py, gen_golden.py, gen_remnant_
   tendex_field.py       Stage 2 prototype: E and B of monopole + mass quadrupole, derived with sympy; checks
   tendex_quadrupole.py  I_ij from the (2,2) mode (mode ⇄ STF map, three methods compared)
   tendex_proto.py       Field-line tracing and figures (orbital plane, 3D, animation)
+  gen_tendex_golden.py  E/B golden data for the Rust tests (tests/golden/tendex_fields.json)
 tests/golden/       Golden data used by the Rust tests (committed)
 ```
 
@@ -270,7 +274,7 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
   - Self-test unchanged from step 4b (worst 4.4e-4).
   - Bundle: 542 KB JavaScript (141 KB gzipped).
 - **Stage 1b: strain on spherical shells.** Built Nov 13, 2026, then dropped (see the decision log). Kept unmerged on `step-5b-shells`. Reusable from it if needed: exact per-pixel ray–sphere intersection in the strain shader, and rays built from the camera basis (`u_rayBasis`) to avoid rasterizer snapping and float32 unprojection error.
-- **Stage 2: tendex and vortex lines as 3D curves.** In progress on `step-6-tendex`: prototype done; see below. These become the 3D view.
+- **Stage 2: tendex and vortex lines as 3D curves.** Built Nov 13, 2026 on `step-6-tendex` (not pushed): prototype, Rust/wasm field and tracer, and the 3D view. Awaiting the user's review; see below.
 - **Stage 3: volume view.** Wavefronts as glowing shells, by ray marching the mode sum. Try WebGL2 at reduced resolution before considering WebGPU.
 
 **Phase 4: near zone (highest risk)**
@@ -305,13 +309,6 @@ The result is invalid within a few M of the holes and during the merger. Fade th
 - Near-zone static limit: E\_ij must match the Newtonian tidal field of the quadrupole.
 - E and B are symmetric and traceless; the eigenvalues sum to 0.
 
-**Rendering plan.**
-
-- Integrate the field lines in Rust/wasm (RK2/RK4 with eigenvector sign continuity), seeded near each hole and on shells.
-- Re-integrate every frame or every few frames; check the cost.
-- Draw them as three.js fat lines (`Line2`/`LineMaterial`) or thin tubes.
-- Toggle in the view panel: colours, lines, or both.
-
 **Prototype (done Nov 13, 2026; `tools/tendex_*.py`).** Run `env -u VIRTUAL_ENV uv run python tendex_proto.py OUTDIR` in `tools/` for `plane.png`, `plane.gif` and `lines3d.png` (q = 3, χ₁ = 0.6, χ₂ = 0.2 by default; about 1.5 minutes).
 
 - **Field.** Metric of a monopole M plus STF mass quadrupole in harmonic gauge: h̄⁰⁰ = 4M/r + 2∂ᵢ∂ⱼ[Iᵢⱼ(u)/r], h̄⁰ⁱ = −2∂ⱼ[İᵢⱼ(u)/r], h̄ⁱʲ = 2Ïᵢⱼ(u)/r, u = t − r. This is an exact linearized vacuum solution (the gauge condition holds identically). E = R₀ᵢ₀ⱼ and B = ½ε R from linearized Riemann, by sympy. E needs I through its 4th derivative.
@@ -320,11 +317,16 @@ The result is invalid within a few M of the holes and during the merger. Fade th
 - **Look.** Orbital plane: radial red (stretching) lines and blue (squeezing) rings around the source, bending into the outgoing red/blue spirals of the wave, which dominate after merger, as expected. 3D: the stretching family reads well (radial lines that bend); the squeezing family wraps around the source on the wavefronts like a ball of yarn; vortex lines are a tangle in a still image. Lines seeded at random and traced long are unreadable in 3D; one family at a time with moderate length is much better.
 - **Not covered.** A monopole + quadrupole expansion can't resolve the field inside the binary, so the "radial lines into each hole" picture needs the near-zone metric of Phase 4. The prototype stops the lines at the near-zone radius; there, the rotating quadrupole's near field is comparable to the monopole's and the lines get irregular.
 
-**Open for the app** (to settle when building it):
+**In the app (built Nov 13, 2026).**
 
-- Readability in 3D: which families to show by default (stretching tendex lines are the clearest), line count and length, depth cues, and seeding that is coherent from frame to frame (re-seeding every frame, as the prototype's 2D lines do, will flicker).
-- E and B in Rust: port the closed form (have sympy emit collected expressions in n̂, r and I⁽ⁿ⁾, or derive by hand and test against `tendex_field.py`).
-- Cost: the prototype's Python takes ~5 s for 160k field evaluations; the wasm budget per frame needs measuring.
+- **Closed form.** By rotational covariance E and B are a few tensor shapes in n̂ and each I⁽ᵏ⁾ with radial coefficients (extracted by sympy along one axis; `tools/tendex_field.py` documents them and checks them against the symbolic field to 1e-14). `crates/physics/src/tendex.rs` implements them.
+- **Quadrupole.** K = −h₂₂/ω₂₂² and its derivatives come from A₂₂ and φ₂₂ with five-point stencils (accurate through merger at the app's 1 M sampling), stored in the co-rotating frame and interpolated (Catmull-Rom, Hermite phase) at each point's own retarded time.
+- **Tests (Rust).** Closed form vs the sympy golden data (1e-12); symmetric and traceless; static limit vs a finite-difference Newtonian Hessian; far zone vs −(I⁗)^TT and n × E; **far-zone E vs −½ ḧ of the (2,2)-only mode sum, within 2e-3** (pins the mode scale α = 2√(π/5), the sign and the derivatives); adiabatic consistency; 1 M vs 0.25 M interpolation through merger (< 1%); eigensolver; traced chords follow the eigenvectors.
+- **Tracer.** RK4 with eigenvector sign continuity; the step halves (down to 1/16) when the stages disagree by more than ~8°, and lines stop where the family's eigenvalue gap falls below 2% (degeneracy). Seeds are fixed in space (R3 low-discrepancy, uniform in radius), so lines evolve smoothly.
+- **Rendering.** `LineSegments2` fat lines with fixed-capacity buffers updated in place, depth-writing, normal blending (additive made the segment joins look beaded). Lines fill 0.6 of the framed extent; the 3D camera frames that region.
+- **Cost (wasm, measured in Node).** About 4 ms per retrace for the default stretching lines (110 seeds, 24 steps each way); about 11 ms with all families. Retraced only when time, gain, the near-zone radius or the toggles change; nothing while paused.
+
+**Open (pending the user's review).** Whether the 3D view reads well in motion; line count, length and brightness mapping; whether to seed some lines in the orbital plane or near the axis for structure; probe placement in 3D (clicking does nothing there now).
 
 **2D caveat** (why this is in 3D). Only lines that lie in a slice can be drawn on it. In the orbital plane, the tendex lines are in-plane or perpendicular by symmetry, but far-zone vortex lines are at 45° to the tendex directions and cross the slice.
 
