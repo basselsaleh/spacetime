@@ -2,7 +2,7 @@
 
 A browser-based, real-time visualization of a binary black hole merger and its
 gravitational waves, faithful to general relativity where it counts. See
-[plan.md](plan.md) for the project plan.
+[plans/](plans/) for the planning documents (the binary black hole app: [plans/bbh.md](plans/bbh.md)).
 
 ## Layout
 
