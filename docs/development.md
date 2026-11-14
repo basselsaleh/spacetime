@@ -92,17 +92,18 @@ The data is CC BY 4.0; the attribution travels inside the `.stsur` file and the 
 
 ### NRSur7dq4 (precessing spins, in progress)
 
-The precessing model that will replace NRHybSur3dq8 is exported to the STSUR002 format, which
+The precessing model that will replace NRHybSur3dq8 (`web/public/nrsur7dq4.stsur`, read by
+`crates/physics/src/nrsur7dq4/`) is exported to the STSUR002 format, which
 `tools/nrsur7dq4_ref.py` documents and evaluates in plain NumPy:
 
 ```sh
 cd tools
 curl -L -o data/NRSur7dq4.h5 https://zenodo.org/records/3348115/files/NRSur7dq4.h5   # 17.5 MB
 curl -L -o data/fit_7dq4.h5 https://zenodo.org/records/3455886/files/remnant_fits/fit_7dq4.h5  # 132 MB
-uv run python export_nrsur7dq4.py data/NRSur7dq4.h5 out/nrsur7dq4.stsur --remnant data/fit_7dq4.h5
-uv run python compare_nrsur7dq4.py data/NRSur7dq4.h5 data/fit_7dq4.h5 out/nrsur7dq4.stsur
+uv run python export_nrsur7dq4.py data/NRSur7dq4.h5 ../web/public/nrsur7dq4.stsur --remnant data/fit_7dq4.h5
+uv run python compare_nrsur7dq4.py data/NRSur7dq4.h5 data/fit_7dq4.h5 ../web/public/nrsur7dq4.stsur
 uv run python gen_golden_nrsur7dq4.py data/NRSur7dq4.h5 data/fit_7dq4.h5 ../tests/golden/nrsur7dq4.json
-uv run python proto_precession.py out/nrsur7dq4.stsur   # figures and animations in out/
+uv run python proto_precession.py ../web/public/nrsur7dq4.stsur   # figures and animations in out/
 ```
 
 ## Planning documents

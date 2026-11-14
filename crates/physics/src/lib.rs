@@ -3,7 +3,10 @@
 //! Pure Rust, `f64`, no GPU or web dependencies. Units are geometric with
 //! total mass M = 1 (G = c = 1), so times and lengths are in units of M.
 //!
-//! - [`surrogate`]: the NRHybSur3dq8 numerical-relativity waveform model.
+//! - [`surrogate`]: the NRHybSur3dq8 numerical-relativity waveform model (aligned spins).
+//! - [`nrsur7dq4`]: the NRSur7dq4 precessing waveform model and its remnant fits
+//!   (replacing [`surrogate`]; not yet used by the app).
+//! - [`quaternion`]: frame rotations.
 //! - [`spline`]: natural cubic splines used by the surrogate.
 //! - [`binary`]: black-hole positions and remnant, derived from the waveform.
 //! - [`geodesic`]: light rays around a Schwarzschild black hole (lensing app).
@@ -16,6 +19,8 @@ pub mod geodesic;
 pub mod harmonics;
 pub mod mode_table;
 pub mod newtonian;
+pub mod nrsur7dq4;
+pub mod quaternion;
 pub mod spline;
 pub mod surrogate;
 
