@@ -1,6 +1,6 @@
 # Black hole lensing app: plan
 
-Nov 13, 2026 (updated Nov 14) · @Bassel · **steps 0 and 1 done**, merged to `main` (PR #3). Step 2 (Kerr) in progress: **2a done** (branch `lensing-2a-kerr-reference`), 2b next.
+Nov 13, 2026 (updated Nov 14) · @Bassel · **steps 0 and 1 done**, merged to `main` (PR #3). Step 2 (Kerr) in progress: **2a and 2b done** (branches `lensing-2a-kerr-reference`, `lensing-2b-kerr-shader`), 2c next.
 
 A second app in this repository, alongside the binary black hole (BBH) wave visualizer ([bbh.md](bbh.md)).
 
@@ -77,7 +77,7 @@ A spinning hole has no planar reduction: rays leave the plane they start in. But
   - L = p_φ and Q = p_θ² + μ²(L²/(1 − μ²) − a²)
   - starting derivatives u′ = −u²√(ΣΔ) n_r / E, m = r̂ and m′ = p_θ θ̂ + (L/sin θ) φ̂, where L/sin θ = √(A/Σ) n_φ / E is regular on the axis. The second-order form needs only these, with no initial sign choices.
   - At a = 0 this reduces to step 1: u′ = −n_r and L = b.
-- **Step control (as built in 2a).** With ω = max(|m′|, 1) the angular rate: h = max(min(u / 2|u′|, ε / max(ω, |Ψ|)), floor / ω), with ε = 0.02 and floor = 0.002. At a = 0 that is step 1's clamp(½u/|du/dφ|, 0.002, 0.02) in φ. The floor ignores Ψ, so rays falling in reach the horizon in finitely many steps.
+- **Step control (as built).** With ω = max(|m′|, 1) the angular rate: h = max(min(u / 2|u′|, ε / max(ω, |Ψ|)), floor / ω). At a = 0 that has the form of step 1's clamp(½u/|du/dφ|, floor, ε) in φ. The floor ignores Ψ, so rays falling in reach the horizon in finitely many steps. The shader uses ε = 0.04 and floor = 0.004 (2b), twice step 1's values: the truncation error, about 2e-6 rad, stays below float32 rounding at half the steps.
 - **Termination.**
   - **Escape:** u ≤ 0. Locate it by Hermite interpolation on u, then interpolate m and χ there. The sky direction is R_z(χ) m.
   - **Capture:** u ≥ 1/r₊. Regular in Mino time, so no ε-shell is needed. At high spin, escaping rays can skim the horizon: the prograde photon orbit sits within 1% of r₊ at a = 0.998.
@@ -258,6 +258,44 @@ The physics is under "Step 2 physics" above. Split into sub-steps, each on its o
   - Exclusion band: rays the reference flags as near-critical, for example those whose closest approach is within 2% of the spherical photon orbit for their (L, Q). This is the counterpart of step 1's band within 2% of b_c.
   - At a = 0 the numbers must match step 1's.
 - **Performance:** `?lensbench` at a = 0, 0.5 and 0.998, compared with step 1's 3.7 / 11.2 / 38.9 ms. The budget is about 2× step 1's cost; past that, tighten the step control or add the analytic capture test.
+
+**Done (Nov 14, 2026).** Branch `lensing-2b-kerr-shader`.
+
+- **Shader:** `traceKerr` in `lens.frag` mirrors `trace_mino` line by line, with uniforms `u_spin` and `u_kerr`. Spin 0 still uses the planar path; `Lens.forceKerr` runs the Kerr path at spin 0 for the self-test and the benchmark.
+- **wasm:** `lensKerrEscapeDirections(cam, a, dirs)` (the reference) and `lensShadowEdge(cam, a, n)` (the exact edge, for the near-critical exclusion).
+- **App:** `?a=` sets the spin (clamped to 0–0.998). At spin > 0 the readout shows the spin instead of the Schwarzschild shadow radius until 2c.
+- **Step size:** a sweep in Rust (mean steps vs error, f32 and f64):
+
+  | ε / floor | f64 error | f32 error | mean steps |
+  |---|---|---|---|
+  | 0.02 / 0.002 | 1.2e-7 | 2.2e-5 | 214 |
+  | 0.04 / 0.004 | 2.0e-6 | 2.1e-5 | 108 |
+  | 0.06 / 0.006 | 9.7e-6 | 2.9e-5 | 73 |
+  | 0.08 / 0.008 | 3.0e-5 | 3.8e-5 | 55 |
+
+  0.04 / 0.004 is the choice: same float32 accuracy as the finer steps at half the steps. `SHADER_STEPS` in Rust matches.
+- **GPU self-test** (`?selftest`, Apple M4, Metal): **PASS**, worst 3.27e-5 rad over 44728 rays, 1352 near-critical skipped, no capture mismatches.
+
+  | Views | Worst per view (rad) |
+  |---|---|
+  | Step 1 views, planar path | 7.3e-6, 1.6e-5, 5.5e-6, 3.3e-5 (step 1's numbers) |
+  | Step 1 views, Kerr path at a = 0 | 5.7e-6, 6.1e-6, 4.6e-6, 2.5e-5 |
+  | a = 0.5: axis, 17°, equator, 5 M equator, 3.4 M sideways | 1.0e-5, 1.1e-5, 1.1e-5, 1.0e-5, 7.7e-6 |
+  | a = 0.998: same views | 2.8e-6, 1.2e-5, 1.4e-5, 1.7e-5, 8.9e-6 |
+
+  The Kerr path is more accurate than the planar one at a = 0 in every view.
+- **Performance** (`?lensbench`, Apple M4, default view):
+
+  | Case | 720×407 | 1440×813 | 2880×1626 |
+  |---|---|---|---|
+  | a = 0, planar | 4.5 ms | 11.1 ms | 38.6 ms |
+  | a = 0, Kerr path | 4.7 ms | 16.0 ms | 59.7 ms |
+  | a = 0.5 | 5.3 ms | 17.2 ms | 60.8 ms |
+  | a = 0.998 | 5.9 ms | 18.4 ms | 65.6 ms |
+
+  1.45–1.7× the planar path, within the 2× budget. At the step 1 step size the Kerr path was 2.3–2.7×.
+- **Visual check:** at a = 0.998 from the default (near-equatorial) camera, the shadow is D-shaped, flattened on the approaching side (screen left, −x) and shifted away from it.
+- The BBH self-test still passes (2.33e-4) with the rebuilt wasm.
 
 #### 2c: the app
 
