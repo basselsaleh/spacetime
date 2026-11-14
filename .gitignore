@@ -15,3 +15,6 @@ __pycache__/
 
 # Large downloaded model data (regenerate trimmed files with tools/*.py)
 tools/data/
+
+# Generated figures from the offline prototypes
+tools/out/

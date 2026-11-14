@@ -10,7 +10,6 @@
     <main id="app">
       <section id="stage" aria-label="Strain field">
         <canvas id="view"></canvas>
-        <div id="marker" class="marker" aria-hidden="true"></div>
         <div id="view-panel" class="panel">
           <div id="view-title">Top view · orbital plane</div>
           <div class="view-row">
@@ -18,9 +17,10 @@
               <button type="button" data-component="plus" aria-pressed="true">h₊</button>
               <button type="button" data-component="cross" aria-pressed="false">h×</button>
             </div>
-            <button id="swap" type="button">⇄ Side view</button>
+            <button id="swap" type="button" class="flat-only">⇄ Side view</button>
           </div>
-          <label class="tilt">Tilt <input id="tilt" type="range" min="0" max="90" step="1" value="0" /><span id="tilt-value">0°</span></label>
+          <button id="mode" type="button" class="wide">3D view</button>
+          <label class="tilt flat-only">Tilt <input id="tilt" type="range" min="0" max="90" step="1" value="0" /><span id="tilt-value">0°</span></label>
           <canvas id="gizmo" aria-label="Orientation of the slice relative to the orbit"></canvas>
           <div id="legend">
             <span>h &lt; 0</span><div class="ramp"></div><span>h &gt; 0</span>
@@ -93,8 +93,21 @@
             <p>
               Inside the ring is the near zone, where this far-zone formula does not apply. Black
               discs: horizons where the slice cuts them, at true size (at least a few pixels); faint
-              outlines: holes off the slice. Orbits are post-Newtonian, derived from the wave phase,
-              and schematic in the last orbits. Click the view to move the probe.
+              outlines: the parts of holes hidden behind a slice. Orbits are post-Newtonian, derived
+              from the wave phase, and schematic in the last orbits. Click a slice to move the
+              probe (the warm sphere).
+            </p>
+            <p>
+              The 3D view shows the strain throughout a sphere around the source, ray-marched
+              like a glowing fog: crests (orange, h &gt; 0) and troughs (blue, h &lt; 0) of the wave
+              show as sheets, which for h₊ form the two spiral arms of the binary and move outward
+              at the speed of light. Same normalisation as the slices (r·h, so distant sheets are
+              as bright as near ones); the near zone is left empty. h₊ and h× are measured
+              against directions that wind around the orbital axis, so the sheets meet along it;
+              a narrow cone around the axis is faded out. To keep it fast, the volume sums the
+              three strongest modes (the slices use all of them) and is drawn at reduced
+              resolution, adapted to the frame rate. Drag to orbit, scroll to zoom, double-click
+              to reset.
             </p>
           </details>
           <div id="status">Loading…</div>

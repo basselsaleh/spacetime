@@ -4,7 +4,8 @@
 //!
 //! Layout: one row per stored mode, `n` samples per row, two floats per sample
 //! (an RG32F texel). Row 0 is (2,2) as (A₂₂, φ₂₂ mod 4π); every other row is a
-//! co-orbital mode as (Re H_lm, Im H_lm). Texel `row·n + i` lives at
+//! co-orbital mode as (Re H_lm, Im H_lm), strongest (peak |H|) first, so a
+//! shader can sum only the leading rows for a cheaper approximation. Texel `row·n + i` lives at
 //! (x, y) = (idx mod width, idx div width) of a `width`-wide texture.
 //!
 //! φ₂₂ is reduced mod 4π because GPU sin/cos lose accuracy at large arguments.
@@ -29,7 +30,7 @@ pub struct ModeTable {
     pub n: usize,
     /// Texture width in texels; height is `data.len() / (2 · width)`.
     pub width: usize,
-    /// (l, m) of each row, m ≥ 0. Row 0 is always (2, 2).
+    /// (l, m) of each row, m ≥ 0. Row 0 is always (2, 2); the rest by decreasing peak amplitude.
     pub rows: Vec<(i32, i32)>,
     /// RG texel data, zero-padded to a whole number of texture rows.
     pub data: Vec<f32>,
@@ -39,8 +40,14 @@ impl ModeTable {
     pub fn new(wf: &Waveform, width: usize) -> Self {
         assert!(width > 0);
         let n = wf.len();
+        let peak = |c: &crate::surrogate::CoorbitalMode| {
+            c.data.iter().map(|z| z.norm()).fold(0.0, f64::max)
+        };
+        let mut order: Vec<usize> = (0..wf.coorbital.len()).collect();
+        order.sort_by(|&a, &b| peak(&wf.coorbital[b]).total_cmp(&peak(&wf.coorbital[a])));
+        let coorbital: Vec<_> = order.iter().map(|&k| &wf.coorbital[k]).collect();
         let mut rows = vec![(2, 2)];
-        rows.extend(wf.coorbital.iter().map(|c| (c.l, c.m)));
+        rows.extend(coorbital.iter().map(|c| (c.l, c.m)));
         let texels = rows.len() * n;
         let height = texels.div_ceil(width);
         let mut data = vec![0.0_f32; 2 * width * height];
@@ -49,7 +56,7 @@ impl ModeTable {
             data[2 * i] = wf.amp22[i] as f32;
             data[2 * i + 1] = wf.phase22[i].rem_euclid(FOUR_PI) as f32;
         }
-        for (k, c) in wf.coorbital.iter().enumerate() {
+        for (k, c) in coorbital.iter().enumerate() {
             let base = 2 * (k + 1) * n;
             for (i, z) in c.data.iter().enumerate() {
                 data[base + 2 * i] = z.re as f32;

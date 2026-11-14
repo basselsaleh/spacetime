@@ -1,7 +1,9 @@
 // Renders raw strain values off-screen and compares them with the Rust CPU
 // reference (`ModeTable::strain`). Run by opening the page with ?selftest.
 
-import { sliceTo3D, type Camera, type SceneState, type SliceConfig, type StrainView } from "./strainView";
+import * as THREE from "three";
+import type { SpacetimeScene } from "./scene3d";
+import { sliceTo3D, type Camera, type SliceConfig } from "./slice";
 import type { PreparedWaveform } from "./waveform";
 
 export interface SelfTestResult {
@@ -17,7 +19,7 @@ const H = 40;
 
 interface Frame {
   time: number;
-  camera: Camera;
+  view: Camera;
   slice: SliceConfig;
 }
 
@@ -27,45 +29,38 @@ const tilted: SliceConfig = { tilt: 0.6, azimuth: -1.1, component: "plus" };
 
 // Inspiral, merger near the source, the burst further out; then vertical and tilted slices.
 const FRAMES: Frame[] = [
-  { time: -2500, camera: { centerX: 0, centerY: 0, halfWidth: 400 }, slice: plane },
-  { time: 20, camera: { centerX: 0, centerY: 0, halfWidth: 60 }, slice: plane },
-  { time: 250, camera: { centerX: 150, centerY: -80, halfWidth: 200 }, slice: plane },
-  { time: -1800, camera: { centerX: 0, centerY: 0, halfWidth: 300 }, slice: vertical },
-  { time: 120, camera: { centerX: -40, centerY: 30, halfWidth: 150 }, slice: vertical },
-  { time: -400, camera: { centerX: 30, centerY: -20, halfWidth: 250 }, slice: tilted },
+  { time: -2500, view: { centerX: 0, centerY: 0, halfWidth: 400 }, slice: plane },
+  { time: 20, view: { centerX: 0, centerY: 0, halfWidth: 60 }, slice: plane },
+  { time: 250, view: { centerX: 150, centerY: -80, halfWidth: 200 }, slice: plane },
+  { time: -1800, view: { centerX: 0, centerY: 0, halfWidth: 300 }, slice: vertical },
+  { time: 120, view: { centerX: -40, centerY: 30, halfWidth: 150 }, slice: vertical },
+  { time: -400, view: { centerX: 30, centerY: -20, halfWidth: 250 }, slice: tilted },
 ];
 
-export function runSelfTest(
-  gl: WebGL2RenderingContext,
-  view: StrainView,
-  w: PreparedWaveform,
-): SelfTestResult {
-  if (!gl.getExtension("EXT_color_buffer_float")) {
+// Volume view: strain at each pixel ray's closest approach to the source, from
+// two viewpoints (checks the ray set-up and the shared mode sum off the slices).
+const VOLUME_FRAMES: { time: number; eye: [number, number, number] }[] = [
+  { time: -400, eye: [500, -650, 420] },
+  { time: 80, eye: [-60, 120, 300] },
+];
+
+export function runSelfTest(scene: SpacetimeScene, w: PreparedWaveform): SelfTestResult {
+  if (!scene.renderer.extensions.has("EXT_color_buffer_float")) {
     throw new Error("Self-test needs EXT_color_buffer_float");
   }
-  const tex = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, tex);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, H, 0, gl.RGBA, gl.FLOAT, null);
-  const fbo = gl.createFramebuffer();
-  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
-
-  const pixels = new Float32Array(W * H * 4);
   let worst = 0;
   let count = 0;
   const perFrame: number[] = [];
   for (const f of FRAMES) {
-    const scene: SceneState = { time: f.time, gain: 1, maskRadius: 0, discs: new Float32Array(12) };
-    view.draw(scene, f.camera, f.slice, W, H, true);
-    gl.readPixels(0, 0, W, H, gl.RGBA, gl.FLOAT, pixels);
+    const pixels = scene.renderRaw(f.time, f.slice, f.view, W, H);
     let frameWorst = 0;
     const aspect = W / H;
     for (let py = 0; py < H; py++) {
       for (let px = 0; px < W; px++) {
         const k = 4 * (py * W + px);
-        // Same pixel-centre mapping as the shader (row 0 is the bottom row here).
-        const sx = f.camera.centerX + (((px + 0.5) / W) * 2 - 1) * f.camera.halfWidth;
-        const sy = f.camera.centerY + (((py + 0.5) / H) * 2 - 1) * (f.camera.halfWidth / aspect);
+        // Pixel centres of the orthographic view (row 0 is the bottom row).
+        const sx = f.view.centerX + (((px + 0.5) / W) * 2 - 1) * f.view.halfWidth;
+        const sy = f.view.centerY + (((py + 0.5) / H) * 2 - 1) * (f.view.halfWidth / aspect);
         const [x3, y3, z3] = sliceTo3D(f.slice, sx, sy);
         const r = Math.hypot(x3, y3, z3);
         const theta = Math.atan2(Math.hypot(x3, y3), z3);
@@ -82,8 +77,63 @@ export function runSelfTest(
     perFrame.push(frameWorst);
     worst = Math.max(worst, frameWorst);
   }
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  gl.deleteFramebuffer(fbo);
-  gl.deleteTexture(tex);
+  const ray = new THREE.Raycaster();
+  for (const f of VOLUME_FRAMES) {
+    const { pixels, camera } = scene.volume.renderRaw(scene.renderer, f.time, new THREE.Vector3(...f.eye), W, H);
+    let frameWorst = 0;
+    for (let py = 0; py < H; py++) {
+      for (let px = 0; px < W; px++) {
+        const k = 4 * (py * W + px);
+        ray.setFromCamera(new THREE.Vector2(((px + 0.5) / W) * 2 - 1, ((py + 0.5) / H) * 2 - 1), camera);
+        const o = ray.ray.origin;
+        const d = ray.ray.direction;
+        const m = o.clone().addScaledVector(d, -o.dot(d));
+        const r = m.length();
+        const [hp, hc] = w.table.strain(Math.atan2(Math.hypot(m.x, m.y), m.z), Math.atan2(m.y, m.x), f.time - r);
+        if (!Number.isFinite(hp) || pixels[k + 2] !== 1) continue;
+        const err = Math.max(Math.abs(pixels[k] - hp), Math.abs(pixels[k + 1] - hc)) / w.peak;
+        frameWorst = Math.max(frameWorst, err);
+        count++;
+      }
+    }
+    perFrame.push(frameWorst);
+    worst = Math.max(worst, frameWorst);
+  }
   return { pass: count > 0 && worst < TOLERANCE, worst, perFrame, pixels: count };
+}
+
+/**
+ * ?volbench: GPU time of the volume ray march at a few resolutions (a 1-pixel
+ * read after each frame forces the GPU to finish). Uses a 3D view of t = -40 M.
+ */
+export function runVolumeBenchmark(scene: SpacetimeScene, w: PreparedWaveform, cssW: number, cssH: number): string {
+  const camera = new THREE.PerspectiveCamera(40, cssW / cssH, 1, 1e5);
+  camera.up.set(0, 0, 1);
+  camera.position.set(500, -650, 520);
+  camera.lookAt(0, 0, 0);
+  const px = new Uint8Array(4);
+  const gl = scene.renderer.getContext();
+  const results: string[] = [];
+  const configs: [number, number][] = [
+    [1, 0.75],
+    [3, 0.5],
+    [3, 0.75],
+    [3, 1.0],
+  ];
+  for (const [rows, scale] of configs) {
+    scene.volume.material.uniforms.u_volumeRows.value = rows;
+    const frame = { time: -40, scale: 1.5 / w.peak, maskRadius: 10, component: 0 as const, radius: 360, opacity: 1 };
+    const run = () => {
+      scene.volume.scale = scale;
+      scene.volume.render(scene.renderer, camera, cssW, cssH, frame);
+      gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    };
+    for (let k = 0; k < 3; k++) run(); // warm up
+    const n = 20;
+    const start = performance.now();
+    for (let k = 0; k < n; k++) run();
+    const ms = (performance.now() - start) / n;
+    results.push(`${rows} modes ${Math.round(cssW * scale)}×${Math.round(cssH * scale)}: ${ms.toFixed(1)} ms`);
+  }
+  return `VOLBENCH ${results.join(", ")}`;
 }

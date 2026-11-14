@@ -9,7 +9,7 @@ gravitational waves, faithful to general relativity where it counts. See
 ```
 crates/physics/   Rust physics core (pure, f64, units of total mass M)
 crates/wasm/      wasm-bindgen bindings over the physics crate
-web/              TypeScript + Vite app, WebGL2 shaders in web/src/shaders/
+web/              TypeScript + Vite app (three.js scene), shaders in web/src/shaders/
 tools/            Python (uv): golden data from LAL, NR reference tables
 tests/golden/     Small reference files used by the Rust tests
 web/public/       Static data served to the app (trimmed waveform surrogate)
@@ -39,7 +39,9 @@ cd tools && uv sync             # once, installs lalsuite and sxs
 - The view is a slice through the source: the orbital plane from above, a side view, or any
   tilt in between ("⇄" animates between top and side). Drag to pan, scroll to zoom,
   double-click to reset; h₊/h× chooses the polarisation.
-- Click the view to move the probe; its ring and chirp plot update.
+- "3D view" animates to an orbit camera showing the slice in space (drag to orbit, scroll to
+  zoom, double-click to reset); "Flat view" animates back.
+- Click a slice to move the probe (the warm sphere); its ring and chirp plot update.
 - The sliders change the binary; the URL updates so the view can be shared.
 
 ## App URL options
@@ -47,6 +49,7 @@ cd tools && uv sync             # once, installs lalsuite and sxs
 - `?q=3&chi1=0.6&chi2=0.2`: binary parameters (q ≤ 8, |χ| ≤ 0.8)
 - `?t=-300&zoom=250&tilt=40&paused`: start at a given time (M), half-width (M) and slice
   tilt (degrees), paused
+- `?3d`: start in the 3D view
 - `?selftest`: render off-screen and compare GPU pixels with the Rust CPU reference;
   the verdict appears in the page title and status line
 

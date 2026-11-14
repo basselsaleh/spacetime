@@ -2,7 +2,7 @@
 // axis (+z), the binary at its current angle, and the slice plane with an
 // arrow for the direction you look from.
 
-import { sliceAxes, type SliceConfig, type Vec3 } from "./strainView";
+import { sliceAxes, type SliceConfig, type Vec3 } from "./slice";
 
 // Fixed oblique camera: elevation and azimuth of the sketch's viewpoint.
 const ELEV = 0.45;

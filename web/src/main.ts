@@ -1,10 +1,10 @@
 import init, { physics_version } from "./wasm/spacetime_wasm.js";
-import { createContext, resizeToDisplay } from "./gl";
-import { setupCamera, setupParams, setupPlayback, type Playback } from "./controls";
+import { setupParams, setupPlayback, setupPointer, type Playback } from "./controls";
 import { drawGizmo } from "./gizmo";
 import { Probe } from "./probe";
-import { runSelfTest } from "./selftest";
-import { sliceTo3D, StrainView, type Camera, type SceneState, type SliceConfig } from "./strainView";
+import { SpacetimeScene } from "./scene3d";
+import { runSelfTest, runVolumeBenchmark } from "./selftest";
+import type { Camera, SceneState, SliceConfig } from "./slice";
 import {
   DEFAULT_PARAMS,
   loadModel,
@@ -30,12 +30,20 @@ async function main(): Promise<void> {
     const url = new URLSearchParams(window.location.search);
 
     const canvas = $<HTMLCanvasElement>("view");
-    const view = new StrainView(createContext(canvas));
+    const view = new SpacetimeScene(canvas);
     let w = prepare(model, paramsFromUrl());
     view.setWaveform(w);
 
+    if (url.has("volbench")) {
+      view.volume.fixedScale = true;
+      const verdict = runVolumeBenchmark(view, w, canvas.clientWidth, canvas.clientHeight);
+      document.title = verdict;
+      status.textContent = verdict;
+      return;
+    }
+
     if (url.has("selftest")) {
-      const r = runSelfTest(view.gl, view, w);
+      const r = runSelfTest(view, w);
       const verdict =
         `SELFTEST ${r.pass ? "PASS" : "FAIL"}: max |GPU−CPU|/peak = ${r.worst.toExponential(2)} ` +
         `over ${r.pixels} pixels (per frame: ${r.perFrame.map((e) => e.toExponential(1)).join(", ")})`;
@@ -46,7 +54,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    // Optional ?t=, ?zoom=, ?tilt=<degrees>, ?paused, for sharing a moment.
+    // Optional ?t=, ?zoom=, ?tilt=<degrees>, ?3d, ?paused, for sharing a moment.
     const scene: SceneState = {
       time: url.has("t") ? Number(url.get("t")) : LOOP_START,
       gain: 1.5,
@@ -72,11 +80,19 @@ async function main(): Promise<void> {
     };
     const controls = setupPlayback(scene, playback);
     const probe = new Probe($("ring"), $("chirp"), $("probe-info"));
-    setupCamera(canvas, camera, DEFAULT_CAMERA, (x, y) => {
-      const [px, py, pz] = sliceTo3D(slice, x, y);
-      probe.set({ x: px, y: py, z: pz });
-    });
-    const viewPanel = setupViewPanel(slice);
+    setupPointer(
+      canvas,
+      camera,
+      () => view.mode === "flat" && !view.transitioning,
+      (px, py) => {
+        const p = view.pick(px, py);
+        if (p) probe.set({ x: p[0], y: p[1], z: p[2] });
+      },
+      () => (view.mode === "flat" ? Object.assign(camera, DEFAULT_CAMERA) : view.resetOrbit()),
+    );
+    const viewPanel = setupViewPanel(slice, view, camera);
+    // ?3d: switch after the first flat frame, so the camera animates in from the flat view.
+    if (url.has("3d")) requestAnimationFrame(() => requestAnimationFrame(() => view.setMode("3d", camera)));
 
     describe(w);
     setupParams(w.params, DEFAULT_PARAMS, (p) => {
@@ -117,18 +133,19 @@ async function main(): Promise<void> {
       scene.maskRadius = nearZoneRadius(w, scene.time);
       const discs = w.binary.state(scene.time);
       scene.discs.set(discs);
-      resizeToDisplay(canvas);
-      view.draw(scene, camera, slice, canvas.width, canvas.height);
+      const p = probe.point;
+      view.render(scene, slice, camera, [p.x, p.y, p.z]);
       probe.draw(w, scene.time, scene.gain);
-      probe.placeMarker($("marker"), canvas, camera, slice);
-      drawGizmo($("gizmo"), slice, Math.atan2(discs[1], discs[0]));
-      updateScaleBar($("scale-bar"), $("scale-label"), camera.halfWidth, canvas.clientWidth);
+      if (view.mode === "flat") {
+        drawGizmo($("gizmo"), slice, Math.atan2(discs[1], discs[0]));
+        updateScaleBar($("scale-bar"), $("scale-label"), camera.halfWidth, canvas.clientWidth);
+      }
 
       fpsFrames++;
       if (now - fpsSince > 1000) {
         status.textContent =
           `physics v${physics_version()} · ${((fpsFrames * 1000) / (now - fpsSince)).toFixed(0)} fps · ` +
-          `${canvas.width}×${canvas.height}`;
+          `${view.renderer.domElement.width}×${view.renderer.domElement.height}`;
         fpsFrames = 0;
         fpsSince = now;
       }
@@ -152,8 +169,11 @@ function endTime(w: PreparedWaveform, camera: Camera, canvas: HTMLCanvasElement)
   return Math.floor(Math.min(w.tEnd, 100) + farthest + 50);
 }
 
-/** Title, polarisation toggle, top/side swap with an animated tilt, and tilt slider. */
-function setupViewPanel(slice: SliceConfig) {
+/**
+ * Title, polarisation toggle, top/side swap with an animated tilt, tilt slider,
+ * and the flat/3D switch.
+ */
+function setupViewPanel(slice: SliceConfig, view: SpacetimeScene, flat: Camera) {
   const title = $("view-title");
   const caption = $("view-caption");
   const swap = $<HTMLButtonElement>("swap");
@@ -173,6 +193,13 @@ function setupViewPanel(slice: SliceConfig) {
     anim = null;
     slice.tilt = (Number(tiltInput.value) * Math.PI) / 180;
   });
+  const modeBtn = $<HTMLButtonElement>("mode");
+  modeBtn.addEventListener("click", () => view.setMode(view.mode === "flat" ? "3d" : "flat", flat));
+  // Tuning knobs for the volume's look: ?vdensity=&vsharp=.
+  const params = new URLSearchParams(window.location.search);
+  for (const [key, uniform] of [["vdensity", "u_density"], ["vsharp", "u_sharpness"]] as const) {
+    if (params.has(key)) view.volume.material.uniforms[uniform].value = Number(params.get(key));
+  }
 
   return {
     update(now: number) {
@@ -185,11 +212,19 @@ function setupViewPanel(slice: SliceConfig) {
       const deg = Math.round((slice.tilt * 180) / Math.PI);
       tiltInput.value = String(deg);
       tiltLabel.textContent = `${deg}°`;
-      title.textContent =
-        deg === 0 ? "Top view · orbital plane" : deg === 90 ? "Side view · x–z plane, orbital axis up" : `Tilted slice · ${deg}° from the orbital plane`;
+      const is3d = view.mode === "3d";
+      title.textContent = is3d
+        ? "3D · strain volume"
+        : deg === 0
+          ? "Top view · orbital plane"
+          : deg === 90
+            ? "Side view · x–z plane, orbital axis up"
+            : `Tilted slice · ${deg}° from the orbital plane`;
       swap.textContent = deg < 45 ? "⇄ Side view" : "⇄ Top view";
       for (const b of buttons) b.setAttribute("aria-pressed", String(b.dataset.component === slice.component));
-      caption.hidden = !(deg === 0 && slice.component === "cross");
+      caption.hidden = is3d || !(deg === 0 && slice.component === "cross");
+      modeBtn.textContent = is3d ? "Flat view" : "3D view";
+      document.body.classList.toggle("mode-3d", is3d);
     },
   };
 }
