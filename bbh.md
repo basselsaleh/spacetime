@@ -44,6 +44,7 @@ Other applications in this repository get their own planning documents; this one
 | Nov 14 | STSUR002 stores bases and polynomial coefficients as **f32**; times and the remnant as f64 | 4.24 MB instead of 6.94 MB; costs 1.3e-6 of peak in the modes and 8e-7 in the frame dynamics |
 | Nov 14 | Step 7c mode table: **frame + co-orbital modes, rotated per direction in the shader**, not inertial modes | Inertial modes of a precessing binary mix the co-orbital m′ = ±2 parts, so no single phase factor makes them smooth enough for a 1 M table. The cost is a quaternion rotation and a polarization factor per sample |
 | Nov 14 | Steps 7d and 7e merged; spin sliders cover the **trained range only** (q ≤ 4, \|χ\| ≤ 0.8), as magnitude, tilt from L̂ and azimuth at t = −4300 M | User's request to fold the UI in. Trained range: faithful by default; the evaluator still accepts the extrapolation range if wanted later |
+| Nov 14 | Horizons too small to see are **magnified by one common factor** (largest ≥ 5 px, none < 2 px); halos are depth-tested | User noticed equal hole sizes for every q (each was clamped to 4 px at the default zoom) and halos showing through a nearer hole. Relative sizes now follow q and the spins |
 | Nov 13 | **Cut Phase 2 entirely**: no in-app NR validation overlay, no audio, no slice azimuth control. Phase numbers are kept as they were (1, 3, 4) | User doesn't want these features; validation stays as offline golden tests |
 
 ## Vision and goals
