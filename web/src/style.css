@@ -81,6 +81,7 @@ button, select {
 .chip { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
 .chip.stretch { background: rgb(255, 92, 56); }
 .chip.squeeze { background: rgb(77, 148, 255); }
+.chip.volume { background: linear-gradient(90deg, rgb(77, 148, 255) 50%, rgb(255, 153, 56) 50%); }
 .chip.vortex { background: linear-gradient(90deg, rgb(89, 242, 140) 50%, rgb(204, 115, 255) 50%); }
 body.mode-3d .flat-only, body:not(.mode-3d) .three-d-only { display: none !important; }
 body.mode-3d #gizmo, body.mode-3d #scale { display: none; }

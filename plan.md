@@ -9,10 +9,12 @@ Nov 12, 2026 · @Bassel · last revised Nov 14, 2026 (handoff edition: written s
 - Phase 1 (2D wave-zone app) is merged into `main` (PR #1).
 - Phase 3 stage 1 (3D scene) is built and committed on `step-5-3d-scene`, branched from `main`. It is **not pushed** and has no PR yet.
 - Phase 3 stage 1b (strain on spherical shells) was built and then **dropped** (see the decision log). The work is kept, unmerged, on `step-5b-shells`.
-- **Phase 3 stage 2 (tendex and vortex lines)** is built in the app on `step-6-tendex`, branched from `step-5-3d-scene` (not pushed): the 3D view now shows the lines instead of the slice. Awaiting the user's interactive review; the look is a first version (see "Next step" below).
+- **Phase 3 stage 2 (tendex and vortex lines)** and **stage 3 (volume view)** are built on `step-6-tendex`, branched from `step-5-3d-scene` (not pushed). The 3D view shows the ray-marched strain volume by default; the lines are optional toggles. The user accepted the lines as they are and expects the volume to replace them eventually.
+- **Next:** the user's review of the volume, then push and open the Phase 3 PR to `main` (the user asked for the PR only after stage 3).
 
 **Not yet verified by a person**
 
+- The volume in motion (playing, orbiting) and its adaptive resolution on real hardware. Only headless still frames and the `?volbench` timings so far.
 - The tendex/vortex lines in motion: readability while playing and orbiting, and whether the lines flicker near degeneracies. Only headless still frames so far. Headless Chrome sometimes screenshots before the flat → 3D switch has rendered (about 1 in 3 runs); retake rather than debug.
 - Orbiting and zooming in the 3D view, and the flat ⇄ 3D dolly-zoom animation. These were only checked as headless still frames. The top ⇄ side swap animation was checked by the user.
 - Frame rate on real hardware, and the phone layout. The user chose to skip both checks for now.
@@ -34,6 +36,8 @@ Nov 12, 2026 · @Bassel · last revised Nov 14, 2026 (handoff edition: written s
 | Nov 14 | Do 3D (Phase 3) **before** Phase 2, using three.js | Tendex and vortex lines are best built directly in 3D; vortex lines need it |
 | Nov 13 | Spherical shells (stage 1b) dropped; the 3D view will be the tendex/vortex lines | A shell at fixed radius is perpendicular to the propagation direction everywhere, so it can't show waves moving (it shows each distance's received signal brightening and fading in place). h₊/h× on a sphere also have unavoidable pinwheels at the poles |
 | Nov 13 | Stage 2 quadrupole: adiabatic I₂₂ = −h₂₂/ω₂₂² | Compared in the prototype: twice-integrating h₂₂ leaves a constant offset and a drifting phase; the PN orbit doesn't decay after merger; the adiabatic form is smooth through ringdown and within ~10% of the orbit estimate in the inspiral |
+| Nov 13 | 3D view: ray-marched strain volume by default; tendex/vortex lines optional | User finds the lines hard to follow and expects the volume to replace them |
+| Nov 13 | Volume sums the 3 strongest modes; table rows sorted by peak amplitude | Cost: on an M4, 3 modes at 550×407 take 8.5 ms, all 11 modes at that size 32 ms. The slices still use every mode |
 | Nov 13 | **Cut Phase 2 entirely**: no in-app NR validation overlay, no audio, no slice azimuth control. Phase numbers are kept as they were (1, 3, 4) | User doesn't want these features; validation stays as offline golden tests |
 
 ## Vision and goals
@@ -60,8 +64,9 @@ Don't solve Einstein's equations in the browser. Play back and evaluate the resu
 - **One main view.** A strain slice through the source: the orbital plane seen from above (tilt 0°), a side view through the orbital axis (90°), or any tilt in between.
   - "⇄" animates the tilt; a slider sets it directly.
   - h₊/h× toggle. Choosing h× in the orbital plane shows a blank field with a caption explaining the mirror symmetry.
-- **Flat ⇄ 3D.** The flat view looks straight at the slice and matches the old 2D app. The 3D view is an orbit camera showing tendex and vortex lines (no slice), with the orbital axis and the outline of the orbital plane; the dolly zoom cross-fades the slice into the lines. Tilt, the top ⇄ side swap and h₊/h× are flat-view controls.
-- **Tendex/vortex lines (3D):** stretching tendex lines (red) by default; toggles for squeezing tendex lines (blue) and vortex lines (green/violet, the two twist senses). Brightness is log-scaled r·|eigenvalue| relative to the peak far-zone value, times the gain. Lines stop at the near-zone radius.
+- **Flat ⇄ 3D.** The flat view looks straight at the slice and matches the old 2D app. The 3D view is an orbit camera showing the strain volume (no slice), with the orbital axis and the outline of the orbital plane; the dolly zoom cross-fades the slice into the 3D content. Tilt and the top ⇄ side swap are flat-view controls; h₊/h× applies to both.
+- **Strain volume (3D, on by default):** r·h₊ (or h×) ray-marched through a sphere (0.6 of the framed extent); density rises as tanh(|r·h|)⁸, so crests (orange) and troughs (blue) glow as sheets: for h₊ the two-armed spiral sheets, moving outward; the merger burst is an expanding shell. Near zone empty; an 8° cone around the axis faded (the h₊/h× basis is singular there). Three strongest modes; reduced resolution that adapts to the frame rate (0.3–1.0 of CSS pixels).
+- **Tendex/vortex lines (3D, optional):** toggles for stretching tendex lines (red), squeezing tendex lines (blue) and vortex lines (green/violet, the two twist senses), all off by default. Brightness is log-scaled r·|eigenvalue| relative to the peak far-zone value, times the gain. Lines stop at the near-zone radius.
 - **Black holes and the remnant** are horizon-sized spheres: solid where visible, a faint outline where hidden behind a slice. The remnant drifts with its recoil kick.
 - **Probe** (warm sphere): click the slice (flat view) to place it. The side column shows:
   - a ring of free test particles deforming in the + and × patterns
@@ -72,7 +77,7 @@ Don't solve Einstein's equations in the browser. Play back and evaluate the resu
   - play/pause, scrubber, speed and gain
   - loop (on by default). Playback ends once the merger burst leaves the visible area.
 - **Display conventions** (labelled in the app): the colour is r·h ÷ peak (2,2) value in the orbital plane × gain, on a tanh-saturating diverging scale. The near zone, where the far-zone formula is invalid, is faded out inside a faint ring.
-- **URL options:** `?q=&chi1=&chi2=`, `?t=`, `?zoom=`, `?tilt=` (degrees), `?3d`, `?lines=stretch,squeeze,vortex`, `?paused`, `?selftest`.
+- **URL options:** `?q=&chi1=&chi2=`, `?t=`, `?zoom=`, `?tilt=` (degrees), `?3d`, `?volume=0`, `?lines=stretch,squeeze,vortex`, `?paused`, `?selftest`, `?volbench` (GPU timing of the volume; needs real time, see Gotchas). Tuning: `?vdensity=` (default 0.035), `?vsharp=` (default 8).
 
 ## Physics layers
 
@@ -166,14 +171,18 @@ web/src/
   main.ts           Wiring: load model, scene, view panel, playback loop, URL handling
   scene3d.ts        three.js scene: slice planes, spheres (solid + ghost pass), guides, camera
                     poses, flat ⇄ 3D dolly zoom, ray-cast picking, raw render for the self-test
-  shaders/slice.*   Strain shader (mode sum, colour map, near-zone ring) on plane meshes
+  shaders/strain.glsl  Shared GLSL: mode table, mode sum (`strain`, `strainRows`), colour map, angles
+  shaders/slice.*   Slice shader (near-zone ring, exact pixel mapping) on plane meshes
+  shaders/volume.frag  Volume ray march (front-to-back, premultiplied alpha)
+  volume.ts         Volume pass: reduced-resolution target, adaptive scale, composite, raw self-test path
   slice.ts          Slice geometry: tilt/azimuth axes, slice ⇄ 3D ⇄ pixel conversions, shared types
   waveform.ts       Evaluate + pack a waveform for the views; near-zone radius; URL params
   tendex.ts         Tendex/vortex line families: tracing via wasm, brightness, fat-line buffers
   probe.ts          Test-particle ring and chirp plot (Canvas 2D)
   controls.ts       Playback, flat-view pan/zoom/click, parameter sliders
   gizmo.ts          Orientation sketch shown in the flat view
-  selftest.ts       ?selftest: GPU pixels vs the Rust CPU reference over 6 frames
+  selftest.ts       ?selftest: GPU vs the Rust CPU reference over 6 slice frames and 2 volume frames
+                    (strain at each ray's closest approach); ?volbench timings
 web/public/nrhybsur3dq8.stsur   Trimmed surrogate + remnant fits (committed, 2.28 MB)
 tools/              uv project: export_surrogate.py, gen_golden.py, gen_remnant_golden.py,
                     gen_harmonics_golden.py, gen_orientation_golden.py; data/ (gitignored downloads)
@@ -236,6 +245,7 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 
 - `requestAnimationFrame` timestamps lag `performance.now()` under `--virtual-time-budget`. Animations must use a single clock (`performance.now()`).
 - Chrome windows have a ~500 px minimum width, so screenshots narrower than that are cropped, not reflowed.
+- `--virtual-time-budget` freezes `performance.now()` during synchronous work, so timings read 0. For `?volbench`, run Chrome headless in real time with `--remote-debugging-port=9333 --user-data-dir=<tmp>` and poll `curl -s localhost:9333/json` for the page title.
 
 **Physics and data**
 
@@ -275,7 +285,12 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
   - Bundle: 542 KB JavaScript (141 KB gzipped).
 - **Stage 1b: strain on spherical shells.** Built Nov 13, 2026, then dropped (see the decision log). Kept unmerged on `step-5b-shells`. Reusable from it if needed: exact per-pixel ray–sphere intersection in the strain shader, and rays built from the camera basis (`u_rayBasis`) to avoid rasterizer snapping and float32 unprojection error.
 - **Stage 2: tendex and vortex lines as 3D curves.** Built Nov 13, 2026 on `step-6-tendex` (not pushed): prototype, Rust/wasm field and tracer, and the 3D view. Awaiting the user's review; see below.
-- **Stage 3: volume view.** Wavefronts as glowing shells, by ray marching the mode sum. Try WebGL2 at reduced resolution before considering WebGPU.
+- **Stage 3: volume view.** Built Nov 13, 2026 on `step-6-tendex` (not pushed), in WebGL2.
+  - Fragment-shader ray march of the strain through a sphere, at reduced resolution into a half-float target, upsampled and composited with premultiplied alpha over the scene. Per-pixel jitter (interleaved gradient noise, shifted each frame) hides banding.
+  - Rays come from the camera basis (`rayMatrix`), relative to each ray's closest approach to the source, for float32 accuracy.
+  - The strain code is shared with the slices (`shaders/strain.glsl`). Self-test: the strain at each ray's closest approach matches the CPU reference (3e-5 and 3e-4 of peak); slices unchanged at 4.4e-4.
+  - GPU cost on an Apple M4 (`?volbench`, 128 steps): 3 modes 550×407 8.5 ms, 825×610 18.8 ms, 1100×813 31 ms; (2,2) alone at 825×610 8.8 ms.
+  - Open: the look in motion; whether it should go further (e.g. temporal accumulation for higher resolution, |h| instead of h₊, or depth cues); WebGPU only if WebGL2 proves too slow on target hardware.
 
 **Phase 4: near zone (highest risk)**
 

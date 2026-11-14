@@ -4,17 +4,20 @@
 //
 // Flat view: the strain on a slice. The camera looks straight at it with a 1°
 // field of view from far away, which is indistinguishable from an orthographic
-// view, so the picture matches the 2D app. 3D view: tendex and vortex lines,
-// with a 40° orbit camera and +z (the orbital axis) up. Switching is a dolly
-// zoom (the field of view and the camera's orientation are interpolated while
-// the distance keeps the slice framed) with the slice cross-fading into the lines.
+// view, so the picture matches the 2D app. 3D view: the strain as a ray-marched
+// volume (volume.ts) and optional tendex/vortex lines, with a 40° orbit camera
+// and +z (the orbital axis) up. Switching is a dolly zoom (the field of view and
+// the camera's orientation are interpolated while the distance keeps the slice
+// framed) with the slice cross-fading into the 3D content.
 
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import sliceVertex from "./shaders/slice.vert?raw";
-import sliceFragment from "./shaders/slice.frag?raw";
+import sliceMain from "./shaders/slice.frag?raw";
+import strainGlsl from "./shaders/strain.glsl?raw";
 import { sliceAxes, sliceTo3D, type Camera, type SceneState, type SliceConfig, type Vec3 } from "./slice";
 import { TendexLines } from "./tendex";
+import { Volume } from "./volume";
 import type { PreparedWaveform } from "./waveform";
 
 export type ViewMode = "flat" | "3d";
@@ -155,6 +158,10 @@ export class SpacetimeScene {
   private readonly mainMaterial: THREE.RawShaderMaterial;
   /** Tendex and vortex lines (3D view). */
   readonly lines = new TendexLines();
+  /** Ray-marched strain volume (3D view). */
+  readonly volume: Volume;
+  /** In 3D, draw the strain volume. */
+  showVolume = true;
   private readonly holes: Ball[];
   private readonly probeBall: Ball;
   private readonly guides = new THREE.Group();
@@ -172,10 +179,19 @@ export class SpacetimeScene {
     this.mainMaterial = new THREE.RawShaderMaterial({
       glslVersion: THREE.GLSL3,
       vertexShader: sliceVertex,
-      fragmentShader: sliceFragment,
+      fragmentShader: `${strainGlsl}\n${sliceMain}`,
       uniforms: sliceUniforms(),
       side: THREE.DoubleSide,
     });
+    // The volume shares the waveform-table uniforms (the same objects) with the slice.
+    const mu = this.mainMaterial.uniforms;
+    this.volume = new Volume(
+      Object.fromEntries(
+        ["u_table", "u_width", "u_samples", "u_rows", "u_t0", "u_dt", "u_lm", "u_harmonics", "u_thetaSamples"].map(
+          (k) => [k, mu[k]],
+        ),
+      ),
+    );
     this.mainPlane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.mainMaterial);
     this.mainPlane.matrixAutoUpdate = false;
     this.scene.add(this.mainPlane, this.lines.group);
@@ -406,6 +422,16 @@ export class SpacetimeScene {
     this.probeBall.set(probe, 5 * pxWorld(pp), 1);
 
     this.renderer.render(this.scene, this.camera);
+    if (blend > 0.001 && this.showVolume) {
+      this.volume.render(this.renderer, this.camera, w, h, {
+        time: scene.time,
+        scale: scene.gain / this.peak,
+        maskRadius: scene.maskRadius,
+        component: slice.component === "plus" ? 0 : 1,
+        radius: LINES_EXTENT * this.extent,
+        opacity: blend,
+      });
+    }
   }
 
   /** The 3D point on the slice under a canvas pixel (CSS px), in the flat view; otherwise null. */

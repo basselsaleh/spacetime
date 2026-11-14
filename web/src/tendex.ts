@@ -113,7 +113,7 @@ export class TendexLines {
   readonly group = new THREE.Group();
   private readonly families = FAMILIES.map((f) => new Family(f));
   /** Which kinds of line to draw. */
-  readonly enabled: Record<LineKind, boolean> = { stretch: true, squeeze: false, vortex: false };
+  readonly enabled: Record<LineKind, boolean> = { stretch: false, squeeze: false, vortex: false };
   private field: TendexField | null = null;
   private traced = "";
   /** Time spent tracing on the last retrace, ms. */

@@ -153,3 +153,23 @@ fn strain_series_is_the_signal_at_a_fixed_direction() {
         assert!((series[i] - want).norm() < 1e-12);
     }
 }
+
+#[test]
+fn table_rows_are_ordered_by_peak_amplitude() {
+    let wf = waveform(3.0, 0.6, 0.2, -3000.0, 1.0);
+    let table = ModeTable::new(&wf, 2048);
+    assert_eq!(table.rows[0], (2, 2));
+    let peaks: Vec<f64> = table.rows[1..]
+        .iter()
+        .map(|&(l, m)| {
+            (0..wf.len())
+                .map(|i| (wf.h(l, m, i).unwrap()).norm())
+                .fold(0.0, f64::max)
+        })
+        .collect();
+    assert!(
+        peaks.windows(2).all(|w| w[0] >= w[1]),
+        "rows {:?} peaks {peaks:?}",
+        table.rows
+    );
+}

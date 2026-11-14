@@ -3,7 +3,7 @@ import { setupParams, setupPlayback, setupPointer, type Playback } from "./contr
 import { drawGizmo } from "./gizmo";
 import { Probe } from "./probe";
 import { SpacetimeScene } from "./scene3d";
-import { runSelfTest } from "./selftest";
+import { runSelfTest, runVolumeBenchmark } from "./selftest";
 import type { Camera, SceneState, SliceConfig } from "./slice";
 import {
   DEFAULT_PARAMS,
@@ -34,6 +34,14 @@ async function main(): Promise<void> {
     let w = prepare(model, paramsFromUrl());
     view.setWaveform(w);
 
+    if (url.has("volbench")) {
+      view.volume.fixedScale = true;
+      const verdict = runVolumeBenchmark(view, w, canvas.clientWidth, canvas.clientHeight);
+      document.title = verdict;
+      status.textContent = verdict;
+      return;
+    }
+
     if (url.has("selftest")) {
       const r = runSelfTest(view, w);
       const verdict =
@@ -46,7 +54,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    // Optional ?t=, ?zoom=, ?tilt=<degrees>, ?3d, ?lines=, ?paused, for sharing a moment.
+    // Optional ?t=, ?zoom=, ?tilt=<degrees>, ?3d, ?volume=0, ?lines=, ?paused, for sharing a moment.
     const scene: SceneState = {
       time: url.has("t") ? Number(url.get("t")) : LOOP_START,
       gain: 1.5,
@@ -188,8 +196,17 @@ function setupViewPanel(slice: SliceConfig, view: SpacetimeScene, flat: Camera) 
   });
   const modeBtn = $<HTMLButtonElement>("mode");
   modeBtn.addEventListener("click", () => view.setMode(view.mode === "flat" ? "3d" : "flat", flat));
-  // Line families shown in 3D: stretching tendex lines by default, or ?lines=stretch,squeeze,vortex.
-  const linesParam = new URLSearchParams(window.location.search).get("lines");
+  // 3D content: the strain volume (off with ?volume=0) and line families (?lines=stretch,squeeze,vortex).
+  const params = new URLSearchParams(window.location.search);
+  view.showVolume = params.get("volume") !== "0";
+  // Undocumented tuning knobs for the volume's look: ?vdensity=&vsharp=.
+  for (const [key, uniform] of [["vdensity", "u_density"], ["vsharp", "u_sharpness"]] as const) {
+    if (params.has(key)) view.volume.material.uniforms[uniform].value = Number(params.get(key));
+  }
+  const volumeBox = $<HTMLInputElement>("show-volume");
+  volumeBox.checked = view.showVolume;
+  volumeBox.addEventListener("change", () => (view.showVolume = volumeBox.checked));
+  const linesParam = params.get("lines");
   if (linesParam !== null) {
     const want = new Set(linesParam.split(","));
     for (const kind of ["stretch", "squeeze", "vortex"] as const) view.lines.enabled[kind] = want.has(kind);
@@ -217,7 +234,7 @@ function setupViewPanel(slice: SliceConfig, view: SpacetimeScene, flat: Camera) 
       tiltLabel.textContent = `${deg}°`;
       const is3d = view.mode === "3d";
       title.textContent = is3d
-        ? "3D · tendex and vortex lines"
+        ? "3D · strain volume and field lines"
         : deg === 0
           ? "Top view · orbital plane"
           : deg === 90

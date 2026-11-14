@@ -12,22 +12,23 @@
         <canvas id="view"></canvas>
         <div id="view-panel" class="panel">
           <div id="view-title">Top view · orbital plane</div>
-          <div class="view-row flat-only">
+          <div class="view-row">
             <div class="toggle" role="group" aria-label="Polarisation">
               <button type="button" data-component="plus" aria-pressed="true">h₊</button>
               <button type="button" data-component="cross" aria-pressed="false">h×</button>
             </div>
-            <button id="swap" type="button">⇄ Side view</button>
+            <button id="swap" type="button" class="flat-only">⇄ Side view</button>
           </div>
           <button id="mode" type="button" class="wide">3D view</button>
-          <div id="line-controls" class="lines three-d-only" role="group" aria-label="Field lines">
+          <div id="line-controls" class="lines three-d-only" role="group" aria-label="3D content">
+            <label class="check"><input id="show-volume" type="checkbox" /><span class="chip volume"></span>Strain volume</label>
             <label class="check"><input id="show-stretch" type="checkbox" /><span class="chip stretch"></span>Stretching (tendex)</label>
             <label class="check"><input id="show-squeeze" type="checkbox" /><span class="chip squeeze"></span>Squeezing (tendex)</label>
             <label class="check"><input id="show-vortex" type="checkbox" /><span class="chip vortex"></span>Twisting (vortex)</label>
           </div>
           <label class="tilt flat-only">Tilt <input id="tilt" type="range" min="0" max="90" step="1" value="0" /><span id="tilt-value">0°</span></label>
           <canvas id="gizmo" aria-label="Orientation of the slice relative to the orbit"></canvas>
-          <div id="legend" class="flat-only">
+          <div id="legend">
             <span>h &lt; 0</span><div class="ramp"></div><span>h &gt; 0</span>
           </div>
           <p id="view-caption" hidden>
@@ -103,7 +104,18 @@
               probe (the warm sphere).
             </p>
             <p>
-              The 3D view shows tendex and vortex lines: field lines of the tidal tensor (how
+              The 3D view shows the strain throughout a sphere around the source, ray-marched
+              like a glowing fog: crests (orange, h &gt; 0) and troughs (blue, h &lt; 0) of the wave
+              show as sheets, which for h₊ form the two spiral arms of the binary and move outward
+              at the speed of light. Same normalisation as the slices (r·h, so distant sheets are
+              as bright as near ones); the near zone is left empty. h₊ and h× are measured
+              against directions that wind around the orbital axis, so the sheets meet along it;
+              a narrow cone around the axis is faded out. To keep it fast, the volume sums the
+              three strongest modes (the slices use all of them) and is drawn at reduced
+              resolution, adapted to the frame rate.
+            </p>
+            <p>
+              Optionally, the 3D view also shows tendex and vortex lines: field lines of the tidal tensor (how
               space stretches and squeezes nearby objects) and of the frame-drag tensor (how it
               twists them). Red lines stretch along their length and blue lines squeeze; green
               and violet lines twist in opposite senses. Close to the source the tidal lines are
