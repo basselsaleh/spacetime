@@ -11,7 +11,7 @@ Other applications in this repository get their own planning documents; this one
 - Phase 1 (2D wave-zone app): merged, PR #1.
 - Phase 3 (3D view with the ray-marched strain volume): merged, PR #2. The user reviewed the 3D view interactively and approved it.
 - Phase 2 was cut. Phase 4 (the near zone) is **parked**: it may be attempted in the future (see "If this app is revisited").
-- Phase 5 (precession, NRSur7dq4): planned Nov 14, 2026. Step 7a (offline prototype) done on `step-7a-precession-prototype` (`6e2276f`); step 7b (Rust evaluator) on `step-7b-rust-evaluator` (`6a8ac92`); step 7c (mode table, shaders, app switched over, NRHybSur3dq8 removed) on `step-7c-mode-table` (`97bcaac`). Steps 7d+7e (display frame, spins in the scene, spin controls) on `step-7d-spins` (`9466150`). Each is stacked on the previous one. All local, not pushed.
+- Phase 5 (precession, NRSur7dq4): planned Nov 14, 2026. Step 7a (offline prototype) done on `step-7a-precession-prototype` (`6e2276f`); step 7b (Rust evaluator) on `step-7b-rust-evaluator` (`6a8ac92`); step 7c (mode table, shaders, app switched over, NRHybSur3dq8 removed) on `step-7c-mode-table` (`97bcaac`). Steps 7d+7e (display frame, spins in the scene, spin controls) on `step-7d-spins` (`9466150`). Each is stacked on the previous one. All pushed; **PR #6** (`step-7d-spins` → `main`, merge commit) opened Nov 14.
 
 **Not verified by a person**
 
