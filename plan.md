@@ -10,11 +10,11 @@ Nov 12, 2026 · @Bassel · last revised Nov 14, 2026 (handoff edition: written s
 - Phase 3 stage 1 (3D scene) is built and committed on `step-5-3d-scene`, branched from `main`. It is **not pushed** and has no PR yet.
 - Phase 3 stage 1b (strain on spherical shells) was built and then **dropped** (see the decision log). The work is kept, unmerged, on `step-5b-shells`.
 - **Phase 3 stage 2 (tendex and vortex lines)** and **stage 3 (volume view)** are built on `step-6-tendex`, branched from `step-5-3d-scene` (not pushed). The 3D view shows the ray-marched strain volume by default; the lines are optional toggles. The user accepted the lines as they are and expects the volume to replace them eventually.
-- **Next:** the user's review of the volume, then push and open the Phase 3 PR to `main` (the user asked for the PR only after stage 3).
+- The user reviewed the volume (approved). `step-6-tendex` is pushed, with **PR #2** to `main` covering all of Phase 3 (stages 1–3); merge with a merge commit, not squash. After it merges, `step-5-3d-scene` is redundant (its commit is in PR #2).
 
 **Not yet verified by a person**
 
-- The volume in motion (playing, orbiting) and its adaptive resolution on real hardware. Only headless still frames and the `?volbench` timings so far.
+- The volume's adaptive resolution on hardware other than the user's.
 - The tendex/vortex lines in motion: readability while playing and orbiting, and whether the lines flicker near degeneracies. Only headless still frames so far. Headless Chrome sometimes screenshots before the flat → 3D switch has rendered (about 1 in 3 runs); retake rather than debug.
 - Orbiting and zooming in the 3D view, and the flat ⇄ 3D dolly-zoom animation. These were only checked as headless still frames. The top ⇄ side swap animation was checked by the user.
 - Frame rate on real hardware, and the phone layout. The user chose to skip both checks for now.
