@@ -161,3 +161,53 @@ fn precessing_orbit_leaves_the_plane() {
         .fold(0.0, f64::max);
     assert!(zmax > 0.3, "max |ẑ·axis| = {zmax}");
 }
+
+#[test]
+fn display_frame_puts_j_on_z() {
+    let m = model();
+    // Aligned spins: the identity.
+    let f = m.display_frame(aligned(3.0, 0.6, -0.4)).unwrap();
+    assert!(
+        (f[0] - 1.0).abs() < 1e-12 && f[1].abs() + f[2].abs() + f[3].abs() < 1e-12,
+        "{f:?}"
+    );
+
+    let p = Params {
+        q: 4.0,
+        chi_a: [0.8, 0.0, 0.0],
+        chi_b: [0.0, 0.3, 0.2],
+    };
+    let frame = m.display_frame(p).unwrap();
+    let t0 = m.time_range().0.ceil();
+    let (wf, dynm) = m.evaluate(p, Some(frame), t0, 1.0).unwrap();
+    let b = Binary::new(&wf, p, m.remnant(p, &dynm).unwrap());
+    // L̂ at the start lies in the x–z plane, tilted toward +x.
+    let l0 = b.orbital_axis(t0);
+    assert!(l0[1].abs() < 1e-3 && l0[0] > 0.1, "{l0:?}");
+    // Spins at the start are the input spins, turned into this frame.
+    let (sa, sb) = b.spins(t0);
+    for (got, want) in [(sa, p.chi_a), (sb, p.chi_b)] {
+        let w = spacetime_physics::quaternion::rotate(frame, want);
+        for k in 0..3 {
+            assert!((got[k] - w[k]).abs() < 2e-3, "{got:?} vs {w:?}");
+        }
+    }
+    // J is (nearly) conserved in direction, so L̂ circles z at a roughly fixed
+    // tilt, and the remnant spin ends up close to z.
+    let tilts: Vec<f64> = (-4000..-500)
+        .step_by(100)
+        .map(|t| b.orbital_axis(t as f64)[2].acos().to_degrees())
+        .collect();
+    let (lo, hi) = tilts
+        .iter()
+        .fold((f64::MAX, 0.0_f64), |(a, c), &x| (a.min(x), c.max(x)));
+    assert!(
+        lo > 20.0 && hi - lo < 10.0,
+        "L̂ tilt from z in [{lo:.1}, {hi:.1}]°"
+    );
+    let s = b.remnant.spin;
+    let tilt = (s[2] / (s[0] * s[0] + s[1] * s[1] + s[2] * s[2]).sqrt())
+        .acos()
+        .to_degrees();
+    assert!(tilt < 5.0, "remnant spin {tilt:.1}° from z");
+}

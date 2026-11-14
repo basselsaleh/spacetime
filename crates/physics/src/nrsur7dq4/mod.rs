@@ -861,6 +861,54 @@ impl Nrsur7dq4 {
         Ok((wf, dynm))
     }
 
+    // ------------------------------------------------------------ display frame
+
+    /// Orbital angular frequency at the start of the data (the dynamics
+    /// surrogate's ω at its first node).
+    pub fn initial_orbital_frequency(&self, p: Params) -> Result<f64, Error> {
+        self.check(&p)?;
+        let y0: State = [
+            1.0, 0.0, 0.0, 0.0, 0.0, p.chi_a[0], p.chi_a[1], p.chi_a[2], p.chi_b[0], p.chi_b[1],
+            p.chi_b[2],
+        ];
+        Ok(self.dydt(p.q, 0, &y0)[4])
+    }
+
+    /// The initial frame (`init_quat` for `evaluate`) that puts the total
+    /// angular momentum J at the start of the data on +z, with the orbital
+    /// angular momentum L̂ there in the x–z plane (x ≥ 0). Precession then
+    /// sweeps L̂ around a nearly fixed vertical axis.
+    ///
+    /// J = L + m_A² χ_A + m_B² χ_B, with |L| from the 2PN orbital angular
+    /// momentum of a circular orbit without spin terms (Blanchet, Living Rev.
+    /// Rel. 17, 2 (2014); quoted from memory). This only chooses the axes; any
+    /// constant rotation leaves the physics unchanged. For aligned spins it is
+    /// the identity.
+    pub fn display_frame(&self, p: Params) -> Result<Quat, Error> {
+        let omega = self.initial_orbital_frequency(p)?;
+        let (ma, mb) = (p.q / (1.0 + p.q), 1.0 / (1.0 + p.q));
+        let eta = ma * mb;
+        let x = omega.powf(2.0 / 3.0);
+        let l = eta / x.sqrt()
+            * (1.0
+                + (1.5 + eta / 6.0) * x
+                + (27.0 / 8.0 - 19.0 * eta / 8.0 + eta * eta / 24.0) * x * x);
+        let j: [f64; 3] = std::array::from_fn(|k| {
+            ma * ma * p.chi_a[k] + mb * mb * p.chi_b[k] + if k == 2 { l } else { 0.0 }
+        });
+        let tilt = quaternion::between(j, [0.0, 0.0, 1.0]);
+        let lhat = quaternion::rotate(tilt, [0.0, 0.0, 1.0]);
+        let azimuth = if lhat[0].hypot(lhat[1]) > 1e-12 {
+            lhat[1].atan2(lhat[0])
+        } else {
+            0.0
+        };
+        Ok(quaternion::normalize(quaternion::mul(
+            quaternion::about_z(-azimuth),
+            tilt,
+        )))
+    }
+
     // ------------------------------------------------------------ remnant
 
     /// The NRSur7dq4Remnant fits themselves: spins in, and results out, in the

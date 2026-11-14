@@ -40,6 +40,36 @@ pub fn about_z(angle: f64) -> Quat {
     [c, 0.0, 0.0, s]
 }
 
+/// The shortest rotation taking the direction of `a` onto the direction of `b`.
+pub fn between(a: [f64; 3], b: [f64; 3]) -> Quat {
+    let unit = |v: [f64; 3]| {
+        let n = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+        v.map(|c| c / n)
+    };
+    let (a, b) = (unit(a), unit(b));
+    let c = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    if c < -1.0 + 1e-12 {
+        // Opposite: a half turn about any axis perpendicular to a.
+        let helper = if a[0].abs() < 0.9 {
+            [1.0, 0.0, 0.0]
+        } else {
+            [0.0, 1.0, 0.0]
+        };
+        let axis = unit([
+            a[1] * helper[2] - a[2] * helper[1],
+            a[2] * helper[0] - a[0] * helper[2],
+            a[0] * helper[1] - a[1] * helper[0],
+        ]);
+        return [0.0, axis[0], axis[1], axis[2]];
+    }
+    let v = [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    ];
+    normalize([1.0 + c, v[0], v[1], v[2]])
+}
+
 /// q v q⁻¹.
 pub fn rotate(q: Quat, v: [f64; 3]) -> [f64; 3] {
     let r = mul(q, mul([0.0, v[0], v[1], v[2]], inv(q)));
@@ -54,6 +84,27 @@ mod tests {
     fn about_z_turns_x_into_y() {
         let v = rotate(about_z(std::f64::consts::FRAC_PI_2), [1.0, 0.0, 0.0]);
         assert!((v[0]).abs() < 1e-15 && (v[1] - 1.0).abs() < 1e-15 && v[2].abs() < 1e-15);
+    }
+
+    #[test]
+    fn between_maps_a_onto_b() {
+        for (a, b) in [
+            ([0.3, -0.2, 0.9], [0.0, 0.0, 1.0]),
+            ([1.0, 0.0, 0.0], [-1.0, 0.0, 0.0]),
+            ([0.0, 0.0, 1.0], [0.0, 0.0, 2.0]),
+        ] {
+            let r = rotate(between(a, b), a);
+            let (na, nb) = (
+                (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]).sqrt(),
+                (b[0] * b[0] + b[1] * b[1] + b[2] * b[2]).sqrt(),
+            );
+            for k in 0..3 {
+                assert!(
+                    (r[k] / na - b[k] / nb).abs() < 1e-12,
+                    "{a:?} -> {b:?}: {r:?}"
+                );
+            }
+        }
     }
 
     #[test]

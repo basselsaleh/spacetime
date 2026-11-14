@@ -236,6 +236,10 @@ export class SpacetimeScene {
   private readonly probeMarker: THREE.Sprite;
   private readonly probeMarkerPx: number; // marker texture size, CSS px
   private readonly guides = new THREE.Group();
+  /** The orbital plane's outline and L̂, turned to follow the precessing orbit. */
+  private readonly orbitGuide = new THREE.Group();
+  /** Spin arrows: heavier hole, lighter hole, remnant. */
+  private readonly spinArrows: THREE.ArrowHelper[];
   private textures: THREE.DataTexture[] = [];
   private peak = 1;
   private extent = 600; // half-size of the slice planes, M
@@ -296,17 +300,35 @@ export class SpacetimeScene {
     this.probeMarkerPx = marker.sizePx;
     this.scene.add(this.probeMarker);
 
-    // Guides for the 3D view: the orbital axis and the outline of the orbital plane.
+    // Guides for the 3D view: the z-axis (the total angular momentum J), and the
+    // outline of the orbital plane with its axis L̂, which precess around it.
     const line = new THREE.LineBasicMaterial({ color: 0x5b6478, transparent: true, opacity: LOOK.guideOpacity });
+    const lLine = new THREE.LineBasicMaterial({ color: LOOK.spinColor, transparent: true, opacity: LOOK.guideOpacity });
     const axis = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 0, 1)]);
+    const lAxis = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0.6)]);
     const circle = new THREE.BufferGeometry().setFromPoints(
       Array.from({ length: 129 }, (_, i) => {
         const a = (2 * Math.PI * i) / 128;
         return new THREE.Vector3(Math.cos(a), Math.sin(a), 0);
       }),
     );
-    this.guides.add(new THREE.Line(axis, line), new THREE.Line(circle, line));
+    this.orbitGuide.add(new THREE.Line(circle, line), new THREE.Line(lAxis, lLine));
+    this.guides.add(new THREE.Line(axis, line), this.orbitGuide);
     this.scene.add(this.guides);
+
+    // Spin arrows, drawn over everything (they start at the horizon).
+    this.spinArrows = [0, 1, 2].map(() => {
+      const arrow = new THREE.ArrowHelper(Z_UP, new THREE.Vector3(), 1, LOOK.spinColor);
+      for (const m of [arrow.line.material, arrow.cone.material] as THREE.Material[]) {
+        m.depthTest = false;
+        m.transparent = true;
+      }
+      arrow.renderOrder = 10;
+      arrow.line.renderOrder = 10;
+      arrow.cone.renderOrder = 10;
+      this.scene.add(arrow);
+      return arrow;
+    });
 
     this.camera.up.copy(Z_UP); // OrbitControls orbits around camera.up, fixed at construction
     this.controls = new OrbitControls(this.camera, canvas);
@@ -500,6 +522,8 @@ export class SpacetimeScene {
     mu.u_halfWidth.value = flat.halfWidth;
     this.guides.visible = blend > 0;
     this.guides.scale.setScalar(VOLUME_EXTENT * this.extent);
+    const lhat = new THREE.Vector3(...scene.orbitalAxis);
+    if (lhat.lengthSq() > 0) this.orbitGuide.quaternion.setFromUnitVectors(Z_UP, lhat.normalize());
 
     // Black holes and probe, at least a few pixels across.
     const pxWorld = (p: THREE.Vector3) =>
@@ -515,6 +539,21 @@ export class SpacetimeScene {
       sprite.position.copy(p);
       sprite.scale.setScalar(2 * HALO_SCALE * radius);
       (sprite.material as THREE.SpriteMaterial).opacity = LOOK.haloStrength * opacity;
+
+      // Spin arrow from the horizon outward, length ∝ |χ| (at least a few pixels).
+      const arrow = this.spinArrows[k];
+      const chi = new THREE.Vector3(scene.spins[3 * k], scene.spins[3 * k + 1], scene.spins[3 * k + 2]);
+      const mag = chi.length();
+      arrow.visible = opacity > 0.01 && mag > 0.01;
+      if (arrow.visible) {
+        const dir = chi.divideScalar(mag);
+        const len = mag * Math.max(LOOK.spinLength * d[5 * k + 3], LOOK.spinMinPx * pxWorld(p));
+        arrow.position.copy(p).addScaledVector(dir, radius);
+        arrow.setDirection(dir);
+        arrow.setLength(len, 0.35 * len, 0.2 * len);
+        (arrow.line.material as THREE.LineBasicMaterial).opacity = opacity;
+        (arrow.cone.material as THREE.MeshBasicMaterial).opacity = opacity;
+      }
     });
     const pp = new THREE.Vector3(...probe);
     this.probeMarker.position.copy(pp);

@@ -49,6 +49,11 @@ pub struct Binary {
     dt: f64,
     /// Unit vector toward the heavier hole (co-orbital x-axis).
     axis: Vec<[f64; 3]>,
+    /// Orbital angular momentum direction (coprecessing z-axis).
+    lhat: Vec<[f64; 3]>,
+    /// Dimensionless spins of the heavier and lighter holes, inertial frame.
+    spin_a: Vec<[f64; 3]>,
+    spin_b: Vec<[f64; 3]>,
     separation: Vec<f64>,
     m1: f64,
     m2: f64,
@@ -89,6 +94,11 @@ impl Binary {
         let axis = (0..wf.len())
             .map(|i| quaternion::rotate(wf.coorbital_frame(i), [1.0, 0.0, 0.0]))
             .collect();
+        let lhat = wf
+            .quat
+            .iter()
+            .map(|q| quaternion::rotate(*q, [0.0, 0.0, 1.0]))
+            .collect();
         let separation = wf
             .omega_orb()
             .iter()
@@ -98,6 +108,9 @@ impl Binary {
             t0: wf.t[0],
             dt: wf.t[1] - wf.t[0],
             axis,
+            lhat,
+            spin_a: wf.chi_a.clone(),
+            spin_b: wf.chi_b.clone(),
             separation,
             m1,
             m2,
@@ -114,13 +127,34 @@ impl Binary {
         (i, x - i as f64)
     }
 
+    fn lerp3(&self, v: &[[f64; 3]], t: f64) -> [f64; 3] {
+        let (i, f) = self.index(v.len(), t);
+        let (a, b) = (v[i], v[i + 1]);
+        std::array::from_fn(|k| a[k] + f * (b[k] - a[k]))
+    }
+
+    fn unit_at(&self, v: &[[f64; 3]], t: f64) -> [f64; 3] {
+        let u = self.lerp3(v, t);
+        let n = norm(u);
+        u.map(|c| c / n)
+    }
+
     /// Unit vector toward the heavier hole at time t (frozen after the merger window).
     pub fn axis(&self, t: f64) -> [f64; 3] {
-        let (i, f) = self.index(self.axis.len(), t.min(MERGE_WINDOW.1));
-        let (a, b) = (self.axis[i], self.axis[i + 1]);
-        let v: [f64; 3] = std::array::from_fn(|k| a[k] + f * (b[k] - a[k]));
-        let n = norm(v);
-        v.map(|c| c / n)
+        self.unit_at(&self.axis, t.min(MERGE_WINDOW.1))
+    }
+
+    /// Direction of the orbital angular momentum at time t (frozen after the
+    /// merger window).
+    pub fn orbital_axis(&self, t: f64) -> [f64; 3] {
+        self.unit_at(&self.lhat, t.min(MERGE_WINDOW.1))
+    }
+
+    /// Dimensionless spin vectors of the heavier and lighter holes at time t
+    /// (frozen after the merger window).
+    pub fn spins(&self, t: f64) -> ([f64; 3], [f64; 3]) {
+        let t = t.min(MERGE_WINDOW.1);
+        (self.lerp3(&self.spin_a, t), self.lerp3(&self.spin_b, t))
     }
 
     /// Angle of the heavier hole's direction projected on the xy-plane

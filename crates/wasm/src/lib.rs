@@ -72,6 +72,22 @@ impl WaveformModel {
         vec![a, b]
     }
 
+    /// The initial frame (`[w, x, y, z]`) that puts the total angular momentum
+    /// at the start of the data on +z, with L̂ there in the x–z plane; pass it
+    /// to `evaluate` as `init_quat`. The identity for aligned spins.
+    #[wasm_bindgen(js_name = displayFrame)]
+    pub fn display_frame(&self, q: f64, chi_a: &[f64], chi_b: &[f64]) -> Result<Vec<f64>, JsError> {
+        let p = Params {
+            q,
+            chi_a: vec3(chi_a, "chi_a")?,
+            chi_b: vec3(chi_b, "chi_b")?,
+        };
+        self.0
+            .display_frame(p)
+            .map(|f| f.to_vec())
+            .map_err(|e| JsError::new(&e.to_string()))
+    }
+
     /// Evaluates the binary on a uniform grid from `t_start` (M) with step `dt`.
     /// Spins (`[x, y, z]`, heavier hole A, lighter hole B) are given at the
     /// start of the data in the co-orbital frame there; `init_quat`
@@ -250,6 +266,25 @@ impl BinaryTrack {
             .iter()
             .flat_map(|d| [d.x, d.y, d.z, d.radius, d.opacity])
             .collect()
+    }
+
+    /// `[x, y, z]`: direction of the orbital angular momentum at time t.
+    #[wasm_bindgen(js_name = orbitalAxis)]
+    pub fn orbital_axis(&self, t: f64) -> Vec<f64> {
+        self.0.orbital_axis(t).to_vec()
+    }
+
+    /// `[ax, ay, az, bx, by, bz]`: dimensionless spins of the heavier (A) and
+    /// lighter (B) holes at time t.
+    pub fn spins(&self, t: f64) -> Vec<f64> {
+        let (a, b) = self.0.spins(t);
+        [a, b].concat()
+    }
+
+    /// `[x, y, z]`: the final dimensionless spin vector.
+    #[wasm_bindgen(getter, js_name = remnantSpinVector)]
+    pub fn remnant_spin_vector(&self) -> Vec<f64> {
+        self.0.remnant.spin.to_vec()
     }
 
     /// Final mass, in units of the initial total mass.

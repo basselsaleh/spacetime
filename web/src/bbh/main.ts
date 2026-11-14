@@ -13,6 +13,7 @@ import {
   paramsFromUrl,
   prepare,
   release,
+  spinToUrl,
   type BinaryParams,
   type PreparedWaveform,
 } from "./waveform";
@@ -48,7 +49,11 @@ async function main(): Promise<void> {
     if (url.has("selftest")) {
       // The binary from the URL, then a strongly precessing one (q = 4, χ₁ = 0.8 in the plane).
       const runs = [runSelfTest(view, w)];
-      const precessing = prepare(model, { q: 4, chi1: 0, chi2: 0, spins: { a: [0.8, 0, 0], b: [0, 0, 0] } });
+      const precessing = prepare(model, {
+        q: 4,
+        spin1: { mag: 0.8, tilt: 90, azimuth: 0 },
+        spin2: { mag: 0, tilt: 0, azimuth: 0 },
+      });
       view.setWaveform(precessing);
       runs.push(runSelfTest(view, precessing));
       view.setWaveform(w);
@@ -76,6 +81,8 @@ async function main(): Promise<void> {
       gain: GAIN,
       maskRadius: 0,
       disks: new Float32Array(15),
+      spins: new Float32Array(9),
+      orbitalAxis: new Float32Array([0, 0, 1]),
     };
     const camera: Camera = {
       ...DEFAULT_CAMERA,
@@ -106,7 +113,7 @@ async function main(): Promise<void> {
       },
       () => (view.mode === "flat" ? Object.assign(camera, DEFAULT_CAMERA) : view.resetOrbit()),
     );
-    const viewPanel = setupViewPanel(slice, view, camera);
+    const viewPanel = setupViewPanel(slice, view, camera, () => w.aligned);
     // ?3d: switch after the first flat frame, so the camera animates in from the flat view.
     if (url.has("3d")) requestAnimationFrame(() => requestAnimationFrame(() => view.setMode("3d", camera)));
 
@@ -149,11 +156,14 @@ async function main(): Promise<void> {
       scene.maskRadius = nearZoneRadius(w, scene.time);
       const disks = w.binary.state(scene.time);
       scene.disks.set(disks);
+      scene.spins.set(w.binary.spins(scene.time));
+      scene.spins.set(w.binary.remnantSpinVector, 6);
+      scene.orbitalAxis.set(w.binary.orbitalAxis(scene.time));
       const p = probe.point;
       view.render(scene, slice, camera, [p.x, p.y, p.z]);
       probe.draw(w, scene.time, scene.gain);
       if (view.mode === "flat") {
-        drawGizmo($("gizmo"), slice, Math.atan2(disks[1], disks[0]));
+        drawGizmo($("gizmo"), slice, [disks[0], disks[1], disks[2]], [...scene.orbitalAxis] as [number, number, number]);
         updateScaleBar($("scale-bar"), $("scale-label"), camera.halfWidth, canvas.clientWidth);
       }
 
@@ -189,7 +199,7 @@ function endTime(w: PreparedWaveform, camera: Camera, canvas: HTMLCanvasElement)
  * Title, polarization toggle, top/side swap with an animated tilt, tilt slider,
  * and the flat/3D switch.
  */
-function setupViewPanel(slice: SliceConfig, view: SpacetimeScene, flat: Camera) {
+function setupViewPanel(slice: SliceConfig, view: SpacetimeScene, flat: Camera, aligned: () => boolean) {
   const title = $("view-title");
   const caption = $("view-caption");
   const swap = $<HTMLButtonElement>("swap");
@@ -229,16 +239,18 @@ function setupViewPanel(slice: SliceConfig, view: SpacetimeScene, flat: Camera) 
       tiltInput.value = String(deg);
       tiltLabel.textContent = `${deg}°`;
       const is3d = view.mode === "3d";
+      // With precession the orbital plane moves; the slices are fixed to J (+z).
+      const plane = aligned() ? "orbital plane" : "plane ⊥ J";
       title.textContent = is3d
         ? "3D · strain volume"
         : deg === 0
-          ? "Top view · orbital plane"
+          ? `Top view · ${plane}`
           : deg === 90
-            ? "Side view · x–z plane, orbital axis up"
-            : `Tilted slice · ${deg}° from the orbital plane`;
+            ? `Side view · x–z plane, ${aligned() ? "orbital axis" : "J"} up`
+            : `Tilted slice · ${deg}° from the ${plane}`;
       swap.textContent = deg < 45 ? "⇄ Side view" : "⇄ Top view";
       for (const b of buttons) b.setAttribute("aria-pressed", String(b.dataset.component === slice.component));
-      caption.hidden = is3d || !(deg === 0 && slice.component === "cross");
+      caption.hidden = is3d || !(deg === 0 && slice.component === "cross" && aligned());
       modeBtn.textContent = is3d ? "Flat view" : "3D view";
       document.body.classList.toggle("mode-3d", is3d);
     },
@@ -247,17 +259,21 @@ function setupViewPanel(slice: SliceConfig, view: SpacetimeScene, flat: Camera) 
 
 function describe(w: PreparedWaveform) {
   const b = w.binary;
+  const [, , sz] = b.remnantSpinVector;
+  const tilt = (Math.acos(Math.max(-1, Math.min(1, sz / b.remnantSpin))) * 180) / Math.PI;
   $("remnant").textContent =
     `Remnant: mass ${b.remnantMass.toFixed(4)} M (${((1 - b.remnantMass) * 100).toFixed(1)}% radiated), ` +
-    `spin ${b.remnantSpin.toFixed(3)}, recoil ${(b.kickSpeed * 299792.458).toFixed(0)} km/s`;
+    `spin ${b.remnantSpin.toFixed(3)}` +
+    (w.aligned ? "" : ` (${tilt.toFixed(0)}° from J)`) +
+    `, recoil ${(b.kickSpeed * 299792.458).toFixed(0)} km/s`;
   $("eval").textContent = `waveform evaluated in ${w.evaluateMs.toFixed(1)} ms`;
 }
 
 function writeUrl(p: BinaryParams) {
   const url = new URL(window.location.href);
   url.searchParams.set("q", p.q.toFixed(2));
-  url.searchParams.set("chi1", p.chi1.toFixed(2));
-  url.searchParams.set("chi2", p.chi2.toFixed(2));
+  url.searchParams.set("chi1", spinToUrl(p.spin1));
+  url.searchParams.set("chi2", spinToUrl(p.spin2));
   history.replaceState(null, "", url);
 }
 

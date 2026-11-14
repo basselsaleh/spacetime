@@ -39,7 +39,9 @@ CI (`.github/workflows/ci.yml`) runs `cargo fmt --check`, `clippy -D warnings`, 
 
 Gravitational waves (`/bbh/`):
 
-- `?q=3&chi1=0.6&chi2=0.2`: binary parameters (q ≤ 4, |χ| ≤ 0.8; aligned spins for now)
+- `?q=3&chi1=0.6&chi2=0.2`: binary parameters (q ≤ 4, |χ| ≤ 0.8). A spin is one number (along
+  the orbital axis L̂; negative = anti-aligned) or `x,y,z` in the co-orbital frame at the start
+  of the data (t ≈ −4300 M; z along L̂, x toward the heavier hole), e.g. `?q=4&chi1=0.8,0,0`
 - `?t=-300&zoom=250&tilt=40&paused`: start at a given time (M), half-width (M) and slice tilt
   (degrees), paused
 - `?3d`: start in the 3D view
