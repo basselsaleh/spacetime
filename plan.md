@@ -8,7 +8,8 @@ Nov 12, 2026 · @Bassel · last revised Nov 14, 2026 (handoff edition: written s
 
 - Phase 1 (2D wave-zone app) is merged into `main` (PR #1).
 - Phase 3 stage 1 (3D scene) is built and committed on `step-5-3d-scene`, branched from `main`. It is **not pushed** and has no PR yet.
-- The next task is **Phase 3 stage 1b: strain on spherical shells** (see the roadmap). After it comes **Phase 3 stage 2: tendex and vortex lines as 3D curves** (see "Next step" below).
+- Phase 3 stage 1b (strain on spherical shells) was built and then **dropped** (see the decision log). The work is kept, unmerged, on `step-5b-shells`.
+- **Phase 3 stage 2 (tendex and vortex lines)** is in progress on `step-6-tendex`, branched from `step-5-3d-scene`. The offline Python prototype is done (see "Next step" below); the next task is the Rust/wasm implementation. Until the lines are in the app, the 3D view stays as in stage 1 (the slice placed in space).
 
 **Not yet verified by a person**
 
@@ -30,6 +31,8 @@ Nov 12, 2026 · @Bassel · last revised Nov 14, 2026 (handoff edition: written s
 | Nov 13 | Repo private; no GitHub Pages deployment | Private repo |
 | Nov 13 | One main view with an animated top ⇄ side swap, instead of two unequal views | User preferred a single view; the swap shows genuine intermediate slices |
 | Nov 14 | Do 3D (Phase 3) **before** Phase 2, using three.js | Tendex and vortex lines are best built directly in 3D; vortex lines need it |
+| Nov 13 | Spherical shells (stage 1b) dropped; the 3D view will be the tendex/vortex lines | A shell at fixed radius is perpendicular to the propagation direction everywhere, so it can't show waves moving (it shows each distance's received signal brightening and fading in place). h₊/h× on a sphere also have unavoidable pinwheels at the poles |
+| Nov 13 | Stage 2 quadrupole: adiabatic I₂₂ = −h₂₂/ω₂₂² | Compared in the prototype: twice-integrating h₂₂ leaves a constant offset and a drifting phase; the PN orbit doesn't decay after merger; the adiabatic form is smooth through ringdown and within ~10% of the orbit estimate in the inspiral |
 | Nov 13 | **Cut Phase 2 entirely**: no in-app NR validation overlay, no audio, no slice azimuth control. Phase numbers are kept as they were (1, 3, 4) | User doesn't want these features; validation stays as offline golden tests |
 
 ## Vision and goals
@@ -171,6 +174,9 @@ web/src/
 web/public/nrhybsur3dq8.stsur   Trimmed surrogate + remnant fits (committed, 2.28 MB)
 tools/              uv project: export_surrogate.py, gen_golden.py, gen_remnant_golden.py,
                     gen_harmonics_golden.py, gen_orientation_golden.py; data/ (gitignored downloads)
+  tendex_field.py       Stage 2 prototype: E and B of monopole + mass quadrupole, derived with sympy; checks
+  tendex_quadrupole.py  I_ij from the (2,2) mode (mode ⇄ STF map, three methods compared)
+  tendex_proto.py       Field-line tracing and figures (orbital plane, 3D, animation)
 tests/golden/       Golden data used by the Rust tests (committed)
 ```
 
@@ -231,6 +237,7 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 
 - **Polarisation sign:** the LAL convention (see Conventions). Textbook (Blanchet/Kidder) formulas have the opposite sign of h.
 - **Spline joins:** the surrogate's time grid jumps from sparse (~65 M) to dense (0.1 M) at about −1000 M. The exporter keeps the original dense samples for 10 M past that join before coarsening to 1 M. Without that, the error near the join was 15× larger.
+- **Double integration of h₂₂** to get the quadrupole drifts (integration constants); use the adiabatic −h₂₂/ω² instead. After ~60 M past the peak h₂₂ is near the noise floor and its phase (so ω₂₂) is noise: hold ω there.
 - **References:** only cite references you have verified. Several in this file are from memory and marked as such.
 
 ## Roadmap
@@ -262,17 +269,8 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
   - Switching is a 1.6 s dolly zoom: logarithmic field-of-view interpolation, quaternion slerp, distance chosen to keep the slice framed.
   - Self-test unchanged from step 4b (worst 4.4e-4).
   - Bundle: 542 KB JavaScript (141 KB gzipped).
-- **Stage 1b: strain on spherical shells.** Next. Branch `step-5b-shells` from `step-5-3d-scene`.
-  - **Why:** spheres are the natural surfaces for outgoing waves. A shell at radius r shows the sky map that observers at that distance receive, emitted at t − r. Shells show the direction dependence (about twice the amplitude on the axis than in the plane; circular polarization on the axis, linear in the plane) and the spiral twist, which planes alone hide.
-  - **Rendering:** sphere meshes that reuse the existing slice shader. `slice.vert` already passes world positions through, so the mode sum works unchanged; h₊/h× use the same (θ, φ) basis as the slices.
-  - **Controls:** one or a few concentric translucent shells at user-set radii, plus a cutaway (hemisphere or clip plane) so the inner shells and the holes stay visible. Shells are a 3D-view feature; the flat view stays a plane slice.
-  - **Details to handle:**
-    - transparency ordering between shells, slices and the ghost pass
-    - the near-zone fade on small shells
-    - probe picking on shells (extend the existing ray cast)
-  - **Self-test:** the exact pixel mapping (`u_screenMapped`) applies only to planes. Add a shell case that ray-casts pixel centres onto the sphere and compares with the Rust `strain` reference at those points, using a looser tolerance if rasterizer snapping requires it.
-  - **URL:** e.g. `?shells=r1,r2,…`.
-- **Stage 2: tendex and vortex lines as 3D curves.** After stage 1b; see below.
+- **Stage 1b: strain on spherical shells.** Built Nov 13, 2026, then dropped (see the decision log). Kept unmerged on `step-5b-shells`. Reusable from it if needed: exact per-pixel ray–sphere intersection in the strain shader, and rays built from the camera basis (`u_rayBasis`) to avoid rasterizer snapping and float32 unprojection error.
+- **Stage 2: tendex and vortex lines as 3D curves.** In progress on `step-6-tendex`: prototype done; see below. These become the 3D view.
 - **Stage 3: volume view.** Wavefronts as glowing shells, by ray marching the mode sum. Try WebGL2 at reduced resolution before considering WebGPU.
 
 **Phase 4: near zone (highest risk)**
@@ -285,7 +283,7 @@ Each later phase adds physics nearer the black holes, where the approximations g
 
 ## Next step: Phase 3 stage 2, tendex and vortex lines
 
-**Goal.** Animated 3D curves, rendered alongside the strain slices:
+**Goal.** Animated 3D curves, the content of the 3D view:
 
 - tendex lines: eigenvectors of the tidal tensor E\_ij, coloured by stretching (eigenvalue < 0) or squeezing (> 0)
 - vortex lines: eigenvectors of the frame-drag tensor B\_ij, coloured by twist direction
@@ -297,7 +295,7 @@ Near each hole they should be radial tidal lines; about a wavelength out they be
 - Teukolsky 1982, linearized quadrupole waves
 - Nichols et al. 2011 (PRD), which treats a rotating quadrupole in linearized theory and is a cross-check for E and B
 
-Drive it with the binary's quadrupole moment I\_ij(t), taken from the (2,2) mode. h₂₂ ∝ d²I₂₂/dt², so integrate twice in time. During the inspiral the adiabatic form I₂₂ ≈ −h₂₂/ω₂₂² is a good first approximation; choose and document the method. Optionally add the current quadrupole from the (2,1) mode.
+Drive it with the binary's quadrupole moment I\_ij(t), taken from the (2,2) mode with the adiabatic form I₂₂ = −h₂₂/ω₂₂² (decided in the prototype; see the decision log). Optionally add the current quadrupole from the (2,1) mode.
 
 The result is invalid within a few M of the holes and during the merger. Fade the lines there and label it, consistent with the near-zone mask.
 
@@ -314,7 +312,19 @@ The result is invalid within a few M of the holes and during the merger. Fade th
 - Draw them as three.js fat lines (`Line2`/`LineMaterial`) or thin tubes.
 - Toggle in the view panel: colours, lines, or both.
 
-**Suggested first step.** An offline Python prototype that animates one parameter set, to validate the physics and the look before building it into the app. A static Newtonian-tidal-field figure was prototyped in the original conversation (not in the repo). It shows radial red stretching lines into each hole and blue squeezing circles around them.
+**Prototype (done Nov 13, 2026; `tools/tendex_*.py`).** Run `env -u VIRTUAL_ENV uv run python tendex_proto.py OUTDIR` in `tools/` for `plane.png`, `plane.gif` and `lines3d.png` (q = 3, χ₁ = 0.6, χ₂ = 0.2 by default; about 1.5 minutes).
+
+- **Field.** Metric of a monopole M plus STF mass quadrupole in harmonic gauge: h̄⁰⁰ = 4M/r + 2∂ᵢ∂ⱼ[Iᵢⱼ(u)/r], h̄⁰ⁱ = −2∂ⱼ[İᵢⱼ(u)/r], h̄ⁱʲ = 2Ïᵢⱼ(u)/r, u = t − r. This is an exact linearized vacuum solution (the gauge condition holds identically). E = R₀ᵢ₀ⱼ and B = ½ε R from linearized Riemann, by sympy. E needs I through its 4th derivative.
+- **Checks (all pass).** Symmetric and traceless to 1e-15; static limit = Newtonian tidal field ∂ᵢ∂ⱼΦ of M and I to 1e-15, with B = 0; far zone r·E → −(I⁗)^TT and B → n × E, errors falling as 1/r (3e-6 at r = 10⁶).
+- **Mode ⇄ quadrupole map.** Computed numerically by projecting h^TT = 2Ï^TT/r onto LAL's ₋₂Y₂ₘ; the projection residual (< 1e-10) fixes the h× sign. Sign check: at t = −1000 M the quadrupole's major axis is along x (heavier hole on +x). Only (2, ±2) is used; (2, ±1) is the current quadrupole.
+- **Look.** Orbital plane: radial red (stretching) lines and blue (squeezing) rings around the source, bending into the outgoing red/blue spirals of the wave, which dominate after merger, as expected. 3D: the stretching family reads well (radial lines that bend); the squeezing family wraps around the source on the wavefronts like a ball of yarn; vortex lines are a tangle in a still image. Lines seeded at random and traced long are unreadable in 3D; one family at a time with moderate length is much better.
+- **Not covered.** A monopole + quadrupole expansion can't resolve the field inside the binary, so the "radial lines into each hole" picture needs the near-zone metric of Phase 4. The prototype stops the lines at the near-zone radius; there, the rotating quadrupole's near field is comparable to the monopole's and the lines get irregular.
+
+**Open for the app** (to settle when building it):
+
+- Readability in 3D: which families to show by default (stretching tendex lines are the clearest), line count and length, depth cues, and seeding that is coherent from frame to frame (re-seeding every frame, as the prototype's 2D lines do, will flicker).
+- E and B in Rust: port the closed form (have sympy emit collected expressions in n̂, r and I⁽ⁿ⁾, or derive by hand and test against `tendex_field.py`).
+- Cost: the prototype's Python takes ~5 s for 160k field evaluations; the wasm budget per frame needs measuring.
 
 **2D caveat** (why this is in 3D). Only lines that lie in a slice can be drawn on it. In the orbital plane, the tendex lines are in-plane or perpendicular by symmetry, but far-zone vortex lines are at 45° to the tendex directions and cross the slice.
 
@@ -326,7 +336,7 @@ The result is invalid within a few M of the holes and during the merger. Fade th
 - [x] Remnant: NRSur3dq8Remnant.
 - [x] Parameter range: aligned spins only, q ≤ 8, |χ| ≤ 0.8 (the surrogate's trained range; the evaluator refuses values outside it).
 - [x] 2D or 3D: 2D first, then 3D.
-- [ ] Quadrupole source for stage 2: twice-integrated h₂₂, adiabatic −h₂₂/ω², or the PN orbit's μ r² n n? Compare in the prototype.
+- [x] Quadrupole source for stage 2: adiabatic −h₂₂/ω² (compared in the prototype; see the decision log).
 - [ ] Retarded time: plain t − r or the tortoise coordinate r\*? The difference, 2M ln(r/2M − 1), is a slowly growing delay (~8 M at r = 100 M, ~12 M at 1000 M) that shifts the pattern relative to the holes. Revisit with stage 2 or the near zone.
 - [ ] Near-zone metric (Phase 4): superposed boosted Kerr–Schild or PN? Prototype both and compare against NR.
 - [ ] Merger-phase horizons (Phase 4): keyframed NR shapes or a fade to the remnant?
