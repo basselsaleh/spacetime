@@ -1,6 +1,6 @@
 # Binary black hole spacetime visualizer: project plan
 
-Nov 12, 2026 · @Bassel · **Phase 5 (precession) in progress** (a record of the app as built, plus the next phase)
+Nov 12, 2026 · @Bassel · **Phase 5 (precession) merged** (a record of the app as built, plus the next phase)
 
 Other applications in this repository get their own planning documents; this one covers only the binary black hole app. Plans live on the `dev` branch (only these files, never merged into `main`), checked out as a `plans/` worktree inside the main clone: `git worktree add plans dev`.
 
@@ -11,13 +11,13 @@ Other applications in this repository get their own planning documents; this one
 - Phase 1 (2D wave-zone app): merged, PR #1.
 - Phase 3 (3D view with the ray-marched strain volume): merged, PR #2. The user reviewed the 3D view interactively and approved it.
 - Phase 2 was cut. Phase 4 (the near zone) is **parked**: it may be attempted in the future (see "If this app is revisited").
-- Phase 5 (precession, NRSur7dq4): planned Nov 14, 2026. Step 7a (offline prototype) done on `step-7a-precession-prototype` (`6e2276f`); step 7b (Rust evaluator) on `step-7b-rust-evaluator` (`6a8ac92`); step 7c (mode table, shaders, app switched over, NRHybSur3dq8 removed) on `step-7c-mode-table` (`97bcaac`). Steps 7d+7e (display frame, spins in the scene, spin controls) on `step-7d-spins` (`9466150`). Each is stacked on the previous one. All pushed; **PR #6** (`step-7d-spins` → `main`, merge commit) opened Nov 14.
+- Phase 5 (precession, NRSur7dq4): planned Nov 14, 2026. Step 7a (offline prototype) done on `step-7a-precession-prototype` (`6e2276f`); step 7b (Rust evaluator) on `step-7b-rust-evaluator` (`6a8ac92`); step 7c (mode table, shaders, app switched over, NRHybSur3dq8 removed) on `step-7c-mode-table` (`97bcaac`). Steps 7d+7e (display frame, spins in the scene, spin controls) on `step-7d-spins` (`9466150`). **Merged to `main` via PR #6** (Nov 14, merge commit); the step branches are deleted.
 
 **Not verified by a person**
 
 - Frame rate and the volume's adaptive resolution on hardware other than the user's (Apple M4), and the phone layout. The user chose to skip these checks.
 
-**Branches.** All merged step branches have been deleted. `step-5b-shells` (the dropped spherical-shells experiment, never merged) is kept locally for reference.
+**Branches.** All merged step branches have been deleted (Phase 5's after PR #6, along with the old `bbh-aesthetics`, `public-release` and `lensing-*` branches). `step-5b-shells` (the dropped spherical-shells experiment, never merged) is kept locally for reference.
 
 **Decision log**
 
