@@ -21,7 +21,7 @@ As with the BBH app: faithful to general relativity, beautiful, interactive, and
 Every pixel's light ray is traced **backwards** from the camera as a null geodesic of the black hole spacetime, until it either:
 
 - **crosses the horizon:** the pixel is black (the shadow), or
-- **escapes to large radius:** the pixel takes the colour of the background sky in the ray's final direction.
+- **escapes to large radius:** the pixel takes the color of the background sky in the ray's final direction.
 
 This needs no thin-lens or weak-field approximation. The only approximations are:
 
@@ -67,9 +67,9 @@ A spinning hole has no planar reduction.
 
 The background is a "celestial sphere" at infinity, sampled by direction:
 
-- **Procedural first.** A starfield with a range of brightnesses and colours, plus a few galaxy-like smudges and nebula-like glows. It is generated in the shader or baked into a cube map. Free, sharp at any zoom, and no licensing questions.
+- **Procedural first.** A starfield with a range of brightnesses and colors, plus a few galaxy-like smudges and nebula-like glows. It is generated in the shader or baked into a cube map. Free, sharp at any zoom, and no licensing questions.
 - **Reference grid** (optional). A latitude–longitude grid that makes the distortion easy to read; good for teaching.
-- **Real all-sky star map** (optional, later). Only after checking its licence, as was done for the surrogate data.
+- **Real all-sky star map** (optional, later). Only after checking its license, as was done for the surrogate data.
 
 **Aliasing is the main rendering risk.** Near the photon ring, a single pixel's ray bundle covers a huge patch of sky, so point-like stars sparkle and flicker. Mitigations, in order:
 
@@ -110,7 +110,7 @@ web/
 
 ## Stages
 
-### Step 0: repository reorganisation (done)
+### Step 0: repository reorganization (done)
 
 - Multi-page Vite config (`web/vite.config.ts`), landing page (`web/index.html`), BBH moved under `web/bbh/` and `web/src/bbh/`, and a placeholder `web/lensing/index.html`.
 - Shared code in `web/src/common/`: `rays.ts` (`rayMatrix`), `reducedPass.ts` (the adaptive reduced-resolution full-screen pass and composite, extracted from the BBH volume) and `theme.css`.
@@ -138,7 +138,7 @@ The `web/src/common/` entry in the repository layout above lists only what exist
   - weak-field deflection 4/b + 15π/(4b²) to 1e-4 relative at b = 10³–10⁴
   - capture exactly at b_c, at the shadow-edge angle
   - winding grows as b → b_c
-  - escape directions stay in the ray's plane and bend towards the hole
+  - escape directions stay in the ray's plane and bend toward the hole
 - **Shader** (`web/src/lensing/shaders/lens.frag`): RK4 in φ with step min(0.02, ½u/|du/dφ|), floored at 0.002 for near-radial rays. Rays inside the shadow are rejected analytically, and rays still unresolved after 1000 steps (the photon ring) are drawn black.
 - **Procedural sky** (`sky.glsl`), evaluated per pixel with no texture:
   - three star layers on a seamless 3D grid; stars are widened to at least ~1 pixel with their brightness preserved
@@ -154,7 +154,7 @@ The `web/src/common/` entry in the repository layout above lists only what exist
 - Reference grid option, and a lensed ⇄ unlensed toggle.
 - Overlays: shadow outline, photon ring, Einstein-ring radius for a chosen source.
 - Anti-aliasing near the photon ring.
-- Possibly a real star map (licence permitting).
+- Possibly a real star map (license permitting).
 
 ### Step 3: Kerr
 
@@ -181,7 +181,7 @@ The `web/src/common/` entry in the repository layout above lists only what exist
 ## Open questions
 
 - [x] Camera model for stage 1: a static observer at 3.5–300 M (outside the photon sphere, so the planar escape logic holds). An orbiting or falling camera remains a "maybe later".
-- [ ] Sky: procedural only, or also a real star map? Which one, and under what licence?
+- [ ] Sky: procedural only, or also a real star map? Which one, and under what license?
 - [x] Integration variable and step control for the GPU, Schwarzschild: RK4 in φ, step min(0.02, ½u/|du/dφ|) ≥ 0.002; 3.3e-5 rad worst against the reference.
 - [ ] Kerr formulation: Boyer–Lindquist (singular at the horizon, fine for rays that stop there) or Kerr–Schild (regular)? Prototype both.
 - [ ] Should the lensing app and the BBH app share one URL-parameter and panel style, or diverge?

@@ -24,7 +24,7 @@ Other applications in this repository get their own planning documents in `plans
 | --- | --- | --- |
 | Nov 13 | 2D first; TypeScript + WebGL2 front end, Rust → wasm physics | The cost lives in the near zone, not in 2D vs 3D |
 | Nov 13 | Waveforms from the **NRHybSur3dq8** surrogate, not IMRPhenomT | IMRPhenomT's coefficients are unpublished (supplementary Mathematica only); its only implementation is GPL, and this repo is MIT |
-| Nov 13 | Remnant from **NRSur3dq8Remnant** | Same data record and licence, same GPR format, NR-faithful |
+| Nov 13 | Remnant from **NRSur3dq8Remnant** | Same data record and license, same GPR format, NR-faithful |
 | Nov 13 | Repo private; no GitHub Pages deployment | Private repo |
 | Nov 13 | One main view with an animated top ⇄ side swap, instead of two unequal views | User preferred a single view; the swap shows genuine intermediate slices |
 | Nov 14 | Do 3D (Phase 3) **before** Phase 2, using three.js | Tendex and vortex lines are best built directly in 3D; vortex lines need it |
@@ -33,6 +33,7 @@ Other applications in this repository get their own planning documents in `plans
 | Nov 13 | 3D view: ray-marched strain volume by default; tendex/vortex lines optional | User finds the lines hard to follow and expects the volume to replace them |
 | Nov 13 | Volume sums the 3 strongest modes; table rows sorted by peak amplitude | Cost: on an M4, 3 modes at 550×407 take 8.5 ms, all 11 modes at that size 32 ms. The slices still use every mode |
 | Nov 13 | **Tendex/vortex lines removed** (app code, Rust field and tracer, tests, golden data, prototype scripts) | User found them confusing and visually poor next to the volume, which is now the only 3D content |
+| Nov 14 | Look retuned (branch `bbh-aesthetics`): Crameri **Berlin** color map, gentler x/√(1+x²) saturation, slate near-zone fill, rim + halo on horizons, small neutral ring for the probe, fainter 3D guides; gain fixed at 1.5 (slider removed) | Black horizons were lost against a black near zone, black zero-strain bands and a black page; the bright warm probe ball drew the eye and shared orange with h > 0. The user picked the settings with a temporary `?dev` panel comparing ten color maps (commit `117a614` has it) |
 | Nov 13 | **BBH app finished for now; Phase 4 (near zone) parked** | The goal, waves away from the binary, is met; the near zone is the highest-risk work and may be revisited later. Future applications in this repo get their own plans |
 | Nov 13 | **Cut Phase 2 entirely**: no in-app NR validation overlay, no audio, no slice azimuth control. Phase numbers are kept as they were (1, 3, 4) | User doesn't want these features; validation stays as offline golden tests |
 
@@ -69,9 +70,9 @@ Don't solve Einstein's equations in the browser. Play back and evaluate the resu
   - a chirp plot of the signal received there, with a playhead
 - **Controls:**
   - binary sliders (q, χ₁, χ₂) that regenerate everything live and update the URL
-  - play/pause, scrubber, speed and gain
+  - play/pause, scrubber, speed
   - loop (on by default). Playback ends once the merger burst leaves the visible area.
-- **Display conventions** (labelled in the app): the colour is r·h ÷ peak (2,2) value in the orbital plane × gain, on a tanh-saturating diverging scale. The near zone, where the far-zone formula is invalid, is faded out inside a faint ring.
+- **Display conventions** (labeled in the app): the color is r·h ÷ peak (2,2) value in the orbital plane × 1.5, saturated by x/√(1+x²), on the Crameri Berlin diverging map (blue < 0 < red, dark at zero). The near zone, where the far-zone formula is invalid, is filled with slate inside a faint ring. All look constants live in `look.ts`.
 - **URL options** (the app is at `/bbh/`): `?q=&chi1=&chi2=`, `?t=`, `?zoom=`, `?tilt=` (degrees), `?3d`, `?paused`, `?selftest`, `?volbench` (GPU timing of the volume; needs real time, see Gotchas). Tuning: `?vdensity=` (default 0.035), `?vsharp=` (default 8).
 
 ## Physics layers
@@ -108,9 +109,9 @@ The surrogate provides 11 modes with m ≥ 0: (2,2), (2,1), (2,0), (3,3), (3,2),
 - The (2,2) mode is h₂₂ = A₂₂ e^{−iφ₂₂}; φ₂₂ increases with time.
 - Every other mode is stored in the co-orbital frame, H\_lm = h\_lm e^{i m φ₂₂/2}.
 
-**Polarisation: the LAL convention.** It has the overall sign of h flipped relative to Blanchet/Kidder.
+**Polarization: the LAL convention.** It has the overall sign of h flipped relative to Blanchet/Kidder.
 
-- In the orbital plane, h₊ = ½(h\_φφ − h\_θθ): h₊ > 0 means space is stretched around the circle centred on the source and squeezed perpendicular to the plane.
+- In the orbital plane, h₊ = ½(h\_φφ − h\_θθ): h₊ > 0 means space is stretched around the circle centered on the source and squeezed perpendicular to the plane.
 - h₊ is largest along the binary axis at the retarded time.
 - This was verified against LAL's PN modes in both conventions (step 3); don't "fix" it.
 
@@ -163,7 +164,8 @@ web/src/bbh/
   main.ts           Wiring: load model, scene, view panel, playback loop, URL handling
   scene3d.ts        three.js scene: slice plane, volume pass, spheres (solid + ghost pass), guides,
                     camera poses, flat ⇄ 3D dolly zoom, ray-cast picking, raw render for the self-test
-  shaders/strain.glsl  Shared GLSL: mode table, mode sum (`strain`, `strainRows`), colour map, angles
+  shaders/strain.glsl  Shared GLSL: mode table, mode sum (`strain`, `strainRows`), color map (LUT), angles
+  look.ts           Look constants, the Berlin color map (OKLab-interpolated LUT for the shaders), legend
   shaders/slice.*   Slice shader (near-zone ring, exact pixel mapping) on plane meshes
   shaders/volume.frag  Volume ray march (front-to-back, premultiplied alpha)
   volume.ts         Volume shader uniforms and camera, on common/reducedPass.ts; raw self-test path
@@ -236,7 +238,7 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 
 **Physics and data**
 
-- **Polarisation sign:** the LAL convention (see Conventions). Textbook (Blanchet/Kidder) formulas have the opposite sign of h.
+- **Polarization sign:** the LAL convention (see Conventions). Textbook (Blanchet/Kidder) formulas have the opposite sign of h.
 - **Spline joins:** the surrogate's time grid jumps from sparse (~65 M) to dense (0.1 M) at about −1000 M. The exporter keeps the original dense samples for 10 M past that join before coarsening to 1 M. Without that, the error near the join was 15× larger.
 - **References:** only cite references you have verified. Several in this file are from memory and marked as such.
 
@@ -255,7 +257,7 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 - **Step 3: Orbits and remnant.**
   - Remnant from NRSur3dq8Remnant, matching surfinBH to 1e-10.
   - Orbits derived from φ₂₂.
-  - Found and documented the LAL polarisation convention. Tests: wave arms trail the binary at the retarded time (0.01 rad); the heavier hole sits where LAL PN puts it, compared modulo 2π.
+  - Found and documented the LAL polarization convention. Tests: wave arms trail the binary at the retarded time (0.01 rad); the heavier hole sits where LAL PN puts it, compared modulo 2π.
 - **Step 4: Side slice, probe, chirp plot, live parameter sliders.**
 - **Step 4b: Single main view with an animated top ⇄ side tilt.**
   - Every intermediate tilt is a genuine slice.
@@ -308,7 +310,7 @@ Nothing is in progress. A future return would most likely pick up:
 
 - **Waveform accuracy.** Mitigated: golden tests against gwsurrogate.
 - **Data licensing.** The surrogate and remnant data are CC BY 4.0. The attribution string travels inside the data file and is shown in the app. The code is MIT.
-- **Phase conventions.** Mitigated by the step 3 tests, which caught the Blanchet-vs-LAL polarisation sign.
+- **Phase conventions.** Mitigated by the step 3 tests, which caught the Blanchet-vs-LAL polarization sign.
 - **Phase 4 (parked):** stitching the near zone to the wave zone, 32-bit precision for light paths that skim a horizon, and ray-tracing performance on mid-range GPUs.
 
 **References**
