@@ -44,7 +44,11 @@ A black hole in front of a sky of stars and galaxies. Every pixel's light ray is
 through the curved spacetime around the hole, so the shadow, the photon ring, the Einstein ring
 and the doubled images of the sky all appear on their own. Drag to orbit, scroll to fly closer.
 
-This app is newer: the hole doesn't spin yet, and more is on the way.
+- **Spin it:** turn up the hole's spin (up to a/M = 0.998) and watch the shadow shift and
+  flatten on the side turning toward you, while frame dragging twists the sky around it. The
+  spin goes in the URL (`?a=0.9`) so you can share the view.
+
+This app is newer, and more is on the way.
 
 ## How it works
 

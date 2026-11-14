@@ -1,5 +1,5 @@
 // The lensing renderer: one full-screen pass (shaders/lens.frag) that traces
-// every pixel's light ray through the Schwarzschild spacetime and samples the
+// every pixel's light ray through the Kerr spacetime and samples the
 // procedural sky (shaders/sky.glsl). Runs in the shared adaptive-resolution
 // pass (common/reducedPass.ts), up to the display's device-pixel resolution.
 
@@ -12,6 +12,10 @@ import skyGlsl from "./shaders/sky.glsl?raw";
 export class Lens {
   readonly material: THREE.RawShaderMaterial;
   readonly pass: ReducedPass;
+  /** Spin a/M, in [0, 1). */
+  spin = 0;
+  /** Use the Kerr integrator even at spin 0 (self-test and benchmark only). */
+  forceKerr = false;
 
   constructor(maxScale: number) {
     this.material = new THREE.RawShaderMaterial({
@@ -24,6 +28,8 @@ export class Lens {
         u_resolution: { value: new THREE.Vector2(1, 1) },
         u_pixelAngle: { value: 1e-3 },
         u_raw: { value: false },
+        u_spin: { value: 0 },
+        u_kerr: { value: false },
       },
       depthTest: false,
       depthWrite: false,
@@ -37,6 +43,8 @@ export class Lens {
     (u.u_rayBasis.value as THREE.Matrix3).copy(rayMatrix(camera));
     (u.u_resolution.value as THREE.Vector2).set(w, h);
     u.u_pixelAngle.value = (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)) / h;
+    u.u_spin.value = this.spin;
+    u.u_kerr.value = this.forceKerr || this.spin > 0;
   }
 
   render(renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, cssW: number, cssH: number) {

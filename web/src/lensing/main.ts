@@ -1,23 +1,20 @@
-// Black hole lensing app: an orbit camera around a Schwarzschild black hole in
-// front of a procedural sky, every pixel ray-traced exactly (lens.ts).
-// URL options: ?r=<distance in M>, ?fov=<degrees>, ?selftest, ?lensbench.
+// Black hole lensing app: an orbit camera around a black hole in front of a
+// procedural sky, every pixel ray-traced exactly (lens.ts).
+// URL options: ?r=<distance in M>, ?fov=<degrees>, ?a=<spin a/M>, ?selftest, ?lensbench.
 
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Lens } from "./lens";
 import { runLensBenchmark, runLensSelfTest } from "./selftest";
+import { horizonRadius, shadowEdge, shadowExtent } from "./shadow";
 
-const R_MIN = 3.5; // M; the camera must stay outside the photon sphere (r = 3)
+const R_MIN = 3.5; // M; outside the photon sphere (r = 3) at spin 0, and the ergosphere (r ≤ 2) at any spin
+const SPIN_MAX = 0.998; // Thorne's limit
 const R_MAX = 300;
 const R_DEFAULT = 40;
 const DEFAULT_DIR = new THREE.Vector3(0, -20, 3).normalize();
-const B_CRIT = 3 * Math.sqrt(3);
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
-
-/** Angular radius of the shadow for a static observer at r (> 3). */
-function shadowRadius(r: number): number {
-  return Math.asin((B_CRIT / r) * Math.sqrt(1 - 2 / r));
-}
+const deg = (rad: number) => (rad * 180) / Math.PI;
 
 async function main() {
   const status = $("status");
@@ -33,12 +30,17 @@ async function main() {
     const r = await runLensSelfTest(renderer, lens);
     const verdict =
       `SELFTEST ${r.pass ? "PASS" : "FAIL"}: max escape-direction error = ${r.worst.toExponential(2)} rad ` +
-      `over ${r.rays} rays, ${r.skipped} near-critical skipped (per view: ${r.perView.map((e) => e.toExponential(1)).join(", ")})`;
+      `over ${r.rays} rays, ${r.skipped} near-critical skipped, ${r.mismatches} capture mismatches, ` +
+      `shadow readout vs Rust ${r.readoutError.toExponential(1)} rad ` +
+      `(per view: ${r.perView.map((e) => `${e.label} ${e.worst.toExponential(1)}`).join(", ")})`;
     document.title = verdict;
     status.textContent = verdict;
     status.classList.toggle("error", !r.pass);
     return;
   }
+
+  let spin = url.has("a") ? Math.min(Math.max(Number(url.get("a")) || 0, 0), SPIN_MAX) : 0;
+  lens.spin = spin;
 
   const fov0 = url.has("fov") ? Math.min(Math.max(Number(url.get("fov")), 20), 140) : 60;
   const camera = new THREE.PerspectiveCamera(fov0, 1, 0.1, 1e4);
@@ -90,12 +92,26 @@ async function main() {
     camera.fov = Number(fovSlider.value);
     camera.updateProjectionMatrix();
   });
+  // Spin slider (a/M in thousandths), kept in the URL as ?a= (left out at 0).
+  const spinSlider = $<HTMLInputElement>("spin");
+  const spinLabel = $("spin-value");
+  spinSlider.value = String(Math.round(spin * 1000));
+  spinSlider.addEventListener("input", () => {
+    spin = Number(spinSlider.value) / 1000;
+    lens.spin = spin;
+    const u = new URL(window.location.href);
+    if (spin > 0) u.searchParams.set("a", spin.toFixed(3));
+    else u.searchParams.delete("a");
+    history.replaceState(null, "", u);
+  });
   canvas.addEventListener("dblclick", () => {
     camera.position.copy(DEFAULT_DIR).multiplyScalar(R_DEFAULT);
     controls.target.set(0, 0, 0);
   });
 
   const info = $("shadow-info");
+  // The readout's shadow size, recomputed only when the camera or spin moves.
+  let readoutKey = "";
   let frames = 0;
   let since = performance.now();
   const frame = () => {
@@ -107,8 +123,17 @@ async function main() {
     if (document.activeElement !== slider) slider.value = String(toSlider(r));
     label.textContent = `${r < 10 ? r.toFixed(2) : r.toFixed(1)} M`;
     fovLabel.textContent = `${Math.round(camera.fov)}°`;
-    const shadowDeg = (shadowRadius(r) * 180) / Math.PI;
-    info.textContent = `Shadow radius ${shadowDeg.toFixed(1)}° (${(r / 2).toFixed(1)} horizon radii away)`;
+    spinLabel.textContent = spin.toFixed(3);
+    const eye: [number, number, number] = [camera.position.x, camera.position.y, camera.position.z];
+    const key = `${eye.map((v) => v.toFixed(3)).join()},${spin}`;
+    if (key !== readoutKey) {
+      readoutKey = key;
+      const rPlus = horizonRadius(spin);
+      const { width, height } = shadowExtent(shadowEdge(eye, spin, 400), eye);
+      info.textContent =
+        `Shadow ${deg(width).toFixed(1)}° wide × ${deg(height).toFixed(1)}° tall\n` +
+        `Horizon radius ${rPlus.toFixed(3)} M · ${(r / rPlus).toFixed(1)} of them away`;
+    }
 
     frames++;
     const now = performance.now();

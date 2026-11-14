@@ -8,6 +8,7 @@
 .row input { width: 100%; min-width: 0; margin: 0; }
 .row span { text-align: right; font-variant-numeric: tabular-nums; color: var(--fg); }
 #shadow-info, #status { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+#shadow-info { white-space: pre-line; }
 #status.error { color: #ff8a80; }
 #about { color: var(--muted); font-size: 12px; }
 #about summary { cursor: pointer; color: var(--fg); }

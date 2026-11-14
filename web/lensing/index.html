@@ -14,12 +14,13 @@
       <div id="panel" class="panel">
         <label class="row">Distance <input id="distance" type="range" min="0" max="1000" step="1" /><span id="distance-value"></span></label>
         <label class="row">Field of view <input id="fov" type="range" min="20" max="140" step="1" /><span id="fov-value"></span></label>
+        <label class="row">Spin <input id="spin" type="range" min="0" max="998" step="1" /><span id="spin-value"></span></label>
         <div id="shadow-info"></div>
         <details id="about">
           <summary>About this view</summary>
           <p>
-            A non-spinning (Schwarzschild) black hole in front of a made-up sky of stars, a galactic
-            band and a few galaxies. Every pixel's light ray is traced backwards from the camera
+            A black hole in front of a made-up sky of stars, a galactic band and a few galaxies.
+            It can spin (the Kerr solution), about the vertical axis. Every pixel's light ray is traced backwards from the camera
             through the curved spacetime, exactly: if it falls into the hole the pixel is black (the
             shadow); otherwise it shows the part of the sky the ray reaches.
           </p>
@@ -29,10 +30,17 @@
             sky squeezed into a thin ring at the shadow's edge; and the distortion of the sky as you move.
           </p>
           <p>
+            Spin it up (a/M, up to 0.998, about the most an astrophysical black hole can reach) and the
+            shadow shifts sideways and flattens on the side turning toward you, where light orbiting
+            with the spin can pass closer to the hole; frame dragging also twists the sky around the
+            axis. Seen from above the pole, the shadow stays round.
+          </p>
+          <p>
             Drag to orbit, scroll or use the slider to change the distance (in units of the hole's mass
-            M; the horizon is at 2 M), double-click to reset. Close in, the shadow covers most of the
-            sky; widen the field of view to see past it. The camera hovers at a fixed distance
-            (it isn't orbiting or falling) and can't come closer than 3.5 M.
+            M; without spin the horizon is at 2 M), double-click to reset. Close in, the shadow covers
+            most of the sky; widen the field of view to see past it. The camera hovers at a fixed
+            distance, turning with the spacetime itself (it has no angular momentum; it isn't orbiting
+            or falling), and can't come closer than 3.5 M.
           </p>
         </details>
         <div id="status">Loading…</div>

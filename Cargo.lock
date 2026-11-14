@@ -122,6 +122,7 @@ name = "spacetime-physics"
 version = "0.1.0"
 dependencies = [
  "num-complex",
+ "num-traits",
  "serde",
  "serde_json",
 ]

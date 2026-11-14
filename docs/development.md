@@ -53,8 +53,10 @@ Gravitational waves (`/bbh/`):
 Black hole lensing (`/lensing/`):
 
 - `?r=40` (distance, 3.5–300 M; default 40), `?fov=60` (degrees; default 60)
-- `?selftest`: GPU escape directions vs the Rust reference
-- `?lensbench`: GPU timing (needs real time)
+- `?a=0.9`: spin a/M (0–0.998; default 0)
+- `?selftest`: GPU escape directions vs the Rust reference, at spin 0 (both integrators) and at
+  spins 0.5 and 0.998
+- `?lensbench`: GPU timing at spins 0 (both integrators), 0.5 and 0.998 (needs real time)
 
 ## GPU self-tests and screenshots (headless Chrome on macOS)
 

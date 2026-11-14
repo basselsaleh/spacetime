@@ -2,10 +2,10 @@
 //! anything worth testing belongs in the physics crate.
 
 use spacetime_physics::binary::Binary;
-use spacetime_physics::geodesic;
 use spacetime_physics::harmonics::spin_weighted_ylm_theta;
 use spacetime_physics::mode_table::{FRAME_ROWS, ModeTable, equatorial_peak_22};
 use spacetime_physics::nrsur7dq4::{Nrsur7dq4, Params, Remnant, Waveform};
+use spacetime_physics::{geodesic, kerr};
 use wasm_bindgen::prelude::*;
 
 /// Version of the physics crate this module was built from.
@@ -329,4 +329,31 @@ pub fn lens_escape_directions(cam: &[f64], dirs: &[f64]) -> Vec<f64> {
 #[wasm_bindgen(js_name = shadowAngularRadius)]
 pub fn shadow_angular_radius(r0: f64) -> f64 {
     geodesic::shadow_angular_radius(r0)
+}
+
+/// Kerr lensing self-test reference: for a zero-angular-momentum camera at
+/// `cam` around a hole of spin `a`, and ray directions `dirs` (flat x, y, z,
+/// ...), returns flat `[sx, sy, sz, escaped, ...]` as `lensEscapeDirections`
+/// does (`kerr::escape_direction`).
+#[wasm_bindgen(js_name = lensKerrEscapeDirections)]
+pub fn lens_kerr_escape_directions(cam: &[f64], a: f64, dirs: &[f64]) -> Vec<f64> {
+    let cam = [cam[0], cam[1], cam[2]];
+    dirs.as_chunks::<3>()
+        .0
+        .iter()
+        .flat_map(|d| match kerr::escape_direction(cam, a, *d) {
+            Some(s) => [s[0], s[1], s[2], 1.0],
+            None => [0.0, 0.0, 0.0, 0.0],
+        })
+        .collect()
+}
+
+/// The exact edge of the shadow seen by a zero-angular-momentum camera at
+/// `cam` around a hole of spin `a`: about `n` pixel directions (flat x, y, z, ...).
+#[wasm_bindgen(js_name = lensShadowEdge)]
+pub fn lens_shadow_edge(cam: &[f64], a: f64, n: usize) -> Vec<f64> {
+    kerr::shadow_edge([cam[0], cam[1], cam[2]], a, n)
+        .into_iter()
+        .flatten()
+        .collect()
 }
