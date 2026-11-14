@@ -36,15 +36,17 @@ cd tools && uv sync             # once, installs lalsuite and sxs
 
 ## Using the app
 
-- Main view: the orbital plane from above. Drag to pan, scroll to zoom, double-click to reset.
-- Side view: a vertical slice through the orbital axis, showing h₊ or h×.
-- Click either view to move the probe; its ring and chirp plot update.
+- The view is a slice through the source: the orbital plane from above, a side view, or any
+  tilt in between ("⇄" animates between top and side). Drag to pan, scroll to zoom,
+  double-click to reset; h₊/h× chooses the polarisation.
+- Click the view to move the probe; its ring and chirp plot update.
 - The sliders change the binary; the URL updates so the view can be shared.
 
 ## App URL options
 
 - `?q=3&chi1=0.6&chi2=0.2`: binary parameters (q ≤ 8, |χ| ≤ 0.8)
-- `?t=-300&zoom=250&paused`: start at a given time (M) and half-width (M), paused
+- `?t=-300&zoom=250&tilt=40&paused`: start at a given time (M), half-width (M) and slice
+  tilt (degrees), paused
 - `?selftest`: render off-screen and compare GPU pixels with the Rust CPU reference;
   the verdict appears in the page title and status line
 

@@ -21,11 +21,40 @@ export interface Camera {
   halfWidth: number;
 }
 
+/**
+ * A plane through the source. Screen-right is the in-plane direction at
+ * `azimuth`; screen-up is tilted from the orbital plane towards +z by `tilt`
+ * (0: top view of the orbital plane, π/2: side view with +z up).
+ */
 export interface SliceConfig {
-  kind: "plane" | "vertical";
-  /** Azimuth of the vertical slice, rad. */
-  azimuth: number;
+  tilt: number; // rad
+  azimuth: number; // rad
   component: "plus" | "cross";
+}
+
+export type Vec3 = [number, number, number];
+
+/** Unit vectors along screen-right and screen-up, and the slice normal. */
+export function sliceAxes(slice: SliceConfig): { u: Vec3; v: Vec3; n: Vec3 } {
+  const [ca, sa] = [Math.cos(slice.azimuth), Math.sin(slice.azimuth)];
+  const [cb, sb] = [Math.cos(slice.tilt), Math.sin(slice.tilt)];
+  const u: Vec3 = [ca, sa, 0];
+  const v: Vec3 = [-sa * cb, ca * cb, sb];
+  const n: Vec3 = [sa * sb, -ca * sb, cb]; // u × v
+  return { u, v, n };
+}
+
+/** 3D point at slice coordinates (x, y). */
+export function sliceTo3D(slice: SliceConfig, x: number, y: number): Vec3 {
+  const { u, v } = sliceAxes(slice);
+  return [x * u[0] + y * v[0], x * u[1] + y * v[1], x * u[2] + y * v[2]];
+}
+
+/** Slice coordinates of a 3D point, and its signed distance from the slice. */
+export function sliceFrom3D(slice: SliceConfig, p: Vec3): { x: number; y: number; offset: number } {
+  const { u, v, n } = sliceAxes(slice);
+  const dot = (a: Vec3) => a[0] * p[0] + a[1] * p[1] + a[2] * p[2];
+  return { x: dot(u), y: dot(v), offset: dot(n) };
 }
 
 const MAX_ROWS = 16;
@@ -45,7 +74,7 @@ export class StrainView {
     this.harmonics = gl.createTexture();
     for (const name of [
       "u_table", "u_width", "u_samples", "u_rows", "u_t0", "u_dt", "u_lm",
-      "u_harmonics", "u_thetaSamples", "u_slice", "u_azimuth", "u_component",
+      "u_harmonics", "u_thetaSamples", "u_axisU", "u_axisV", "u_normal", "u_component",
       "u_resolution", "u_center", "u_halfWidth", "u_time", "u_scale", "u_maskRadius",
       "u_raw", "u_discs", "u_minDiscRadius",
     ]) {
@@ -103,8 +132,10 @@ export class StrainView {
     gl.bindTexture(gl.TEXTURE_2D, this.table);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, this.harmonics);
-    gl.uniform1i(this.u.u_slice, slice.kind === "plane" ? 0 : 1);
-    gl.uniform1f(this.u.u_azimuth, slice.azimuth);
+    const axes = sliceAxes(slice);
+    gl.uniform3fv(this.u.u_axisU, axes.u);
+    gl.uniform3fv(this.u.u_axisV, axes.v);
+    gl.uniform3fv(this.u.u_normal, axes.n);
     gl.uniform1i(this.u.u_component, slice.component === "plus" ? 0 : 1);
     gl.uniform2f(this.u.u_resolution, width, height);
     gl.uniform2f(this.u.u_center, camera.centerX, camera.centerY);

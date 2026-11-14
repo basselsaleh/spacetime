@@ -1,7 +1,7 @@
 // Renders raw strain values off-screen and compares them with the Rust CPU
 // reference (`ModeTable::strain`). Run by opening the page with ?selftest.
 
-import type { Camera, SceneState, SliceConfig, StrainView } from "./strainView";
+import { sliceTo3D, type Camera, type SceneState, type SliceConfig, type StrainView } from "./strainView";
 import type { PreparedWaveform } from "./waveform";
 
 export interface SelfTestResult {
@@ -21,16 +21,18 @@ interface Frame {
   slice: SliceConfig;
 }
 
-const plane: SliceConfig = { kind: "plane", azimuth: 0, component: "plus" };
-const vertical: SliceConfig = { kind: "vertical", azimuth: 0.7, component: "plus" };
+const plane: SliceConfig = { tilt: 0, azimuth: 0, component: "plus" };
+const vertical: SliceConfig = { tilt: Math.PI / 2, azimuth: 0.7, component: "plus" };
+const tilted: SliceConfig = { tilt: 0.6, azimuth: -1.1, component: "plus" };
 
-// Inspiral, merger near the source, the burst further out; then vertical slices.
+// Inspiral, merger near the source, the burst further out; then vertical and tilted slices.
 const FRAMES: Frame[] = [
   { time: -2500, camera: { centerX: 0, centerY: 0, halfWidth: 400 }, slice: plane },
   { time: 20, camera: { centerX: 0, centerY: 0, halfWidth: 60 }, slice: plane },
   { time: 250, camera: { centerX: 150, centerY: -80, halfWidth: 200 }, slice: plane },
   { time: -1800, camera: { centerX: 0, centerY: 0, halfWidth: 300 }, slice: vertical },
   { time: 120, camera: { centerX: -40, centerY: 30, halfWidth: 150 }, slice: vertical },
+  { time: -400, camera: { centerX: 30, centerY: -20, halfWidth: 250 }, slice: tilted },
 ];
 
 export function runSelfTest(
@@ -64,14 +66,10 @@ export function runSelfTest(
         // Same pixel-centre mapping as the shader (row 0 is the bottom row here).
         const sx = f.camera.centerX + (((px + 0.5) / W) * 2 - 1) * f.camera.halfWidth;
         const sy = f.camera.centerY + (((py + 0.5) / H) * 2 - 1) * (f.camera.halfWidth / aspect);
-        let r: number, theta: number, phi: number;
-        if (f.slice.kind === "plane") {
-          [r, theta, phi] = [Math.hypot(sx, sy), Math.PI / 2, Math.atan2(sy, sx)];
-        } else {
-          r = Math.hypot(sx, sy);
-          theta = Math.atan2(Math.abs(sx), sy);
-          phi = sx >= 0 ? f.slice.azimuth : f.slice.azimuth + Math.PI;
-        }
+        const [x3, y3, z3] = sliceTo3D(f.slice, sx, sy);
+        const r = Math.hypot(x3, y3, z3);
+        const theta = Math.atan2(Math.hypot(x3, y3), z3);
+        const phi = Math.atan2(y3, x3);
         const [hp, hc] = w.table.strain(theta, phi, f.time - r);
         const cpuValid = Number.isFinite(hp);
         if (cpuValid !== (pixels[k + 2] === 1)) continue; // boundary pixel, rounding

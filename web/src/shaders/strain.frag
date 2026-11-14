@@ -5,9 +5,9 @@
 // Each pixel is a 3D point at distance r, polar angle θ (from the orbital
 // angular momentum, +z) and azimuth φ. It shows r·h₊ or r·h× at retarded time
 // t − r, where h₊ − i h× = (1/r) Σ_lm h_lm(t − r) ₋₂Y_lm(θ, φ) (LAL convention).
-// Slices: 0 = orbital plane seen from +z (x right, y up); 1 = vertical plane
-// through the z-axis at azimuth u_azimuth (horizontal = in-plane direction,
-// vertical = +z).
+// The slice is the plane through the source spanned by u_axisU (screen right)
+// and u_axisV (screen up): the orbital plane seen from +z is (x̂, ŷ), the side
+// view is (x̂, ẑ), and any tilt in between is a genuine slice too.
 //
 // The waveform-table arithmetic mirrors `ModeTable::strain` in
 // crates/physics/src/mode_table.rs; the ?selftest page compares the two.
@@ -34,8 +34,9 @@ uniform ivec2 u_lm[MAX_ROWS];
 uniform sampler2D u_harmonics;
 uniform int u_thetaSamples;
 
-uniform int u_slice;          // 0: orbital plane; 1: vertical slice
-uniform float u_azimuth;      // vertical slice's azimuth, rad
+uniform vec3 u_axisU;         // slice axis shown left→right (unit)
+uniform vec3 u_axisV;         // slice axis shown bottom→top (unit, ⟂ u_axisU)
+uniform vec3 u_normal;        // u_axisU × u_axisV
 uniform int u_component;      // 0: h₊, 1: h×
 
 uniform vec2 u_resolution;    // pixels
@@ -123,20 +124,12 @@ void main() {
   float aspect = u_resolution.x / u_resolution.y;
   vec2 q = u_center + (v_uv * 2.0 - 1.0) * vec2(u_halfWidth, u_halfWidth / aspect);
 
-  // 3D point and its spherical angles.
-  vec3 p3;
-  float theta;
-  float phi;
-  if (u_slice == 0) {
-    p3 = vec3(q, 0.0);
-    theta = 0.5 * PI;
-    phi = atan(q.y, q.x);
-  } else {
-    vec2 dir = vec2(cos(u_azimuth), sin(u_azimuth));
-    p3 = vec3(q.x * dir, q.y);
-    theta = atan(abs(q.x), q.y);
-    phi = q.x >= 0.0 ? u_azimuth : u_azimuth + PI;
-  }
+  // 3D point and its spherical angles (θ from +z, the orbital angular momentum).
+  vec3 p3 = q.x * u_axisU + q.y * u_axisV;
+  // atan(y, 0) is legal GLSL but some GPU backends mishandle it; the orbital
+  // plane (z = 0 exactly) is the common case, so take it directly.
+  float theta = p3.z == 0.0 ? 0.5 * PI : atan(length(p3.xy), p3.z);
+  float phi = atan(p3.y, p3.x);
   float r = length(p3);
 
   bool valid;
@@ -160,17 +153,26 @@ void main() {
   float ring = 1.0 - smoothstep(0.0, 1.5 * px, abs(r - u_maskRadius));
   color = mix(color, vec3(0.55, 0.6, 0.7), 0.35 * ring);
 
-  // Black holes: where the slice cuts each horizon sphere, a black disc with a
-  // thin bright rim (in the orbital plane, the full horizon).
+  // Black holes. Where the slice cuts a horizon sphere: a black disc (the true
+  // cross-section, at least a few pixels) with a bright rim. A hole off the
+  // slice: a faint outline at its projected position.
   for (int k = 0; k < 3; k++) {
     vec4 d = u_discs[k];
     if (d.w <= 0.0) continue;
-    float radius = max(d.z, u_minDiscRadius);
-    float dist = length(p3 - vec3(d.xy, 0.0));
-    float inside = 1.0 - smoothstep(radius - px, radius + px, dist);
-    float rim = 1.0 - smoothstep(0.0, 1.5 * px, abs(dist - radius));
-    color = mix(color, vec3(0.0), inside * d.w);
-    color = mix(color, vec3(0.92, 0.94, 1.0), 0.8 * rim * d.w);
+    vec3 c = vec3(d.xy, 0.0);
+    float off = dot(c, u_normal);
+    float dist = length(p3 - (c - off * u_normal));
+    if (abs(off) < d.z) {
+      float radius = max(sqrt(d.z * d.z - off * off), u_minDiscRadius);
+      float inside = 1.0 - smoothstep(radius - px, radius + px, dist);
+      float rim = 1.0 - smoothstep(0.0, 1.5 * px, abs(dist - radius));
+      color = mix(color, vec3(0.0), inside * d.w);
+      color = mix(color, vec3(0.92, 0.94, 1.0), 0.8 * rim * d.w);
+    } else {
+      float radius = max(d.z, u_minDiscRadius);
+      float rim = 1.0 - smoothstep(0.0, 1.2 * px, abs(dist - radius));
+      color = mix(color, vec3(0.92, 0.94, 1.0), 0.35 * rim * d.w);
+    }
   }
   outColor = vec4(color, 1.0);
 }

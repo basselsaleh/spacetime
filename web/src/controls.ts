@@ -8,7 +8,11 @@ export interface Playback {
   playing: boolean;
   speed: number; // M of coordinate time per second
   tMin: number;
+  /** End of playback: when the merger burst has left the visible area. */
   tMax: number;
+  /** Restart from `loopStart` at the end. */
+  loop: boolean;
+  loopStart: number;
 }
 
 const BASE_SPEED = 100; // M per second at ×1
@@ -21,10 +25,13 @@ export function setupPlayback(scene: SceneState, playback: Playback): { sync: ()
   const speed = $<HTMLSelectElement>("speed");
   const gain = $<HTMLInputElement>("gain");
   const gainLabel = $<HTMLSpanElement>("gain-value");
+  const loop = $<HTMLInputElement>("loop");
+  loop.checked = playback.loop;
+  loop.addEventListener("change", () => (playback.loop = loop.checked));
 
   scrub.step = "1";
   const togglePlay = () => {
-    if (!playback.playing && scene.time >= playback.tMax) scene.time = playback.tMin;
+    if (!playback.playing && scene.time >= playback.tMax) scene.time = playback.loopStart;
     playback.playing = !playback.playing;
     sync();
   };

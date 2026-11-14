@@ -132,14 +132,20 @@ tests/golden/        Small reference files committed for the Rust tests
   - Parameter sliders regenerate the waveform, orbits and remnant live, and update the URL.
   - Tests: harmonic table exact at θ = π/2 and within 1e-4 between samples; `?selftest` now includes two vertical-slice frames (both polarisations), worst 4.4e-4 of peak on Metal.
   - Size: 180 KB of wasm plus the 2.28 MB data file (1.7 MB gzipped), so loading is dominated by the data file: well under 3 s on broadband, and slower on mobile data. Hosting is decided when the repo goes public.
-  - Deferred to Phase 2: audio (needs a physical-mass control) and arbitrary slice orientation.
+  - Deferred to Phase 2: audio (needs a physical-mass control).
+- **Step 4b: Single view with an animated top ⇄ side swap.** Built Nov 13, 2026, after review.
+  - One main view instead of two unequal ones. The slice is the plane spanned by x̂ and cos β ŷ + sin β ẑ: β = 0 is the top view, 90° the side view, and every β in between is a genuine slice. "Swap" eases β over 1.4 s, so the transition shows the real field as the cutting plane rotates. A tilt slider allows any β; a small 3D sketch shows the orbital plane, the binary, the slice and the viewing direction.
+  - The h₊/h× toggle is always available; choosing h× in the top view shows the blank field with a caption explaining the mirror symmetry.
+  - Horizons the slice cuts are drawn solid (true cross-section); holes off the slice are drawn as faint outlines.
+  - Playback ends once the merger burst has left the visible area (depends on zoom) instead of 3000 M after the ringdown, and loops from t = −2500 M by default.
+  - The shader takes θ = π/2 directly when z = 0: ANGLE on Metal mishandled atan(y, 0) there, which the self-test caught (orbital-plane frames failed at O(1) error). The self-test now also covers a tilted slice.
 
 **Phase 2: Depth without new risk.**
 
 - Far-zone tendex and vortex lines drawn on the slices
 - In-app validation mode overlaying NR data
 - Audio
-- Arbitrary slice orientation
+- Slice azimuth control (tilt is done in step 4b)
 
 **Phase 3: Go/no-go on 3D.**
 
