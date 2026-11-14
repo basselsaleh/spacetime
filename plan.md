@@ -1,27 +1,25 @@
 # Binary black hole spacetime visualizer: project plan
 
-Nov 12, 2026 · @Bassel · last revised Nov 14, 2026 (handoff edition: written so work can resume without the original conversation)
+Nov 12, 2026 · @Bassel · **finished for now** (wrap-up edition: a record of the app as built, and what a future return to it would pick up)
 
-## Status and handoff
+Other applications in this repository get their own planning documents; this one covers only the binary black hole app.
 
-**Where things stand (Nov 14, 2026).**
+## Status
 
-- Phase 1 (2D wave-zone app) is merged into `main` (PR #1).
-- Phase 3 stage 1 (3D scene) is built and committed on `step-5-3d-scene`, branched from `main`. It is **not pushed** and has no PR yet.
-- Phase 3 stage 1b (strain on spherical shells) was built and then **dropped** (see the decision log). The work is kept, unmerged, on `step-5b-shells`.
-- **Phase 3 stage 3 (volume view)** is built on `step-6-tendex`, branched from `step-5-3d-scene`: the 3D view shows the ray-marched strain volume. Stage 2 (tendex/vortex lines) was built and then **removed** at the user's request (see the decision log); its commits remain in the branch history.
-- The user reviewed the volume (approved). `step-6-tendex` is pushed, with **PR #2** to `main` covering Phase 3 (stages 1 and 3; stage 2 was added and then removed in the same branch); merge with a merge commit, not squash. After it merges, `step-5-3d-scene` is redundant (its commit is in PR #2).
+**The binary black hole app is finished for now.** Its main goal, visualizing gravitational waves away from the binary faithfully and beautifully, is met.
 
-**Not yet verified by a person**
+- Phase 1 (2D wave-zone app): merged, PR #1.
+- Phase 3 (3D view with the ray-marched strain volume): merged, PR #2. The user reviewed the 3D view interactively and approved it.
+- Phase 2 was cut. Phase 4 (the near zone) is **parked**: it may be attempted in the future (see "If this app is revisited").
 
-- The volume's adaptive resolution on hardware other than the user's.
-- Orbiting and zooming in the 3D view, and the flat ⇄ 3D dolly-zoom animation. These were only checked as headless still frames. The top ⇄ side swap animation was checked by the user.
-- Frame rate on real hardware, and the phone layout. The user chose to skip both checks for now.
+**Not verified by a person**
 
-**Pending housekeeping**
+- Frame rate and the volume's adaptive resolution on hardware other than the user's (Apple M4), and the phone layout. The user chose to skip these checks.
 
-- When stage 1 is accepted, push `step-5-3d-scene` and open a PR to `main`.
-- The old step branches (`step-1-waveform` … `step-4b-view` locally, and `step-2-strain-sheet` on GitHub) are fully merged. Delete them once the user confirms.
+**Housekeeping (pending the user's go-ahead)**
+
+- Delete the merged branches: `step-1-waveform` … `step-4b-view`, `step-5-3d-scene` and `step-6-tendex` locally, and `step-2-strain-sheet`, `step-4b-view` and `step-6-tendex` on GitHub.
+- Keep or delete `step-5b-shells` (the dropped spherical-shells experiment, never merged).
 
 **Decision log**
 
@@ -38,6 +36,7 @@ Nov 12, 2026 · @Bassel · last revised Nov 14, 2026 (handoff edition: written s
 | Nov 13 | 3D view: ray-marched strain volume by default; tendex/vortex lines optional | User finds the lines hard to follow and expects the volume to replace them |
 | Nov 13 | Volume sums the 3 strongest modes; table rows sorted by peak amplitude | Cost: on an M4, 3 modes at 550×407 take 8.5 ms, all 11 modes at that size 32 ms. The slices still use every mode |
 | Nov 13 | **Tendex/vortex lines removed** (app code, Rust field and tracer, tests, golden data, prototype scripts) | User found them confusing and visually poor next to the volume, which is now the only 3D content |
+| Nov 13 | **BBH app finished for now; Phase 4 (near zone) parked** | The goal, waves away from the binary, is met; the near zone is the highest-risk work and may be revisited later. Future applications in this repo get their own plans |
 | Nov 13 | **Cut Phase 2 entirely**: no in-app NR validation overlay, no audio, no slice azimuth control. Phase numbers are kept as they were (1, 3, 4) | User doesn't want these features; validation stays as offline golden tests |
 
 ## Vision and goals
@@ -48,7 +47,7 @@ Build a real-time, interactive visualization of a binary black hole system and t
 - **Beautiful and intuitive.** A viewer should grasp the inspiral, merger and ringdown at a glance, then be able to dig deeper.
 - **Interactive.** Users control the mass ratio, spins, time scrubbing, probe points and overlays.
 - **Shareable.** Opens from a link with no install, for outreach, teaching and talks.
-- **Extensible.** Binary black holes are the first example. The architecture should generalize to other extreme spacetimes later.
+- **Extensible.** Binary black holes are the first example. The architecture should generalize to other extreme spacetimes later; those applications are planned in their own documents.
 
 ## Core approach
 
@@ -59,7 +58,7 @@ Don't solve Einstein's equations in the browser. Play back and evaluate the resu
 - **Remnant.** Mass, spin and recoil kick come from the **NRSur3dq8Remnant** fits, which are embedded in the same file.
 - **Approximations.** That strain is exact far from the source. Everything closer in (orbits, near-zone fields) is layered on with clearly documented approximations.
 
-## What the user sees now
+## What the app does
 
 - **One main view.** A strain slice through the source: the orbital plane seen from above (tilt 0°), a side view through the orbital axis (90°), or any tilt in between.
   - "⇄" animates the tilt; a slider sets it directly.
@@ -84,7 +83,7 @@ Don't solve Einstein's equations in the browser. Play back and evaluate the resu
 | --- | --- | --- | --- | --- |
 | 1. Wave-zone strain | Essentially exact | Sum of spin-weighted spherical harmonic modes h\_lm at retarded time t − r, falling off as 1/r, evaluated per pixel in a fragment shader on slice planes | Valid only far from the source (near zone masked); shown as r·h, normalized | Done (Phase 1) |
 | 2. Orbits and remnant | Very good | Orbital angle from the (2,2) phase; separation from 2PN r(ω); remnant from NRSur3dq8Remnant | PN breaks down in the last orbits (schematic there); spins ignored in r(ω) | Done (Phase 1) |
-| 3. Near zone: lensing and horizons | Honest approximation | GPU ray marching of null geodesics through superposed boosted Kerr–Schild metrics or a PN near-zone metric | Metric frozen while each ray travels; merger shapes keyframed or faded | Phase 4 |
+| 3. Near zone: lensing and horizons | Honest approximation | GPU ray marching of null geodesics through superposed boosted Kerr–Schild metrics or a PN near-zone metric | Metric frozen while each ray travels; merger shapes keyframed or faded | Parked (Phase 4) |
 | 4. Validation | Reference | Offline golden tests against gwsurrogate, surfinBH and LAL | None | Tests in place; no in-app overlay (cut) |
 
 The far-zone strain is a mode sum:
@@ -134,7 +133,7 @@ Browser only.
   - `crates/physics` is pure Rust (f64, no GPU or web dependencies), tested with `cargo test`.
   - `crates/wasm` is a thin wasm-bindgen layer with no logic of its own, built with `wasm-pack`.
 - **Front end: TypeScript + Vite.** Handles the UI, the probe and chirp plot (Canvas 2D), and the orientation sketch.
-- **Rendering: WebGL2 via three.js r181.** A custom `RawShaderMaterial` evaluates the strain per pixel on slice planes; holes and the probe are spheres. WebGPU is needed only if the volume view or ray tracing demands it.
+- **Rendering: WebGL2 via three.js r181.** Custom `RawShaderMaterial`s evaluate the strain per pixel on the slice plane and ray-march it through the volume; holes and the probe are spheres. WebGPU was not needed.
 - **Data flow.**
   - When parameters change, Rust evaluates the surrogate once (about 1 ms) and packs a mode table. That's an RG32F texture, 2048 texels wide (WebGL2's guaranteed minimum): row 0 holds (A₂₂, φ₂₂ mod 4π), the other rows (Re H, Im H).
   - A second RG32F texture holds the θ-dependence of the harmonics (1025 samples, so θ = π/2 is exact).
@@ -162,8 +161,8 @@ crates/physics/tests/
 crates/wasm/src/lib.rs WaveformModel, WaveformData, ModeTableData, BinaryTrack bindings
 web/src/
   main.ts           Wiring: load model, scene, view panel, playback loop, URL handling
-  scene3d.ts        three.js scene: slice planes, spheres (solid + ghost pass), guides, camera
-                    poses, flat ⇄ 3D dolly zoom, ray-cast picking, raw render for the self-test
+  scene3d.ts        three.js scene: slice plane, volume pass, spheres (solid + ghost pass), guides,
+                    camera poses, flat ⇄ 3D dolly zoom, ray-cast picking, raw render for the self-test
   shaders/strain.glsl  Shared GLSL: mode table, mode sum (`strain`, `strainRows`), colour map, angles
   shaders/slice.*   Slice shader (near-zone ring, exact pixel mapping) on plane meshes
   shaders/volume.frag  Volume ray march (front-to-back, premultiplied alpha)
@@ -263,36 +262,39 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
   - h₊/h× everywhere.
   - Playback ends when the burst leaves the view, and loops.
 
-**Phase 3: 3D. In progress.**
+**Phase 2: depth without new risk. Cut** (see the decision log).
 
-- **Stage 1: 3D scene with the strain slices placed in space.** Built Nov 14, 2026 on `step-5-3d-scene` (not pushed).
+**Phase 3: 3D. Done; merged to `main` (PR #2).**
+
+- **Stage 1: 3D scene with the strain slices placed in space.**
   - three.js r181; one perspective camera for both modes. Flat = 1° field of view, looking straight at the slice; 3D = 40° orbit camera with +z up.
   - Switching is a 1.6 s dolly zoom: logarithmic field-of-view interpolation, quaternion slerp, distance chosen to keep the slice framed.
   - Self-test unchanged from step 4b (worst 4.4e-4).
   - Bundle: 542 KB JavaScript (141 KB gzipped).
 - **Stage 1b: strain on spherical shells.** Built Nov 13, 2026, then dropped (see the decision log). Kept unmerged on `step-5b-shells`. Reusable from it if needed: exact per-pixel ray–sphere intersection in the strain shader, and rays built from the camera basis (`u_rayBasis`) to avoid rasterizer snapping and float32 unprojection error.
 - **Stage 2: tendex and vortex lines.** Built Nov 13, 2026 (offline sympy prototype, Rust field and tracer, 3D lines), then removed at the user's request (see the decision log). Recoverable from commits `ee8d1ae` and `d870223` on `step-6-tendex` if ever wanted.
-- **Stage 3: volume view.** Built Nov 13, 2026 on `step-6-tendex`, in WebGL2.
+- **Stage 3: volume view.** In WebGL2; the 3D view's only content.
   - Fragment-shader ray march of the strain through a sphere, at reduced resolution into a half-float target, upsampled and composited with premultiplied alpha over the scene. Per-pixel jitter (interleaved gradient noise, shifted each frame) hides banding.
   - Rays come from the camera basis (`rayMatrix`), relative to each ray's closest approach to the source, for float32 accuracy.
   - The strain code is shared with the slices (`shaders/strain.glsl`). Self-test: the strain at each ray's closest approach matches the CPU reference (3e-5 and 3e-4 of peak); slices unchanged at 4.4e-4.
   - GPU cost on an Apple M4 (`?volbench`, 128 steps): 3 modes 550×407 8.5 ms, 825×610 18.8 ms, 1100×813 31 ms; (2,2) alone at 825×610 8.8 ms.
-  - Open: the look in motion; whether it should go further (e.g. temporal accumulation for higher resolution, |h| instead of h₊, or depth cues); WebGPU only if WebGL2 proves too slow on target hardware.
 
-**Phase 4: near zone (highest risk)**
+**Phase 4: near zone. Parked** (not started).
 
-- Ray-traced black hole shadows and lensing through an approximate two-black-hole metric. The 3D camera from Phase 3 makes this a natural next step.
+- Ray-traced black hole shadows and lensing through an approximate two-black-hole metric.
 - Horizon shapes during merger.
 
-Each later phase adds physics nearer the black holes, where the approximations grow, so the riskiest work comes last.
+## If this app is revisited
 
-## Next step
+Nothing is in progress. A future return would most likely pick up:
 
-Merge PR #2 (Phase 3) with a merge commit. After that the roadmap's next phase is Phase 4 (near zone), the highest-risk work; settle its open questions (near-zone metric, merger horizons) with offline prototypes first, as the plan prescribes.
+- **Phase 4, starting small.** Ray-trace the single remnant (Kerr) black hole after merger first: exact, contained, and it builds the ray tracer and sets the precision and speed budget. Then the two-hole metric before merger, prototyped offline against NR first (see the open questions).
+- **Volume polish.** Temporal accumulation for higher resolution, depth cues, or |h| instead of h₊.
+- **The unverified checks** under Status.
 
 ## Open questions, risks and references
 
-**Open questions**
+**Open questions** (the unchecked ones are parked with Phase 4)
 
 - [x] Waveform source: NRHybSur3dq8 (see the decision log).
 - [x] Remnant: NRSur3dq8Remnant.
@@ -307,7 +309,7 @@ Merge PR #2 (Phase 3) with a merge commit. After that the roadmap's next phase i
 - **Waveform accuracy.** Mitigated: golden tests against gwsurrogate.
 - **Data licensing.** The surrogate and remnant data are CC BY 4.0. The attribution string travels inside the data file and is shown in the app. The code is MIT.
 - **Phase conventions.** Mitigated by the step 3 tests, which caught the Blanchet-vs-LAL polarisation sign.
-- **Later phases:** stitching the near zone to the wave zone, 32-bit precision for light paths that skim a horizon, and ray-tracing performance on mid-range GPUs.
+- **Phase 4 (parked):** stitching the near zone to the wave zone, 32-bit precision for light paths that skim a horizon, and ray-tracing performance on mid-range GPUs.
 
 **References**
 
