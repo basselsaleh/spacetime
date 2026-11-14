@@ -1,7 +1,7 @@
 @import "./common/theme.css";
 
 main.landing { max-width: 720px; margin: 0 auto; padding: 64px 24px; }
-.landing h1 { margin: 0 0 4px; font-size: 28px; }
+.landing h1 { margin: 0 0 4px; font-size: 28px; display: flex; align-items: center; gap: 12px; }
 .landing > p { color: var(--muted); margin: 0 0 28px; }
 .apps { display: grid; gap: 14px; }
 .apps a { display: block; text-decoration: none; color: inherit; padding: 16px 18px; }
