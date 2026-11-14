@@ -1,0 +1,18 @@
+[project]
+name = "spacetime-tools"
+version = "0.1.0"
+description = "Offline pipeline: golden waveforms from LAL for Rust tests, NR reference tables"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "gwsurrogate>=1.2.0",
+    "h5py>=3.16.0",
+    "lalsuite",
+    "numpy",
+    "surfinbh>=1.2.7",
+    "sxs",
+]
+
+[tool.uv]
+package = false
+# Always use a uv-managed CPython, never a system/conda/pyenv interpreter.
+python-preference = "only-managed"
