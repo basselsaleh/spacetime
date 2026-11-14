@@ -6,7 +6,7 @@ Other applications in this repository get their own planning documents; this one
 
 ## Status
 
-**Phases 1 and 3 are done and public; Phase 5 (precessing spins) is in progress: steps 7a–7e done (7d and 7e merged into one step). The app shows precessing binaries, with spin controls and arrows. Left: the 3D look for precessing binaries (see the open questions), the RGBA packing follow-up, and the phase PR.** The original goal, visualizing gravitational waves away from the binary faithfully and beautifully, is met. Phase 5 replaces the waveform model so the spins can point in any direction and the orbit visibly precesses.
+**Phases 1, 3 and 5 are done and public.** Phase 5 (precessing spins, NRSur7dq4) was merged in PR #6. Open follow-ups: RGBA packing of the mode table (volume cost), the faster wasm evaluation, and zooming out past the start of the data. The original goal, visualizing gravitational waves away from the binary faithfully and beautifully, is met. Phase 5 replaces the waveform model so the spins can point in any direction and the orbit visibly precesses.
 
 - Phase 1 (2D wave-zone app): merged, PR #1.
 - Phase 3 (3D view with the ray-marched strain volume): merged, PR #2. The user reviewed the 3D view interactively and approved it.
