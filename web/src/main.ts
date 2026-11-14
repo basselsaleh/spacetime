@@ -54,7 +54,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    // Optional ?t=, ?zoom=, ?tilt=<degrees>, ?3d, ?volume=0, ?lines=, ?paused, for sharing a moment.
+    // Optional ?t=, ?zoom=, ?tilt=<degrees>, ?3d, ?paused, for sharing a moment.
     const scene: SceneState = {
       time: url.has("t") ? Number(url.get("t")) : LOOP_START,
       gain: 1.5,
@@ -145,8 +145,7 @@ async function main(): Promise<void> {
       if (now - fpsSince > 1000) {
         status.textContent =
           `physics v${physics_version()} · ${((fpsFrames * 1000) / (now - fpsSince)).toFixed(0)} fps · ` +
-          `${view.renderer.domElement.width}×${view.renderer.domElement.height}` +
-          (view.mode === "3d" ? ` · lines ${view.lines.lastMs.toFixed(1)} ms` : "");
+          `${view.renderer.domElement.width}×${view.renderer.domElement.height}`;
         fpsFrames = 0;
         fpsSince = now;
       }
@@ -196,29 +195,10 @@ function setupViewPanel(slice: SliceConfig, view: SpacetimeScene, flat: Camera) 
   });
   const modeBtn = $<HTMLButtonElement>("mode");
   modeBtn.addEventListener("click", () => view.setMode(view.mode === "flat" ? "3d" : "flat", flat));
-  // 3D content: the strain volume (off with ?volume=0) and line families (?lines=stretch,squeeze,vortex).
+  // Tuning knobs for the volume's look: ?vdensity=&vsharp=.
   const params = new URLSearchParams(window.location.search);
-  view.showVolume = params.get("volume") !== "0";
-  // Undocumented tuning knobs for the volume's look: ?vdensity=&vsharp=.
   for (const [key, uniform] of [["vdensity", "u_density"], ["vsharp", "u_sharpness"]] as const) {
     if (params.has(key)) view.volume.material.uniforms[uniform].value = Number(params.get(key));
-  }
-  const volumeBox = $<HTMLInputElement>("show-volume");
-  volumeBox.checked = view.showVolume;
-  volumeBox.addEventListener("change", () => (view.showVolume = volumeBox.checked));
-  const linesParam = params.get("lines");
-  if (linesParam !== null) {
-    const want = new Set(linesParam.split(","));
-    for (const kind of ["stretch", "squeeze", "vortex"] as const) view.lines.enabled[kind] = want.has(kind);
-  }
-  for (const [id, kind] of [
-    ["show-stretch", "stretch"],
-    ["show-squeeze", "squeeze"],
-    ["show-vortex", "vortex"],
-  ] as const) {
-    const box = $<HTMLInputElement>(id);
-    box.checked = view.lines.enabled[kind];
-    box.addEventListener("change", () => (view.lines.enabled[kind] = box.checked));
   }
 
   return {
@@ -234,7 +214,7 @@ function setupViewPanel(slice: SliceConfig, view: SpacetimeScene, flat: Camera) 
       tiltLabel.textContent = `${deg}°`;
       const is3d = view.mode === "3d";
       title.textContent = is3d
-        ? "3D · strain volume and field lines"
+        ? "3D · strain volume"
         : deg === 0
           ? "Top view · orbital plane"
           : deg === 90

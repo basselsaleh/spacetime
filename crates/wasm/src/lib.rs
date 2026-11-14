@@ -5,7 +5,6 @@ use spacetime_physics::binary::Binary;
 use spacetime_physics::harmonics::spin_weighted_ylm_theta;
 use spacetime_physics::mode_table::{ModeTable, equatorial_peak_22};
 use spacetime_physics::surrogate::{Params, Surrogate, Waveform};
-use spacetime_physics::tendex::{Family, Field, Quadrupole, TraceParams, Tracer};
 use wasm_bindgen::prelude::*;
 
 /// Version of the physics crate this module was built from.
@@ -150,11 +149,6 @@ impl WaveformData {
         equatorial_peak_22(&self.0)
     }
 
-    /// The quadrupole field for tendex/vortex lines (see `tendex` in the physics crate).
-    pub fn tendex(&self) -> TendexField {
-        TendexField(Quadrupole::new(&self.0))
-    }
-
     /// Packs the waveform for the strain shader (see `mode_table` in the physics crate).
     #[wasm_bindgen(js_name = modeTable)]
     pub fn mode_table(&self, width: usize) -> ModeTableData {
@@ -273,72 +267,4 @@ impl BinaryTrack {
         let [x, y] = self.0.kick();
         x.hypot(y)
     }
-}
-
-/// Tidal and frame-drag field of the binary, for tracing tendex and vortex lines.
-#[wasm_bindgen]
-pub struct TendexField(Quadrupole);
-
-#[wasm_bindgen]
-impl TendexField {
-    /// Peak far-zone r·|E| scale (rotating amplitude of d⁴I/dt⁴), for normalising brightness.
-    #[wasm_bindgen(getter, js_name = farScale)]
-    pub fn far_scale(&self) -> f64 {
-        self.0.far_scale
-    }
-
-    /// Traces one line per seed (flat `[x, y, z, ...]`) at source time `t`.
-    /// `field`: 0 tidal (E), 1 frame-drag (B); `family`: 0 smallest eigenvalue,
-    /// 1 largest. Returns line segments as flat `[x0, y0, z0, λ0, x1, y1, z1, λ1, ...]`.
-    #[allow(clippy::too_many_arguments)]
-    pub fn trace(
-        &self,
-        t: f64,
-        field: u8,
-        family: u8,
-        seeds: &[f32],
-        r_min: f64,
-        r_max: f64,
-        steps: usize,
-        step_scale: f64,
-    ) -> Vec<f32> {
-        let field = if field == 0 {
-            Field::Tidal
-        } else {
-            Field::FrameDrag
-        };
-        let family = if family == 0 {
-            Family::Min
-        } else {
-            Family::Max
-        };
-        let params = TraceParams {
-            t,
-            mass: 1.0,
-            r_min,
-            r_max,
-            steps,
-            step_scale,
-        };
-        let tracer = Tracer::new(&self.0, field, family, params);
-        let mut out = Vec::new();
-        for s in seeds.as_chunks::<3>().0 {
-            let line = tracer.line([s[0] as f64, s[1] as f64, s[2] as f64]);
-            for w in line.windows(2) {
-                for v in w {
-                    out.extend([v.p[0] as f32, v.p[1] as f32, v.p[2] as f32, v.lambda as f32]);
-                }
-            }
-        }
-        out
-    }
-}
-
-/// Deterministic, well-spread seed points between radii `r_lo` and `r_hi`, flat `[x, y, z, ...]`.
-#[wasm_bindgen(js_name = tendexSeeds)]
-pub fn tendex_seeds(n: usize, r_lo: f64, r_hi: f64, salt: u32) -> Vec<f32> {
-    spacetime_physics::tendex::seeds(n, r_lo, r_hi, salt)
-        .into_iter()
-        .flat_map(|p| p.map(|c| c as f32))
-        .collect()
 }

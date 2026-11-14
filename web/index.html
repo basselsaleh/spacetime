@@ -20,12 +20,6 @@
             <button id="swap" type="button" class="flat-only">⇄ Side view</button>
           </div>
           <button id="mode" type="button" class="wide">3D view</button>
-          <div id="line-controls" class="lines three-d-only" role="group" aria-label="3D content">
-            <label class="check"><input id="show-volume" type="checkbox" /><span class="chip volume"></span>Strain volume</label>
-            <label class="check"><input id="show-stretch" type="checkbox" /><span class="chip stretch"></span>Stretching (tendex)</label>
-            <label class="check"><input id="show-squeeze" type="checkbox" /><span class="chip squeeze"></span>Squeezing (tendex)</label>
-            <label class="check"><input id="show-vortex" type="checkbox" /><span class="chip vortex"></span>Twisting (vortex)</label>
-          </div>
           <label class="tilt flat-only">Tilt <input id="tilt" type="range" min="0" max="90" step="1" value="0" /><span id="tilt-value">0°</span></label>
           <canvas id="gizmo" aria-label="Orientation of the slice relative to the orbit"></canvas>
           <div id="legend">
@@ -112,22 +106,8 @@
               against directions that wind around the orbital axis, so the sheets meet along it;
               a narrow cone around the axis is faded out. To keep it fast, the volume sums the
               three strongest modes (the slices use all of them) and is drawn at reduced
-              resolution, adapted to the frame rate.
-            </p>
-            <p>
-              Optionally, the 3D view also shows tendex and vortex lines: field lines of the tidal tensor (how
-              space stretches and squeezes nearby objects) and of the frame-drag tensor (how it
-              twists them). Red lines stretch along their length and blue lines squeeze; green
-              and violet lines twist in opposite senses. Close to the source the tidal lines are
-              those of a single mass; further out they bend into spirals and become the outgoing
-              wave, lying across its direction of travel. Brightness is the strength (times r,
-              like the strain colours), on a logarithmic scale.
-            </p>
-            <p>
-              The field is linearised gravity of the binary's mass quadrupole, taken from the
-              (2,2) mode, so it is exact far away and approximate close in. Lines stop at the
-              near zone, where this description fails. Drag to orbit, scroll to zoom,
-              double-click to reset.
+              resolution, adapted to the frame rate. Drag to orbit, scroll to zoom, double-click
+              to reset.
             </p>
           </details>
           <div id="status">Loading…</div>

@@ -7,11 +7,9 @@ dependencies = [
     "gwsurrogate>=1.2.0",
     "h5py>=3.16.0",
     "lalsuite",
-    "matplotlib>=3.11.2",
     "numpy",
     "surfinbh>=1.2.7",
     "sxs",
-    "sympy>=1.14.0",
 ]
 
 [tool.uv]

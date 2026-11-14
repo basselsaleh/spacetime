@@ -1,11 +1,11 @@
-// The 3D scene: the strain slice as a plane, tendex/vortex lines, black holes
+// The 3D scene: the strain slice as a plane, the strain volume, black holes
 // and the probe as spheres, and one perspective camera that serves both the
 // flat view and the 3D view.
 //
 // Flat view: the strain on a slice. The camera looks straight at it with a 1°
 // field of view from far away, which is indistinguishable from an orthographic
 // view, so the picture matches the 2D app. 3D view: the strain as a ray-marched
-// volume (volume.ts) and optional tendex/vortex lines, with a 40° orbit camera
+// volume (volume.ts), with a 40° orbit camera
 // and +z (the orbital axis) up. Switching is a dolly zoom (the field of view and
 // the camera's orientation are interpolated while the distance keeps the slice
 // framed) with the slice cross-fading into the 3D content.
@@ -16,7 +16,6 @@ import sliceVertex from "./shaders/slice.vert?raw";
 import sliceMain from "./shaders/slice.frag?raw";
 import strainGlsl from "./shaders/strain.glsl?raw";
 import { sliceAxes, sliceTo3D, type Camera, type SceneState, type SliceConfig, type Vec3 } from "./slice";
-import { TendexLines } from "./tendex";
 import { Volume } from "./volume";
 import type { PreparedWaveform } from "./waveform";
 
@@ -29,7 +28,7 @@ const ORBIT_ELEVATION = (55 * Math.PI) / 180; // camera angle from the slice nor
 const TRANSITION_MS = 1600;
 const BACKGROUND = 0x090a0e;
 const Z_UP = new THREE.Vector3(0, 0, 1);
-const LINES_EXTENT = 0.6; // tendex/vortex lines fill this fraction of the framed region
+const VOLUME_EXTENT = 0.6; // the strain volume fills this fraction of the framed region
 
 /** A camera pose: orientation, the point looked at, and the half-height framed there. */
 interface Pose {
@@ -156,12 +155,8 @@ export class SpacetimeScene {
   private readonly controls: OrbitControls;
   private readonly mainPlane: THREE.Mesh;
   private readonly mainMaterial: THREE.RawShaderMaterial;
-  /** Tendex and vortex lines (3D view). */
-  readonly lines = new TendexLines();
   /** Ray-marched strain volume (3D view). */
   readonly volume: Volume;
-  /** In 3D, draw the strain volume. */
-  showVolume = true;
   private readonly holes: Ball[];
   private readonly probeBall: Ball;
   private readonly guides = new THREE.Group();
@@ -194,7 +189,7 @@ export class SpacetimeScene {
     );
     this.mainPlane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.mainMaterial);
     this.mainPlane.matrixAutoUpdate = false;
-    this.scene.add(this.mainPlane, this.lines.group);
+    this.scene.add(this.mainPlane);
 
     const sphere = new THREE.SphereGeometry(1, 48, 24);
     const white = new THREE.Color(0.92, 0.94, 1.0);
@@ -230,7 +225,6 @@ export class SpacetimeScene {
     this.textures = [table, harmonics];
     const lm = new Int32Array(2 * MAX_ROWS);
     lm.set(w.rows);
-    this.lines.setField(w.tendex);
     {
       const u = this.mainMaterial.uniforms;
       u.u_table.value = table;
@@ -315,9 +309,9 @@ export class SpacetimeScene {
     if (dir.z < 0) dir.z = -dir.z; // stay above the orbital plane
     return {
       quaternion: lookQuaternion(dir.normalize(), Z_UP),
-      // Centred on the source, framing the region filled by the field lines.
+      // Centred on the source, framing the strain volume.
       target: new THREE.Vector3(0, 0, 0),
-      halfHeight: LINES_EXTENT * this.extent * 1.25,
+      halfHeight: VOLUME_EXTENT * this.extent * 1.25,
       fov: ORBIT_FOV,
     };
   }
@@ -397,9 +391,6 @@ export class SpacetimeScene {
       u.u_raw.value = false;
       u.u_opacity.value = 1 - blend;
     }
-    // Tendex/vortex lines (3D view), fading in.
-    const resolution = this.renderer.getSize(new THREE.Vector2());
-    this.lines.update(scene.time, scene.maskRadius, LINES_EXTENT * this.extent, scene.gain, resolution, blend);
     // Exact pixel-to-slice mapping while the camera looks straight at the main slice.
     const flatNow = this.mode === "flat" && !this.transition;
     const mu = this.mainMaterial.uniforms;
@@ -408,7 +399,7 @@ export class SpacetimeScene {
     (mu.u_center.value as THREE.Vector2).set(flat.centerX, flat.centerY);
     mu.u_halfWidth.value = flat.halfWidth;
     this.guides.visible = blend > 0;
-    this.guides.scale.setScalar(LINES_EXTENT * this.extent);
+    this.guides.scale.setScalar(VOLUME_EXTENT * this.extent);
 
     // Black holes and probe, at least a few pixels across.
     const pxWorld = (p: THREE.Vector3) =>
@@ -422,13 +413,13 @@ export class SpacetimeScene {
     this.probeBall.set(probe, 5 * pxWorld(pp), 1);
 
     this.renderer.render(this.scene, this.camera);
-    if (blend > 0.001 && this.showVolume) {
+    if (blend > 0.001) {
       this.volume.render(this.renderer, this.camera, w, h, {
         time: scene.time,
         scale: scene.gain / this.peak,
         maskRadius: scene.maskRadius,
         component: slice.component === "plus" ? 0 : 1,
-        radius: LINES_EXTENT * this.extent,
+        radius: VOLUME_EXTENT * this.extent,
         opacity: blend,
       });
     }
