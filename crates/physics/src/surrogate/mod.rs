@@ -331,7 +331,7 @@ impl Surrogate {
         &self.model
     }
 
-    /// Credit line required by the data licence; show it in the app.
+    /// Credit line required by the data license; show it in the app.
     pub fn attribution(&self) -> &str {
         &self.attribution
     }

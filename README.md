@@ -43,7 +43,7 @@ cd tools && uv sync             # once, installs lalsuite and sxs
 
 - The view is a slice through the source: the orbital plane from above, a side view, or any
   tilt in between ("⇄" animates between top and side). Drag to pan, scroll to zoom,
-  double-click to reset; h₊/h× chooses the polarisation.
+  double-click to reset; h₊/h× chooses the polarization.
 - "3D view" animates to an orbit camera showing the strain as a glowing volume (drag to orbit,
   scroll to zoom, double-click to reset); "Flat view" animates back.
 - Click a slice to move the probe (the ring marker); its ring and chirp plot update.
@@ -57,8 +57,6 @@ cd tools && uv sync             # once, installs lalsuite and sxs
 - `?3d`: start in the 3D view
 - `?selftest`: render off-screen and compare GPU pixels with the Rust CPU reference;
   the verdict appears in the page title and status line
-- `?dev`: a temporary panel for tuning the look (colour map, saturation curve, near zone,
-  horizons, probe, 3D guides) and comparing candidates; remembered in the browser
 
 ## Using the lensing app (`/lensing/`)
 

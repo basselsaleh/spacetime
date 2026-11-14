@@ -59,7 +59,7 @@ export async function runLensSelfTest(renderer: THREE.WebGLRenderer, lens: Lens)
   for (const v of VIEWS) {
     const cam = camera(v, W / H);
     const gpu = lens.renderRaw(renderer, cam, W, H);
-    // The same rays the shader builds (pixel centres; row 0 at the bottom).
+    // The same rays the shader builds (pixel centers; row 0 at the bottom).
     const basis = rayMatrix(cam);
     const dirs = new Float64Array(W * H * 3);
     for (let py = 0; py < H; py++) {

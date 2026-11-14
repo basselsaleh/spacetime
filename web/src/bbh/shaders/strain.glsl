@@ -1,5 +1,5 @@
 // Shared GLSL for the strain shaders (slice.frag, volume.frag): the
-// NRHybSur3dq8 mode table, the mode sum and the colour map. Prepended to each
+// NRHybSur3dq8 mode table, the mode sum and the color map. Prepended to each
 // shader's own source by scene3d.ts / volume.ts (three.js RawShaderMaterial;
 // three prepends "#version 300 es").
 //
@@ -92,17 +92,16 @@ vec2 strain(float tRet, float theta, float phi, out bool valid) {
   return strainRows(tRet, theta, phi, u_rows, valid);
 }
 
-// Colour map: an RGBA8 lookup table from s = −1 (left) to +1 (right), built
-// from the chosen palette in look.ts, and a saturation curve applied first, so
-// the brightening toward merger stays visible at any gain.
+// Color map: an RGBA8 lookup table from s = −1 (left) to +1 (right), built
+// in look.ts, after a saturation curve x/√(1+x²). The curve saturates gently
+// (more slowly than tanh), so the brightening toward merger stays visible.
 uniform sampler2D u_lut;
-uniform int u_curve;          // 0: tanh, 1: soft (x/√(1+x²), saturates more slowly)
 
 float saturateStrain(float x) {
-  return u_curve == 0 ? tanh(x) : x * inversesqrt(1.0 + x * x);
+  return x * inversesqrt(1.0 + x * x);
 }
 
-// Palette colour at s ∈ [−1, 1] (texel centres at the ends).
+// Palette color at s ∈ [−1, 1] (texel centers at the ends).
 vec3 paletteColor(float s) {
   float u = (0.5 + 0.5 * s) * (255.0 / 256.0) + 0.5 / 256.0;
   return texture(u_lut, vec2(u, 0.5)).rgb;

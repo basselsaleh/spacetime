@@ -88,7 +88,7 @@ export class Probe {
     ctx.beginPath();
     ctx.arc(cx, cy, R, 0, 2 * Math.PI);
     ctx.stroke();
-    // Axes: horizontal = φ̂ (around the source), vertical = −θ̂ (towards +z).
+    // Axes: horizontal = φ̂ (around the source), vertical = −θ̂ (toward +z).
     ctx.beginPath();
     ctx.moveTo(cx - R * 1.45, cy);
     ctx.lineTo(cx + R * 1.45, cy);

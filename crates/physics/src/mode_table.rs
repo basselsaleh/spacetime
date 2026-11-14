@@ -168,7 +168,7 @@ impl ModeTable {
 }
 
 /// Peak of r·|h₊| expected in the orbital plane from the (2,2) mode alone:
-/// 2 · ₋₂Y₂₂(π/2) · max A₂₂. Used to normalise the colour scale.
+/// 2 · ₋₂Y₂₂(π/2) · max A₂₂. Used to normalize the color scale.
 pub fn equatorial_peak_22(wf: &Waveform) -> f64 {
     let a = wf.amp22.iter().copied().fold(0.0, f64::max);
     2.0 * crate::harmonics::spin_weighted_ylm_theta(-2, 2, 2, PI / 2.0) * a

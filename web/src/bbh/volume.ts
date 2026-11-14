@@ -16,7 +16,7 @@ const AXIS_CONE = (8 * Math.PI) / 180;
 
 export interface VolumeFrame {
   time: number;
-  scale: number; // colour units per r·h
+  scale: number; // color units per r·h
   maskRadius: number;
   component: 0 | 1;
   radius: number;

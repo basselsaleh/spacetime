@@ -1,5 +1,5 @@
 //! Strain-field physics checks: harmonics against LAL, the orbital-plane
-//! polarisation, and the GPU table against the exact mode sum.
+//! polarization, and the GPU table against the exact mode sum.
 
 use std::f64::consts::PI;
 use std::path::PathBuf;
@@ -52,7 +52,7 @@ fn harmonics_match_lal() {
 }
 
 #[test]
-fn cross_polarisation_vanishes_in_orbital_plane() {
+fn cross_polarization_vanishes_in_orbital_plane() {
     // Aligned spins ⇒ reflection symmetry through the orbital plane ⇒ h× = 0 there.
     // This checks the mode symmetry, the harmonics and the conventions together.
     for (q, c1, c2) in [(1.0, 0.0, 0.0), (3.0, 0.5, -0.2), (8.0, -0.4, 0.8)] {
@@ -69,7 +69,7 @@ fn cross_polarisation_vanishes_in_orbital_plane() {
                 );
             }
         }
-        // ...while off the plane both polarisations are present.
+        // ...while off the plane both polarizations are present.
         let i_peak = wf.len() - 140; // near t = 0
         let h = exact_strain(&wf, 0.6, 0.3, i_peak);
         assert!(h.im.abs() > 1e-3 * peak);

@@ -13,7 +13,7 @@
         <div id="view-panel" class="panel">
           <div id="view-title">Top view · orbital plane</div>
           <div class="view-row">
-            <div class="toggle" role="group" aria-label="Polarisation">
+            <div class="toggle" role="group" aria-label="Polarization">
               <button type="button" data-component="plus" aria-pressed="true">h₊</button>
               <button type="button" data-component="cross" aria-pressed="false">h×</button>
             </div>
@@ -46,7 +46,6 @@
               <option value="5">×5</option>
             </select>
           </label>
-          <label>Gain <input id="gain" type="range" min="1" max="20" step="0.5" /><span id="gain-value"></span></label>
           <label><input id="loop" type="checkbox" /> Loop</label>
         </div>
       </section>
@@ -81,27 +80,27 @@
             <p>
               Gravitational-wave strain on a slice through the source: the orbital plane seen from
               above, a side view through the orbital axis, or any tilt in between (the sketch in the
-              view panel shows where the slice sits). Colour is r·h (the 1/r fall-off removed),
-              divided by its peak (2,2) value in the orbital plane and multiplied by the gain, on a
-              smoothly saturating scale.
+              view panel shows where the slice sits). Color is r·h (the 1/r fall-off removed),
+              divided by its peak (2,2) value in the orbital plane and scaled by a fixed factor, on
+              a smoothly saturating scale.
             </p>
             <p>
-              In the orbital plane the wave is purely + polarised (h× = 0). h₊ &gt; 0 (LAL convention)
-              means space is stretched around the circle centred on the source and squeezed
-              perpendicular to the plane. Off the plane both polarisations appear.
+              In the orbital plane the wave is purely + polarized (h× = 0). h₊ &gt; 0 (LAL convention)
+              means space is stretched around the circle centered on the source and squeezed
+              perpendicular to the plane. Off the plane both polarizations appear.
             </p>
             <p>
               Inside the ring is the near zone, where this far-zone formula does not apply. Black
-              discs: horizons where the slice cuts them, at true size (at least a few pixels); faint
+              disks: horizons where the slice cuts them, at true size (at least a few pixels); faint
               outlines: the parts of holes hidden behind a slice. Orbits are post-Newtonian, derived
               from the wave phase, and schematic in the last orbits. Click a slice to move the
               probe (the ring marker).
             </p>
             <p>
               The 3D view shows the strain throughout a sphere around the source, ray-marched
-              like a glowing fog: crests (orange, h &gt; 0) and troughs (blue, h &lt; 0) of the wave
+              like a glowing fog: crests (red, h &gt; 0) and troughs (blue, h &lt; 0) of the wave
               show as sheets, which for h₊ form the two spiral arms of the binary and move outward
-              at the speed of light. Same normalisation as the slices (r·h, so distant sheets are
+              at the speed of light. Same normalization as the slices (r·h, so distant sheets are
               as bright as near ones); the near zone is left empty. h₊ and h× are measured
               against directions that wind around the orbital axis, so the sheets meet along it;
               a narrow cone around the axis is faded out. To keep it fast, the volume sums the

@@ -1,11 +1,11 @@
 // Volume view: gravitational-wave strain throughout a sphere around the source,
-// ray-marched per pixel. strain.glsl (mode table, mode sum, colour map) is
+// ray-marched per pixel. strain.glsl (mode table, mode sum, color map) is
 // prepended to this.
 //
 // Each sample along a pixel's ray is a 3D point at distance r; it carries
-// r·h₊ (or r·h×) at retarded time t − r, normalised like the slices. Density
+// r·h₊ (or r·h×) at retarded time t − r, normalized like the slices. Density
 // rises steeply with |r·h| (crests and troughs), so the wave shows as glowing
-// sheets in the palette's positive and negative colours. With h₊ these are the two-armed
+// sheets in the palette's positive and negative colors. With h₊ these are the two-armed
 // spiral sheets of the binary, moving outward with the wave. Samples inside the
 // near zone, where the far-zone formula does not apply, are skipped.
 //
@@ -17,7 +17,7 @@ out vec4 outColor;
 #define MAX_STEPS 256
 
 uniform vec3 u_eye;           // camera position, M
-// Ray direction (unnormalised) for NDC (x, y): screen-right and screen-up scaled
+// Ray direction (unnormalized) for NDC (x, y): screen-right and screen-up scaled
 // by the half-extent of the view at unit distance, and forward.
 uniform mat3 u_rayBasis;
 uniform vec2 u_resolution;    // render-target pixels
@@ -26,7 +26,7 @@ uniform int u_steps;
 uniform int u_volumeRows;     // modes in the volume's sum (the first rows: (2,2) first); the slices use all
 uniform int u_component;      // 0: h₊, 1: h×
 uniform float u_time;         // coordinate time at the source, M
-uniform float u_scale;        // colour units per r·h (1/peak × gain)
+uniform float u_scale;        // color units per r·h (1/peak × gain)
 uniform float u_maskRadius;   // near zone, M
 uniform float u_density;      // opacity per M at full saturation
 uniform float u_sharpness;    // density ∝ tanh(|r·h|)^u_sharpness: higher keeps only crests and troughs
@@ -70,7 +70,7 @@ void main() {
   }
   float ds = (a1 - a0) / float(u_steps);
   float jit = fract(noise(gl_FragCoord.xy) + u_jitter);
-  // Emission colours: the palette's ends (the same colour map as the slices).
+  // Emission colors: the palette's ends (the same color map as the slices).
   vec3 pos = paletteColor(1.0);
   vec3 neg = paletteColor(-1.0);
 

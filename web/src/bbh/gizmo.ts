@@ -59,7 +59,7 @@ export function drawGizmo(canvas: HTMLCanvasElement, slice: SliceConfig, heavyAn
   ctx.font = "10px system-ui, sans-serif";
   ctx.fillText("z", ...offset(P([0, 0, 1.3]), 3, 0));
 
-  // The binary: heavier hole closer to the centre.
+  // The binary: heavier hole closer to the center.
   const dot = (p: Vec3, r: number) => {
     ctx.beginPath();
     ctx.arc(...P(p), r, 0, 2 * Math.PI);

@@ -7,7 +7,7 @@ export interface SceneState {
   gain: number;
   maskRadius: number; // M
   /** Heavier, lighter, remnant: [x, y, radius, opacity] × 3, in M. */
-  discs: Float32Array;
+  disks: Float32Array;
 }
 
 /** Per-view pan/zoom, in the slice's own 2D coordinates (M). */
@@ -19,7 +19,7 @@ export interface Camera {
 
 /**
  * A plane through the source. Screen-right is the in-plane direction at
- * `azimuth`; screen-up is tilted from the orbital plane towards +z by `tilt`
+ * `azimuth`; screen-up is tilted from the orbital plane toward +z by `tilt`
  * (0: top view of the orbital plane, π/2: side view with +z up).
  */
 export interface SliceConfig {

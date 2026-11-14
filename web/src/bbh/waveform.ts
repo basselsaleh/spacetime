@@ -18,9 +18,9 @@ export interface PreparedWaveform {
   /** θ-dependence of the harmonics, RG × thetaSamples × rows. */
   harmonics: Float32Array;
   thetaSamples: number;
-  /** Black-hole discs over time and remnant properties. */
+  /** Black-hole disks over time and remnant properties. */
   binary: BinaryTrack;
-  /** Colour-scale unit: peak r·|h₊| in the plane from the (2,2) mode. */
+  /** Color-scale unit: peak r·|h₊| in the plane from the (2,2) mode. */
   peak: number;
   /** ω₂₂(t) at each sample, for the near-zone radius. */
   omega22: Float64Array;

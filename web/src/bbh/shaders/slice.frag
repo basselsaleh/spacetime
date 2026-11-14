@@ -8,7 +8,7 @@
 // The slice is spanned by u_axisU and u_axisV: the orbital plane is (x̂, ŷ), the
 // side view (x̂, ẑ), and any tilt in between is a genuine slice too.
 //
-// The mode table, mode sum and colour map are in strain.glsl, prepended to this.
+// The mode table, mode sum and color map are in strain.glsl, prepended to this.
 
 in vec3 vWorld;
 out vec4 outColor;
@@ -18,7 +18,7 @@ uniform vec3 u_axisV;         // in-slice unit vector ⟂ u_axisU (screen up in 
 uniform int u_component;      // 0: h₊, 1: h×
 
 uniform float u_time;         // coordinate time at the source, M
-uniform float u_scale;        // colour units per r·h (1/peak × gain)
+uniform float u_scale;        // color units per r·h (1/peak × gain)
 uniform float u_maskRadius;   // near zone: far-zone formula not valid inside, M
 uniform bool u_raw;           // self-test: output raw (r·h₊, r·h×, valid)
 uniform float u_opacity;      // < 1 for a secondary plane in the 3D view
@@ -26,7 +26,7 @@ uniform float u_opacity;      // < 1 for a secondary plane in the 3D view
 // slice position from the pixel itself, exactly; otherwise interpolate it.
 uniform bool u_screenMapped;
 uniform vec2 u_resolution;    // drawing-buffer pixels
-uniform vec2 u_center;        // slice coordinates at the view centre, M
+uniform vec2 u_center;        // slice coordinates at the view center, M
 uniform float u_halfWidth;    // half the view width, M
 uniform vec3 u_nearColor;     // fill inside the near zone (sRGB)
 

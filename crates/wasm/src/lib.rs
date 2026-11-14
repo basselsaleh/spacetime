@@ -46,7 +46,7 @@ impl WaveformModel {
         self.0.model().to_string()
     }
 
-    /// Credit line required by the data licence (CC BY 4.0).
+    /// Credit line required by the data license (CC BY 4.0).
     #[wasm_bindgen(getter)]
     pub fn attribution(&self) -> String {
         self.0.attribution().to_string()
@@ -144,7 +144,7 @@ impl WaveformData {
         self.0.omega22()
     }
 
-    /// Peak r·|h₊| in the orbital plane from the (2,2) mode; the colour scale's unit.
+    /// Peak r·|h₊| in the orbital plane from the (2,2) mode; the color scale's unit.
     #[wasm_bindgen(js_name = equatorialPeak22)]
     pub fn equatorial_peak_22(&self) -> f64 {
         equatorial_peak_22(&self.0)
@@ -235,7 +235,7 @@ impl ModeTableData {
     }
 }
 
-/// Black-hole discs over time, plus remnant properties.
+/// Black-hole disks over time, plus remnant properties.
 #[wasm_bindgen]
 pub struct BinaryTrack(Binary);
 

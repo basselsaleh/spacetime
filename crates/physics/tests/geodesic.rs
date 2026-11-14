@@ -103,7 +103,7 @@ fn escape_directions() {
     assert!((0..3).all(|i| (out[i] - n[i]).abs() < 1e-12));
     // Straight at the hole: captured.
     assert!(escape_direction(cam, n.map(|c| -c)).is_none());
-    // A ray bends towards the hole: its sky direction is rotated further from n̂ than the ray.
+    // A ray bends toward the hole: its sky direction is rotated further from n̂ than the ray.
     let d = [1.0, 0.0, 0.0];
     let e = escape_direction(cam, d).unwrap();
     let ang = |a: [f64; 3], b: [f64; 3]| {
