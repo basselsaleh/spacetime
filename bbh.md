@@ -6,12 +6,12 @@ Other applications in this repository get their own planning documents; this one
 
 ## Status
 
-**Phases 1 and 3 are done and public; Phase 5 (precessing spins) is in progress: steps 7a–7c done; the app runs on NRSur7dq4 (aligned-spin sliders until step 7e).** The original goal, visualizing gravitational waves away from the binary faithfully and beautifully, is met. Phase 5 replaces the waveform model so the spins can point in any direction and the orbit visibly precesses.
+**Phases 1 and 3 are done and public; Phase 5 (precessing spins) is in progress: steps 7a–7e done (7d and 7e merged into one step). The app shows precessing binaries, with spin controls and arrows. Left: the 3D look for precessing binaries (see the open questions), the RGBA packing follow-up, and the phase PR.** The original goal, visualizing gravitational waves away from the binary faithfully and beautifully, is met. Phase 5 replaces the waveform model so the spins can point in any direction and the orbit visibly precesses.
 
 - Phase 1 (2D wave-zone app): merged, PR #1.
 - Phase 3 (3D view with the ray-marched strain volume): merged, PR #2. The user reviewed the 3D view interactively and approved it.
 - Phase 2 was cut. Phase 4 (the near zone) is **parked**: it may be attempted in the future (see "If this app is revisited").
-- Phase 5 (precession, NRSur7dq4): planned Nov 14, 2026. Step 7a (offline prototype) done on `step-7a-precession-prototype` (`6e2276f`); step 7b (Rust evaluator) on `step-7b-rust-evaluator` (`6a8ac92`); step 7c (mode table, shaders, app switched over, NRHybSur3dq8 removed) on `step-7c-mode-table` (`97bcaac`). Each is stacked on the previous one. All local, not pushed. Next is step 7d.
+- Phase 5 (precession, NRSur7dq4): planned Nov 14, 2026. Step 7a (offline prototype) done on `step-7a-precession-prototype` (`6e2276f`); step 7b (Rust evaluator) on `step-7b-rust-evaluator` (`6a8ac92`); step 7c (mode table, shaders, app switched over, NRHybSur3dq8 removed) on `step-7c-mode-table` (`97bcaac`). Steps 7d+7e (display frame, spins in the scene, spin controls) on `step-7d-spins` (`9466150`). Each is stacked on the previous one. All local, not pushed.
 
 **Not verified by a person**
 
@@ -43,6 +43,7 @@ Other applications in this repository get their own planning documents; this one
 | Nov 14 | Phase 5 spin reference: **the sliders set the spins at the start of the data** (t ≈ −4300 M), in the co-orbital frame there | gwsurrogate's default (fM_ref = 0): the ODE integrates forward only, avoiding the backward RK4/AB4 start. The loop starts at −2500 M, so the spins shown at the loop start have already precessed a little. Revisit if that confuses |
 | Nov 14 | STSUR002 stores bases and polynomial coefficients as **f32**; times and the remnant as f64 | 4.24 MB instead of 6.94 MB; costs 1.3e-6 of peak in the modes and 8e-7 in the frame dynamics |
 | Nov 14 | Step 7c mode table: **frame + co-orbital modes, rotated per direction in the shader**, not inertial modes | Inertial modes of a precessing binary mix the co-orbital m′ = ±2 parts, so no single phase factor makes them smooth enough for a 1 M table. The cost is a quaternion rotation and a polarization factor per sample |
+| Nov 14 | Steps 7d and 7e merged; spin sliders cover the **trained range only** (q ≤ 4, \|χ\| ≤ 0.8), as magnitude, tilt from L̂ and azimuth at t = −4300 M | User's request to fold the UI in. Trained range: faithful by default; the evaluator still accepts the extrapolation range if wanted later |
 | Nov 13 | **Cut Phase 2 entirely**: no in-app NR validation overlay, no audio, no slice azimuth control. Phase numbers are kept as they were (1, 3, 4) | User doesn't want these features; validation stays as offline golden tests |
 
 ## Vision and goals
@@ -341,17 +342,15 @@ Fits are forward-stepwise polynomial basis functions (`bfOrders`, `coefs`; C ker
   - Front end: loads `nrsur7dq4.stsur`; q range [1, 4]; the sliders still set aligned spins (`BinaryParams.spins` already carries vectors for step 7e). The README credits now name NRSur7dq4.
   - Removed NRHybSur3dq8: the evaluator, its data file, `export_surrogate.py`, `gen_golden.py`, `gen_remnant_golden.py`, and its golden data. The orientation golden data was regenerated with NRSur7dq4.
   - Visual check: aligned binaries look as before (the remnant matches the old model's to 2e-4). The 3D view has the same polarization-basis seam along the axis as before.
-- **Step 7d: orbits and spins in the scene.**
-  - ~~Hole positions from the dynamics' orbital frame~~ (done in 7c). Display frame: compute the J-aligned `init_quat` (as `tools/proto_precession.py` does) and pass it to `evaluate`.
-  - Spin arrows on each hole, precessing.
-  - Remnant spin direction and 3D kick.
-  - The near-zone radius from the orbital frequency.
-- **Step 7e: controls and URL.**
-  - Each spin as magnitude, tilt and azimuth, at a stated reference time or frequency.
-  - q ≤ 4, |χ| ≤ 0.8 (decide whether to expose the extrapolated range).
-  - New URL parameters; old `?chi1=&chi2=` links read as aligned spins.
-  - Handle zooming out past the start of the data (it begins at −4300 M, so the waves in a wide frame run out).
-  - Update the README and credits (NRSur7dq4 and its remnant fits replace NRHybSur3dq8 and NRSur3dq8Remnant).
+- **Steps 7d + 7e: spins in the scene, and the controls. Done** (Nov 14, one branch `step-7d-spins`; the user asked to merge 7e into 7d).
+  - `Nrsur7dq4::display_frame` (Rust) gives the initial frame with J (2PN |L| plus spins) on +z and L̂ in the x–z plane; `prepare` passes it to `evaluate`. Tests check that L̂ circles z at a nearly fixed tilt (q = 4, χ_A = 0.8 in-plane: 35–41°) and that the remnant spin ends up within 5° of z (measured 2°).
+  - `Binary` adds the orbital axis and both spin vectors over time (frozen after the merger window). The wasm `BinaryTrack` exposes `orbitalAxis(t)`, `spins(t)` and `remnantSpinVector`. The near-zone radius already used 2ω_orb (since 7c).
+  - Scene: spin arrows start at each horizon (and the remnant's), with length ∝ |χ| (3 horizon radii, or at least 28 px, per unit χ), drawn on top. The 3D guides keep the fixed z (J) axis; the orbital-plane outline and an L̂ line follow the precessing orbit. The orientation sketch draws the tilted orbit, L̂ and the binary in 3D. The remnant drifts with the full 3D kick.
+  - Controls: each spin has magnitude (0–0.8), tilt from L̂ (0–180°, step 5) and azimuth (0–355°, step 5), set at t = −4300 M. Tilt is disabled at zero magnitude, azimuth also at tilt 0°/180°. The range is the trained one (q ≤ 4, |χ| ≤ 0.8); extrapolation isn't exposed.
+  - URL: a spin is one number (aligned; negative means anti-aligned, so old links still work) or `x,y,z`. The app writes the short form when the spins are aligned.
+  - Precession-aware text: the view titles say "plane ⊥ J" and "J up"; the h× = 0 caption shows only for aligned spins; the remnant line gives the final spin's tilt from J; new About paragraph.
+  - Self-test unchanged (it already covered a precessing binary): 2.3e-4.
+  - Not done: zooming out past the start of the data still shows zero strain beyond r ≈ t + 4300 M (as the old model did beyond its start). The README text is unchanged apart from the credits (7c).
 
 **Phase 4: near zone. Parked** (not started).
 
@@ -378,6 +377,7 @@ Phase 5 (precessing spins) is next; see the roadmap. Beyond it, a future return 
 - [x] Display frame (Phase 5): +z along the initial J (see the decision log).
 - [x] Spin reference (Phase 5): spins set at the start of the data, t ≈ −4300 M (see the decision log).
 - [x] 2D or 3D: 2D first, then 3D.
+- [ ] **3D look for precessing binaries (Phase 5).** The color unit is the peak co-orbital |H₂₂|. Merger-heavy precessing binaries have a higher peak relative to their inspiral (q = 4, χ_A = 0.8 in-plane: inspiral/peak 0.30 vs 0.39 aligned), so their inspiral is drawn dimmer. The volume's tanh(|v|)⁸ density turns that into a much fainter fog, and near merger the overlapping sheets read as a pink haze. Options: normalize by the inspiral amplitude (e.g. |H₂₂| at a fixed time) instead of the peak; a gentler volume sharpness; or leave it, since it's faithful to the chosen normalization. The user's call.
 - [ ] Retarded time: plain t − r or the tortoise coordinate r\*? The difference, 2M ln(r/2M − 1), is a slowly growing delay (~8 M at r = 100 M, ~12 M at 1000 M) that shifts the pattern relative to the holes. Revisit with the near zone.
 - [ ] Near-zone metric (Phase 4): superposed boosted Kerr–Schild or PN? Prototype both and compare against NR.
 - [ ] Merger-phase horizons (Phase 4): keyframed NR shapes or a fade to the remnant?
