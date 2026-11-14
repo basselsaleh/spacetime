@@ -1,6 +1,6 @@
 # Black hole lensing app: plan
 
-Nov 13, 2026 (updated Nov 14) · @Bassel · **steps 0 and 1 done**, merged to `main` (PR #3). **Step 2 (Kerr) done** (2a–2d, stacked branches `lensing-2a-kerr-reference` → `lensing-2d-wrapup`), not yet pushed or merged. Step 3 (accretion disk) is next.
+Nov 13, 2026 (updated Nov 14) · @Bassel · **steps 0 and 1 done**, merged to `main` (PR #3). **Step 2 (Kerr) done** (2a–2d, stacked branches `lensing-2a-kerr-reference` → `lensing-2d-wrapup`), PR #7 opened. Step 3 (accretion disk) is next.
 
 A second app in this repository, alongside the binary black hole (BBH) wave visualizer ([bbh.md](bbh.md)).
 
