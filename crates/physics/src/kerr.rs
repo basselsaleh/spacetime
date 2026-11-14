@@ -105,8 +105,8 @@ pub struct Trace {
 /// Step control for [`trace_mino`]. With angular rate ω = max(|dm/dλ|, 1) and
 /// Ψ the frame-dragging rate, each step is
 /// `h = max(min(u / (2|u′|), eps / max(ω, |Ψ|)), floor / ω)`.
-/// At a = 0 that is the Schwarzschild shader's step in φ,
-/// clamp(u / (2|du/dφ|), 0.002, 0.02), for b ≥ 1. The floor is set by ω alone
+/// At a = 0 that is a step in φ of clamp(u / (2|du/dφ|), floor, eps) for
+/// b ≥ 1, the form the Schwarzschild shader uses. The floor is set by ω alone
 /// so that rays falling in reach the horizon in finitely many steps (Ψ diverges
 /// there).
 #[derive(Debug, Clone, Copy)]
@@ -116,10 +116,12 @@ pub struct Steps {
     pub max_steps: usize,
 }
 
-/// The step control the GPU shader uses (as in the Schwarzschild shader).
+/// The step control the GPU shader uses: twice the Schwarzschild shader's
+/// steps (0.02, 0.002). Its truncation error (2e-6 rad) stays below float32
+/// rounding (2e-5 rad), at half the steps.
 pub const SHADER_STEPS: Steps = Steps {
-    eps: 0.02,
-    floor: 0.002,
+    eps: 0.04,
+    floor: 0.004,
     max_steps: 1000,
 };
 

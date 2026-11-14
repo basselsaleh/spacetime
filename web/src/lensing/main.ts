@@ -1,13 +1,14 @@
-// Black hole lensing app: an orbit camera around a Schwarzschild black hole in
-// front of a procedural sky, every pixel ray-traced exactly (lens.ts).
-// URL options: ?r=<distance in M>, ?fov=<degrees>, ?selftest, ?lensbench.
+// Black hole lensing app: an orbit camera around a black hole in front of a
+// procedural sky, every pixel ray-traced exactly (lens.ts).
+// URL options: ?r=<distance in M>, ?fov=<degrees>, ?a=<spin a/M>, ?selftest, ?lensbench.
 
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Lens } from "./lens";
 import { runLensBenchmark, runLensSelfTest } from "./selftest";
 
-const R_MIN = 3.5; // M; the camera must stay outside the photon sphere (r = 3)
+const R_MIN = 3.5; // M; outside the photon sphere (r = 3) at spin 0, and the ergosphere (r ≤ 2) at any spin
+const SPIN_MAX = 0.998; // Thorne's limit
 const R_MAX = 300;
 const R_DEFAULT = 40;
 const DEFAULT_DIR = new THREE.Vector3(0, -20, 3).normalize();
@@ -33,12 +34,16 @@ async function main() {
     const r = await runLensSelfTest(renderer, lens);
     const verdict =
       `SELFTEST ${r.pass ? "PASS" : "FAIL"}: max escape-direction error = ${r.worst.toExponential(2)} rad ` +
-      `over ${r.rays} rays, ${r.skipped} near-critical skipped (per view: ${r.perView.map((e) => e.toExponential(1)).join(", ")})`;
+      `over ${r.rays} rays, ${r.skipped} near-critical skipped, ${r.mismatches} capture mismatches ` +
+      `(per view: ${r.perView.map((e) => `${e.label} ${e.worst.toExponential(1)}`).join(", ")})`;
     document.title = verdict;
     status.textContent = verdict;
     status.classList.toggle("error", !r.pass);
     return;
   }
+
+  const spin = url.has("a") ? Math.min(Math.max(Number(url.get("a")) || 0, 0), SPIN_MAX) : 0;
+  lens.spin = spin;
 
   const fov0 = url.has("fov") ? Math.min(Math.max(Number(url.get("fov")), 20), 140) : 60;
   const camera = new THREE.PerspectiveCamera(fov0, 1, 0.1, 1e4);
@@ -107,8 +112,13 @@ async function main() {
     if (document.activeElement !== slider) slider.value = String(toSlider(r));
     label.textContent = `${r < 10 ? r.toFixed(2) : r.toFixed(1)} M`;
     fovLabel.textContent = `${Math.round(camera.fov)}°`;
-    const shadowDeg = (shadowRadius(r) * 180) / Math.PI;
-    info.textContent = `Shadow radius ${shadowDeg.toFixed(1)}° (${(r / 2).toFixed(1)} horizon radii away)`;
+    if (spin > 0) {
+      const rPlus = 1 + Math.sqrt(1 - spin * spin);
+      info.textContent = `Spin a = ${spin} M (${(r / rPlus).toFixed(1)} horizon radii away)`;
+    } else {
+      const shadowDeg = (shadowRadius(r) * 180) / Math.PI;
+      info.textContent = `Shadow radius ${shadowDeg.toFixed(1)}° (${(r / 2).toFixed(1)} horizon radii away)`;
+    }
 
     frames++;
     const now = performance.now();
