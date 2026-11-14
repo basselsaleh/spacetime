@@ -8,7 +8,7 @@ Nov 12, 2026 · @Bassel · last revised Nov 14, 2026 (handoff edition: written s
 
 - Phase 1 (2D wave-zone app) is merged into `main` (PR #1).
 - Phase 3 stage 1 (3D scene) is built and committed on `step-5-3d-scene`, branched from `main`. It is **not pushed** and has no PR yet.
-- The next task is **Phase 3 stage 2: tendex and vortex lines as 3D curves** (see "Next step" below).
+- The next task is **Phase 3 stage 1b: strain on spherical shells** (see the roadmap). After it comes **Phase 3 stage 2: tendex and vortex lines as 3D curves** (see "Next step" below).
 
 **Not yet verified by a person**
 
@@ -30,6 +30,7 @@ Nov 12, 2026 · @Bassel · last revised Nov 14, 2026 (handoff edition: written s
 | Nov 13 | Repo private; no GitHub Pages deployment | Private repo |
 | Nov 13 | One main view with an animated top ⇄ side swap, instead of two unequal views | User preferred a single view; the swap shows genuine intermediate slices |
 | Nov 14 | Do 3D (Phase 3) **before** Phase 2, using three.js | Tendex and vortex lines are best built directly in 3D; vortex lines need it |
+| Nov 13 | **Cut Phase 2 entirely**: no in-app NR validation overlay, no audio, no slice azimuth control. Phase numbers are kept as they were (1, 3, 4) | User doesn't want these features; validation stays as offline golden tests |
 
 ## Vision and goals
 
@@ -79,7 +80,7 @@ Don't solve Einstein's equations in the browser. Play back and evaluate the resu
 | 2. Orbits and remnant | Very good | Orbital angle from the (2,2) phase; separation from 2PN r(ω); remnant from NRSur3dq8Remnant | PN breaks down in the last orbits (schematic there); spins ignored in r(ω) | Done (Phase 1) |
 | 3. Tendex and vortex lines | Exact far out; weak-field accuracy in the intermediate zone | Eigenvectors of the tidal (E) and frame-drag (B) tensors of the linearized field of a time-varying quadrupole, driven by the waveform | Invalid within a few M of the holes and during merger | **Next** (Phase 3 stage 2) |
 | 4. Near zone: lensing and horizons | Honest approximation | GPU ray marching of null geodesics through superposed boosted Kerr–Schild metrics or a PN near-zone metric | Metric frozen while each ray travels; merger shapes keyframed or faded | Phase 4 |
-| 5. Validation mode | Reference | Overlay the app's result on NR data | None | Tests in place; in-app overlay in Phase 2 |
+| 5. Validation | Reference | Offline golden tests against gwsurrogate, surfinBH and LAL | None | Tests in place; no in-app overlay (cut) |
 
 The far-zone strain is a mode sum:
 
@@ -138,7 +139,6 @@ Browser only.
 - **Offline pipeline: Python, managed with `uv`.**
   - gwsurrogate and surfinBH export the trimmed model and generate golden data.
   - lalsuite provides harmonic and PN-orientation references.
-  - sxs is intended for the in-app validation mode.
 
 ## Codebase map
 
@@ -255,22 +255,25 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
   - h₊/h× everywhere.
   - Playback ends when the burst leaves the view, and loops.
 
-**Phase 3: 3D. In progress (moved ahead of Phase 2).**
+**Phase 3: 3D. In progress.**
 
 - **Stage 1: 3D scene with the strain slices placed in space.** Built Nov 14, 2026 on `step-5-3d-scene` (not pushed).
   - three.js r181; one perspective camera for both modes. Flat = 1° field of view, looking straight at the slice; 3D = 40° orbit camera with +z up.
   - Switching is a 1.6 s dolly zoom: logarithmic field-of-view interpolation, quaternion slerp, distance chosen to keep the slice framed.
   - Self-test unchanged from step 4b (worst 4.4e-4).
   - Bundle: 542 KB JavaScript (141 KB gzipped).
-- **Stage 2: tendex and vortex lines as 3D curves.** Next; see below.
+- **Stage 1b: strain on spherical shells.** Next. Branch `step-5b-shells` from `step-5-3d-scene`.
+  - **Why:** spheres are the natural surfaces for outgoing waves. A shell at radius r shows the sky map that observers at that distance receive, emitted at t − r. Shells show the direction dependence (about twice the amplitude on the axis than in the plane; circular polarization on the axis, linear in the plane) and the spiral twist, which planes alone hide.
+  - **Rendering:** sphere meshes that reuse the existing slice shader. `slice.vert` already passes world positions through, so the mode sum works unchanged; h₊/h× use the same (θ, φ) basis as the slices.
+  - **Controls:** one or a few concentric translucent shells at user-set radii, plus a cutaway (hemisphere or clip plane) so the inner shells and the holes stay visible. Shells are a 3D-view feature; the flat view stays a plane slice.
+  - **Details to handle:**
+    - transparency ordering between shells, slices and the ghost pass
+    - the near-zone fade on small shells
+    - probe picking on shells (extend the existing ray cast)
+  - **Self-test:** the exact pixel mapping (`u_screenMapped`) applies only to planes. Add a shell case that ray-casts pixel centres onto the sphere and compares with the Rust `strain` reference at those points, using a looser tolerance if rasterizer snapping requires it.
+  - **URL:** e.g. `?shells=r1,r2,…`.
+- **Stage 2: tendex and vortex lines as 3D curves.** After stage 1b; see below.
 - **Stage 3: volume view.** Wavefronts as glowing shells, by ray marching the mode sum. Try WebGL2 at reduced resolution before considering WebGPU.
-
-**Phase 2: depth without new risk** (after Phase 3 stage 2, or interleaved as the user prefers)
-
-- In-app validation mode overlaying NR (SXS) data.
-- Audio. Needs a physical total-mass control to set the pitch.
-- Slice azimuth control (tilt already exists).
-- (The far-zone tendex lines originally listed here are now part of Phase 3 stage 2.)
 
 **Phase 4: near zone (highest risk)**
 
@@ -322,7 +325,7 @@ The result is invalid within a few M of the holes and during the merger. Fade th
 - [x] Waveform source: NRHybSur3dq8 (see the decision log).
 - [x] Remnant: NRSur3dq8Remnant.
 - [x] Parameter range: aligned spins only, q ≤ 8, |χ| ≤ 0.8 (the surrogate's trained range; the evaluator refuses values outside it).
-- [x] 2D or 3D: 2D first, then 3D before Phase 2.
+- [x] 2D or 3D: 2D first, then 3D.
 - [ ] Quadrupole source for stage 2: twice-integrated h₂₂, adiabatic −h₂₂/ω², or the PN orbit's μ r² n n? Compare in the prototype.
 - [ ] Retarded time: plain t − r or the tortoise coordinate r\*? The difference, 2M ln(r/2M − 1), is a slowly growing delay (~8 M at r = 100 M, ~12 M at 1000 M) that shifts the pattern relative to the holes. Revisit with stage 2 or the near zone.
 - [ ] Near-zone metric (Phase 4): superposed boosted Kerr–Schild or PN? Prototype both and compare against NR.
