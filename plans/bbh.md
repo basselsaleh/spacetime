@@ -2,7 +2,7 @@
 
 Nov 12, 2026 · @Bassel · **finished for now** (wrap-up edition: a record of the app as built, and what a future return to it would pick up)
 
-Other applications in this repository get their own planning documents; this one covers only the binary black hole app.
+Other applications in this repository get their own planning documents in `plans/`; this one covers only the binary black hole app.
 
 ## Status
 
@@ -16,10 +16,7 @@ Other applications in this repository get their own planning documents; this one
 
 - Frame rate and the volume's adaptive resolution on hardware other than the user's (Apple M4), and the phone layout. The user chose to skip these checks.
 
-**Housekeeping (pending the user's go-ahead)**
-
-- Delete the merged branches: `step-1-waveform` … `step-4b-view`, `step-5-3d-scene` and `step-6-tendex` locally, and `step-2-strain-sheet`, `step-4b-view` and `step-6-tendex` on GitHub.
-- Keep or delete `step-5b-shells` (the dropped spherical-shells experiment, never merged).
+**Branches.** All merged step branches have been deleted. `step-5b-shells` (the dropped spherical-shells experiment, never merged) is kept locally for reference.
 
 **Decision log**
 
