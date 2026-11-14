@@ -1,6 +1,35 @@
 # Binary black hole spacetime visualizer: project plan
 
-Nov 12, 2026 · @Bassel · revised Nov 13, 2026 (2D-first)
+Nov 12, 2026 · @Bassel · last revised Nov 14, 2026 (handoff edition: written so work can resume without the original conversation)
+
+## Status and handoff
+
+**Where things stand (Nov 14, 2026).**
+
+- Phase 1 (2D wave-zone app) is merged into `main` (PR #1).
+- Phase 3 stage 1 (3D scene) is built and committed on `step-5-3d-scene`, branched from `main`. It is **not pushed** and has no PR yet.
+- The next task is **Phase 3 stage 2: tendex and vortex lines as 3D curves** (see "Next step" below).
+
+**Not yet verified by a person**
+
+- Orbiting and zooming in the 3D view, and the flat ⇄ 3D dolly-zoom animation. These were only checked as headless still frames. The top ⇄ side swap animation was checked by the user.
+- Frame rate on real hardware, and the phone layout. The user chose to skip both checks for now.
+
+**Pending housekeeping**
+
+- When stage 1 is accepted, push `step-5-3d-scene` and open a PR to `main`.
+- The old step branches (`step-1-waveform` … `step-4b-view` locally, and `step-2-strain-sheet` on GitHub) are fully merged. Delete them once the user confirms.
+
+**Decision log**
+
+| Date | Decision | Why |
+| --- | --- | --- |
+| Nov 13 | 2D first; TypeScript + WebGL2 front end, Rust → wasm physics | The cost lives in the near zone, not in 2D vs 3D |
+| Nov 13 | Waveforms from the **NRHybSur3dq8** surrogate, not IMRPhenomT | IMRPhenomT's coefficients are unpublished (supplementary Mathematica only); its only implementation is GPL, and this repo is MIT |
+| Nov 13 | Remnant from **NRSur3dq8Remnant** | Same data record and licence, same GPR format, NR-faithful |
+| Nov 13 | Repo private; no GitHub Pages deployment | Private repo |
+| Nov 13 | One main view with an animated top ⇄ side swap, instead of two unequal views | User preferred a single view; the swap shows genuine intermediate slices |
+| Nov 14 | Do 3D (Phase 3) **before** Phase 2, using three.js | Tendex and vortex lines are best built directly in 3D; vortex lines need it |
 
 ## Vision and goals
 
@@ -16,182 +45,309 @@ Build a real-time, interactive visualization of a binary black hole system and t
 
 Don't solve Einstein's equations in the browser. Play back and evaluate the results of people who already solved them.
 
-A full numerical-relativity merger takes thousands of CPU hours, but its outputs are compact, and fast, accurate models of them exist:
+- **Waveforms.** The app evaluates the **NRHybSur3dq8** numerical-relativity surrogate live (Varma et al. 2019). It is trained on NR simulations hybridized with PN/EOB inspirals and covers aligned spins with q ≤ 8 and |χ| ≤ 0.8.
+- **Data file.** The Rust evaluator reads a trimmed data file (2.28 MB) cut offline from the public model (213 MB), keeping the last ~10,000 M. One evaluation takes about 1 ms in wasm.
+- **Remnant.** Mass, spin and recoil kick come from the **NRSur3dq8Remnant** fits, which are embedded in the same file.
+- **Approximations.** That strain is exact far from the source. Everything closer in (orbits, near-zone fields) is layered on with clearly documented approximations.
 
-- **Numerical-relativity waveform catalogs**, such as SXS
-- **Surrogate models**, such as the NRSur family, which interpolate NR results across parameters
-- **Analytic inspiral–merger–ringdown approximants**, such as IMRPhenom and effective-one-body (EOB) models
+## What the user sees now
 
-These give the true GR strain far from the source. That strain is the backbone of the app. Everything closer in is layered on with clearly documented approximations.
-
-The app evaluates the **NRHybSur3dq8** numerical-relativity surrogate live (Varma et al. 2019). It is trained directly on NR simulations hybridized with PN/EOB inspirals, covers aligned spins with q ≤ 8 and |χ| ≤ 0.8, and includes 11 modes up to l = 5. The evaluator is written in Rust and reads a trimmed data file (about 2.3 MB) that an offline Python tool cuts from the public model (213 MB), keeping the last ~10,000 M. One evaluation takes about 1 ms in wasm.
-
-**Why not IMRPhenomT (decided Nov 13, 2026).** Its fit coefficients are published only in a supplementary Mathematica package, and the only complete implementation is GPL code in LALSimulation, which clashes with this MIT repo. The surrogate is more faithful (it is NR-based), its code (gwsurrogate) is MIT, and its data is CC BY 4.0, which requires the on-screen credit the app shows.
-
-## Why 2D first
-
-The cost and risk in this project live in the near zone (ray-traced lensing, near-zone metrics, horizon shapes), not in whether the picture is 2D or 3D. The wave-zone physics is a field evaluated per pixel on a surface. A 3D scene would just place those same 2D slices in space and add a camera.
-
-- **Nothing is lost in the orbital plane.** For aligned spins, reflection symmetry makes h× vanish there, so one scalar (h+) fully describes the wave in that plane.
-- **Linked 2D views teach better than one 3D view you can rotate.** Each view answers one question, and they share a clock.
-- **What 3D adds later:** black hole shadows and lensed star fields, wavefronts drawn as volumetric shells, and tendex lines drawn as 3D curves. These are deferred to Phase 3 and later.
-- **The 2D work carries over.** The waveform engine, mode-sum shader and orbit model are reused unchanged if the project goes 3D.
-
-## What the user sees (Phase 1)
-
-One screen with four linked views on a shared timeline:
-
-1. **Orbital plane (top-down).** A field colored by h+: one color for stretched space, another for squeezed. The waves leave as a two-armed spiral that winds tighter and brightens toward merger, then a final burst rolls outward. The two holes are drawn as discs at the center and merge into one remnant disc.
-2. **Side slice.** A vertical cut through the spin axis. It shows that radiation is strongest along the axis (twice the in-plane amplitude for the dominant mode), and lets you toggle between h+ and h×.
-3. **Probe.** Click any point in view 1 or 2. A ring of test particles at that point deforms in the + and × patterns, with the strain at that point plotted alongside.
-4. **Chirp plot.** Strain versus time with a playhead, plus optional audio.
-
-**Display conventions (always labeled on screen):**
-
-- The color shows r·h normalized to its peak, not raw h.
-- The region inside roughly one gravitational wavelength of the source is faded out, because the far-zone formula isn't valid there.
+- **One main view.** A strain slice through the source: the orbital plane seen from above (tilt 0°), a side view through the orbital axis (90°), or any tilt in between.
+  - "⇄" animates the tilt; a slider sets it directly.
+  - h₊/h× toggle. Choosing h× in the orbital plane shows a blank field with a caption explaining the mirror symmetry.
+- **Flat ⇄ 3D.** The flat view looks straight at the slice and matches the old 2D app. The 3D view is an orbit camera showing the slice as a sheet in space, with:
+  - an optional translucent orbital plane
+  - the orbital axis
+  - the outline of the orbital plane
+- **Black holes and the remnant** are horizon-sized spheres: solid where visible, a faint outline where hidden behind a slice. The remnant drifts with its recoil kick.
+- **Probe** (warm sphere): click a slice to place it. The side column shows:
+  - a ring of free test particles deforming in the + and × patterns
+  - h₊ and h× at the probe
+  - a chirp plot of the signal received there, with a playhead
+- **Controls:**
+  - binary sliders (q, χ₁, χ₂) that regenerate everything live and update the URL
+  - play/pause, scrubber, speed and gain
+  - loop (on by default). Playback ends once the merger burst leaves the visible area.
+- **Display conventions** (labelled in the app): the colour is r·h ÷ peak (2,2) value in the orbital plane × gain, on a tanh-saturating diverging scale. The near zone, where the far-zone formula is invalid, is faded out inside a faint ring.
+- **URL options:** `?q=&chi1=&chi2=`, `?t=`, `?zoom=`, `?tilt=` (degrees), `?3d`, `?paused`, `?selftest`.
 
 ## Physics layers
 
-The physics splits into five layers, ordered from most faithful to most approximated. Build them in that order too.
-
-| Layer | Fidelity | Method | Main approximations | Phase |
+| Layer | Fidelity | Method | Main approximations | Status |
 | --- | --- | --- | --- | --- |
-| 1. Wave zone strain | Essentially exact | Sum of spin-weighted spherical harmonic modes h\_lm at retarded time t − r, falling off as 1/r, evaluated per pixel in a fragment shader on 2D slices | Valid only far from the source (inner region masked); amplitude shown as r·h, normalized | 1 |
-| 2. Orbits | Very good | Derived from the waveform: orbital phase = Φ₂₂/2 + fixed offset, separation from a PN r(ω) relation, remnant mass and spin from the model's own fits | PN r(ω) breaks down near merger; switch to the remnant at peak \|h₂₂\| | 1 |
-| 3. Tendex and vortex lines | Exact far out; good near in | Far zone: computed directly from the strain's second time derivative. Near zone: eigenvectors of the electric and magnetic parts of the Weyl tensor, from an approximate metric | Near-zone part depends on the approximate metric | 2 (far), 4 (near) |
-| 4. Near zone: lensing and horizons | Honest approximation | GPU ray marching of light paths (null geodesics) through superposed boosted Kerr–Schild metrics or a PN near-zone metric | Metric frozen while each ray travels; merger shapes keyframed or faded to the remnant Kerr black hole | 3+ |
-| 5. Validation mode | Reference | Overlays the app's result on NR / reference data | None. This is the check on every other layer. Tests against gwsurrogate run from day one | 1 (tests), 2 (in-app) |
+| 1. Wave-zone strain | Essentially exact | Sum of spin-weighted spherical harmonic modes h\_lm at retarded time t − r, falling off as 1/r, evaluated per pixel in a fragment shader on slice planes | Valid only far from the source (near zone masked); shown as r·h, normalized | Done (Phase 1) |
+| 2. Orbits and remnant | Very good | Orbital angle from the (2,2) phase; separation from 2PN r(ω); remnant from NRSur3dq8Remnant | PN breaks down in the last orbits (schematic there); spins ignored in r(ω) | Done (Phase 1) |
+| 3. Tendex and vortex lines | Exact far out; weak-field accuracy in the intermediate zone | Eigenvectors of the tidal (E) and frame-drag (B) tensors of the linearized field of a time-varying quadrupole, driven by the waveform | Invalid within a few M of the holes and during merger | **Next** (Phase 3 stage 2) |
+| 4. Near zone: lensing and horizons | Honest approximation | GPU ray marching of null geodesics through superposed boosted Kerr–Schild metrics or a PN near-zone metric | Metric frozen while each ray travels; merger shapes keyframed or faded | Phase 4 |
+| 5. Validation mode | Reference | Overlay the app's result on NR data | None | Tests in place; in-app overlay in Phase 2 |
 
-The far-zone strain is written as a mode sum:
+The far-zone strain is a mode sum:
 
 ```latex
 h_+ - i\,h_\times = \frac{1}{r}\sum_{\ell \ge 2}\sum_{m=-\ell}^{\ell} h_{\ell m}(t - r)\; {}_{-2}Y_{\ell m}(\theta, \phi)
 ```
 
-Modes: (2,±2), (2,±1), (3,±3), (4,±4), (5,±5). The negative-m modes come from symmetry: h\_{l,−m} = (−1)^l h\*\_{lm}.
+The surrogate provides 11 modes with m ≥ 0: (2,2), (2,1), (2,0), (3,3), (3,2), (3,1), (3,0), (4,4), (4,3), (4,2), (5,5). The negative-m modes follow from h\_{l,−m} = (−1)^l h\*\_{lm}.
 
 Tendex and vortex lines replace the rubber-sheet picture, which is misleading. They're coordinate-invariant, and they show near-zone curvature turning smoothly into outgoing waves.
+
+## Conventions (keep these consistent)
+
+**Units and time**
+
+- Geometric units with total mass M = 1; times and lengths are in M.
+- t = 0 at the waveform peak.
+
+**Frame**
+
+- The surrogate's raw frame (gwsurrogate `do_not_align=True`): +z along the orbital angular momentum, and the heavier hole on +x at t = −1000 M.
+- The orbit is counter-clockwise seen from +z.
+
+**Mode representation**
+
+- The (2,2) mode is h₂₂ = A₂₂ e^{−iφ₂₂}; φ₂₂ increases with time.
+- Every other mode is stored in the co-orbital frame, H\_lm = h\_lm e^{i m φ₂₂/2}.
+
+**Polarisation: the LAL convention.** It has the overall sign of h flipped relative to Blanchet/Kidder.
+
+- In the orbital plane, h₊ = ½(h\_φφ − h\_θθ): h₊ > 0 means space is stretched around the circle centred on the source and squeezed perpendicular to the plane.
+- h₊ is largest along the binary axis at the retarded time.
+- This was verified against LAL's PN modes in both conventions (step 3); don't "fix" it.
+
+**Harmonics.** ₋₂Y\_lm follow LAL's `XLALSpinWeightedSphericalHarmonic` (tested to 1e-12).
+
+**Orbits.** The heavier hole's angle is Φ(t) = (φ₂₂(t) − φ₂₂(−1000 M))/2. PN tail terms leave a ~0.15 rad ambiguity between orbital phase and wave phase.
+
+**Retarded time** is plain t − r, not the tortoise coordinate. The difference is a slowly growing delay of ~8–12 M; see the open questions.
+
+**Near-zone radius** at source time t is max(1/ω₂₂, 2 (2/ω₂₂)^{2/3}), with ω₂₂ held at its peak value after the merger.
 
 ## Platform and stack
 
 Browser only.
 
-- **Physics core: Rust → WebAssembly.** One pure-Rust crate (f64, no GPU or web dependencies) holds the waveform model, orbit model, spherical harmonics and remnant fits. It's built with `wasm-pack` and tested on your own machine with `cargo test`.
-- **Frontend: TypeScript + Vite.** Handles the UI, layout, linked views and the chirp plot.
-- **Rendering: WebGL2 via three.js (since Phase 3 stage 1).** The strain field is evaluated per pixel by a custom shader on slice planes in a 3D scene. WebGL2 runs in every browser today. WebGPU is needed only if the volume view or geodesic ray tracing (Layer 4) demands it.
-- **Data flow.** When parameters change, Rust generates h\_lm(t) once (about 1 ms). The result is uploaded as a float texture in the surrogate's co-orbital form: A₂₂ and φ₂₂, plus each other mode as H\_lm = h\_lm e^{i m φ₂₂/2}. These vary slowly and interpolate cleanly; the shader rotates back with h\_lm = H\_lm e^{−i m φ₂₂/2}. Each frame, the shader only does texture lookups and the mode sum.
-- **Offline pipeline: Python, managed with `uv`.** gwsurrogate exports the trimmed model and generates golden waveforms for the Rust tests. sxs provides NR data for validation mode; lalsuite is kept for cross-checks.
+- **Physics core: Rust → WebAssembly.**
+  - `crates/physics` is pure Rust (f64, no GPU or web dependencies), tested with `cargo test`.
+  - `crates/wasm` is a thin wasm-bindgen layer with no logic of its own, built with `wasm-pack`.
+- **Front end: TypeScript + Vite.** Handles the UI, the probe and chirp plot (Canvas 2D), and the orientation sketch.
+- **Rendering: WebGL2 via three.js r181.** A custom `RawShaderMaterial` evaluates the strain per pixel on slice planes; holes and the probe are spheres. WebGPU is needed only if the volume view or ray tracing demands it.
+- **Data flow.**
+  - When parameters change, Rust evaluates the surrogate once (about 1 ms) and packs a mode table. That's an RG32F texture, 2048 texels wide (WebGL2's guaranteed minimum): row 0 holds (A₂₂, φ₂₂ mod 4π), the other rows (Re H, Im H).
+  - A second RG32F texture holds the θ-dependence of the harmonics (1025 samples, so θ = π/2 is exact).
+  - Each frame the shader only does texelFetch lookups, hand interpolation and the mode sum.
+- **Offline pipeline: Python, managed with `uv`.**
+  - gwsurrogate and surfinBH export the trimmed model and generate golden data.
+  - lalsuite provides harmonic and PN-orientation references.
+  - sxs is intended for the in-app validation mode.
 
-## Repo layout
+## Codebase map
 
 ```
-crates/physics/      Rust: waveform (NRHybSur3dq8 evaluator), orbits, harmonics, remnant fits
-crates/wasm/         Thin wasm-bindgen layer over crates/physics (no logic of its own)
-web/                 TypeScript + Vite app; shaders in web/src/shaders/*.glsl
-tools/               Python (uv project): surrogate export, golden-data generation, NR reference tables
-web/public/          Static data served to the app, incl. the trimmed surrogate (nrhybsur3dq8.stsur)
-tests/golden/        Small reference files committed for the Rust tests
+crates/physics/src/
+  surrogate/        NRHybSur3dq8 + remnant evaluator: STSUR001 file format (format.rs), GPR node fits,
+                    EI basis, TaylorT3 phase, splines, co-orbital → inertial (mod.rs)
+  spline.rs         Natural cubic spline (matches gwsurrogate's boundary conditions)
+  harmonics.rs      Spin-weighted spherical harmonics (Goldberg sum, LAL convention)
+  mode_table.rs     GPU packing of a waveform; CPU reference of the shader (`strain`), harmonic θ table,
+                    per-direction strain series for the probe
+  binary.rs         Black-hole positions, horizon radii, merger cross-fade, kick
+  newtonian.rs      Newtonian placeholder relations (step 0 leftovers)
+crates/physics/tests/
+  surrogate_golden.rs  modes vs gwsurrogate (tolerance 1e-6 of peak; observed 1.8e-7)
+  strain.rs            harmonics vs LAL, h× = 0 in the plane, table vs exact sum, θ table, probe series
+  binary.rs            remnant vs surfinBH, wave/orbit retarded lag, heavier-hole angle vs LAL PN
+crates/wasm/src/lib.rs WaveformModel, WaveformData, ModeTableData, BinaryTrack bindings
+web/src/
+  main.ts           Wiring: load model, scene, view panel, playback loop, URL handling
+  scene3d.ts        three.js scene: slice planes, spheres (solid + ghost pass), guides, camera
+                    poses, flat ⇄ 3D dolly zoom, ray-cast picking, raw render for the self-test
+  shaders/slice.*   Strain shader (mode sum, colour map, near-zone ring) on plane meshes
+  slice.ts          Slice geometry: tilt/azimuth axes, slice ⇄ 3D ⇄ pixel conversions, shared types
+  waveform.ts       Evaluate + pack a waveform for the views; near-zone radius; URL params
+  probe.ts          Test-particle ring and chirp plot (Canvas 2D)
+  controls.ts       Playback, flat-view pan/zoom/click, parameter sliders
+  gizmo.ts          Orientation sketch shown in the flat view
+  selftest.ts       ?selftest: GPU pixels vs the Rust CPU reference over 6 frames
+web/public/nrhybsur3dq8.stsur   Trimmed surrogate + remnant fits (committed, 2.28 MB)
+tools/              uv project: export_surrogate.py, gen_golden.py, gen_remnant_golden.py,
+                    gen_harmonics_golden.py, gen_orientation_golden.py; data/ (gitignored downloads)
+tests/golden/       Golden data used by the Rust tests (committed)
 ```
+
+## Working conventions
+
+**Git**
+
+- One branch per roadmap step, created from the previous step's branch (or from `main` after a merge), e.g. `step-5-3d-scene`. Never commit a new step onto an earlier step's branch.
+- Commit locally; push and open PRs only when the user asks. Never rewrite a pushed branch without asking.
+- PRs go to `main` per phase or milestone; use a merge commit, not squash, to keep one commit per step.
+- Repo-local git identity is the user's personal account. The remote uses the SSH host alias `github-personal`; the active `gh` account is the personal one. Don't use the user's global (work) identity.
+- CI (`.github/workflows/ci.yml`) runs `cargo fmt --check`, `clippy -D warnings`, `cargo test`, the wasm build and `npm run build`. There's no deployment.
+
+**Python**
+
+- Only uv-managed CPython (`python-preference = "only-managed"`, 3.12). Never anaconda or pyenv.
+- The user's shell exports a pyenv `VIRTUAL_ENV`, so run `env -u VIRTUAL_ENV uv run python …` in `tools/`.
+
+**Everyday commands**
+
+```sh
+cargo fmt --all && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace
+cd web && npm install && npm run dev        # dev server (rebuilds wasm at start only)
+cd web && npm run build                     # wasm + typecheck + bundle into web/dist
+```
+
+**GPU self-test and screenshots (headless Chrome on macOS)**
+
+```sh
+cd web && npx vite preview --port 4173 &
+CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+"$CHROME" --headless=new --use-angle=metal --enable-gpu --ignore-gpu-blocklist \
+  --virtual-time-budget=8000 --dump-dom "http://localhost:4173/?selftest" | grep -o "<title>[^<]*</title>"
+"$CHROME" --headless=new --use-angle=metal --enable-gpu --ignore-gpu-blocklist --window-size=1440,900 \
+  --virtual-time-budget=12000 --screenshot=out.png "http://localhost:4173/?paused&t=-400&3d"
+```
+
+- The self-test must pass (tolerance 2e-3 of peak; currently 4.4e-4 on Metal).
+- Use `--use-angle=metal` for the real GPU; SwiftShader's float arithmetic is less accurate (~1.2e-3).
+
+**Regenerating data** (only if the format or the model changes): see README.md. The downloads are 213 MB and 0.45 MB from Zenodo.
+
+## Gotchas (learned the hard way)
+
+**Rendering**
+
+- **`atan(y, 0)` on ANGLE/Metal is wrong.** The shader takes θ = π/2 directly when z == 0. Keep that branch.
+- **Rasterizer snapping.** Vertices snap to 1/256 px, so interpolated world positions are off by ~0.05 M in small images. Wherever the camera looks straight at a slice (flat view, self-test), the shader maps pixels to slice coordinates exactly (`u_screenMapped`).
+- **GPU trig at large arguments.** φ₂₂ is stored mod 4π, which is exact because every e^{−imφ₂₂/2} has period 4π. The half-phase is reduced to [−π, π) before cos/sin.
+- **RG32F is not filterable in WebGL2.** Always use texelFetch and interpolate by hand.
+
+**Headless Chrome**
+
+- `requestAnimationFrame` timestamps lag `performance.now()` under `--virtual-time-budget`. Animations must use a single clock (`performance.now()`).
+- Chrome windows have a ~500 px minimum width, so screenshots narrower than that are cropped, not reflowed.
+
+**Physics and data**
+
+- **Polarisation sign:** the LAL convention (see Conventions). Textbook (Blanchet/Kidder) formulas have the opposite sign of h.
+- **Spline joins:** the surrogate's time grid jumps from sparse (~65 M) to dense (0.1 M) at about −1000 M. The exporter keeps the original dense samples for 10 M past that join before coarsening to 1 M. Without that, the error near the join was 15× larger.
+- **References:** only cite references you have verified. Several in this file are from memory and marked as such.
 
 ## Roadmap
 
-**Phase 1: 2D wave-zone MVP.** Already a striking, GR-faithful app.
+**Phase 1: 2D wave-zone app. Done; merged to `main` (PR #1, Nov 14, 2026).**
 
-- **Step 0: Scaffold.**
-  - Set up the layout above.
-  - CI runs `cargo test`, `clippy`, the wasm build and the web build. No deployment while the repo is private.
-  - Done when: a Vite page loads the wasm module, calls a Rust function and draws a shader-filled canvas locally.
-- **Step 1: Waveform engine.** Done Nov 13, 2026.
-  - NRHybSur3dq8 evaluator in Rust: Gaussian-process node fits, empirical-interpolation basis, TaylorT3 phase, natural cubic splines, co-orbital → inertial rotation.
-  - Interface: `Surrogate::evaluate(Params { q, chi1, chi2 }, t_start, dt) -> Waveform { t0, dt, amp22, phase22, coorbital }`, with `Waveform::h(l, m, i)` for inertial modes (m < 0 by symmetry).
-  - Units: total mass M = 1, t = 0 at the waveform peak. Frame: the surrogate's raw frame (heavier hole on +x at t = −1000 M).
-  - `tools/export_surrogate.py` trims the model; `tools/gen_golden.py` writes gwsurrogate output for 7 parameter sets across the trained range.
-  - Result: every mode matches gwsurrogate to within 2e-7 of the peak strain (tolerance 1e-6), which is at the level of the reference's own interpolation noise.
-  - Remnant mass and spin were moved to step 3 (they are not part of this surrogate).
-- **Step 2: Orbital-plane view.** Built Nov 13, 2026; 60 fps at 1080p still to be confirmed on real hardware.
-  - Mode table: RG32F texture, 2048 texels wide (WebGL2's guaranteed minimum), read with texelFetch and interpolated by hand. φ₂₂ is stored mod 4π (exact for every e^{−imφ₂₂/2}) to keep GPU trig accurate.
-  - A fragment shader evaluates the full 11-mode sum at retarded time t − r, fades out the near zone (radius max(1/ω₂₂, 2 × Kepler separation)), and colours r·h₊ ÷ peak × gain on a tanh-saturating diverging scale.
-  - Controls: pan, zoom, play, pause, scrub, speed, gain; URL options `?q=&chi1=&chi2=`, `?t=`, `?zoom=`, `?paused`.
-  - Tests:
-    - spin-weighted harmonics match LAL to 1e-12
-    - h× = 0 in the orbital plane to 1e-12 (from the harmonics and mode symmetry together)
-    - the GPU table matches the exact mode sum to 1e-6 at samples and 1e-3 between them
-    - `?selftest` compares GPU pixels with the Rust CPU reference: 3.6e-4 of peak on the Apple GPU (Metal), 1.2e-3 under SwiftShader; tolerance 2e-3
-- **Step 3: Orbits and remnant.** Done Nov 13, 2026.
-  - Remnant: NRSur3dq8Remnant fits (mass, spin, recoil kick) from the same Zenodo record (CC BY 4.0), embedded in the same data file and evaluated by the same Rust GPR code. Matches surfinBH to 1e-10.
-  - Heavier hole's angle Φ(t) = (φ₂₂(t) − φ₂₂(−1000 M))/2: the surrogate frame puts it on +x at t = −1000 M. Separation from the 2PN harmonic-coordinate r(ω), non-spinning. Discs are horizon-sized, r₊ = m(1 + √(1 − χ²)), with a few pixels minimum so they stay visible. The holes cross-fade into the remnant over [−20, +5] M, and the remnant then drifts with its kick.
-  - **Convention finding.** The surrogate, like LAL, uses the LAL polarisation convention, which flips the overall sign of h relative to Blanchet/Kidder. So h₊ = ½(h_φφ − h_θθ) in the orbital plane, and h₊ is largest along the binary axis. Checked against LAL's PN modes in both conventions: only the LAL convention makes the (2,2), (2,1) and (3,3) modes agree on where the heavier hole is.
-  - Tests:
-    - wave arms follow the binary axis at the retarded time to 0.01 rad
-    - the heavier hole's angle matches LAL PN to within 0.25 rad, compared modulo 2π so a swap of the holes fails; the observed offset of ~0.15 rad is the PN tail ambiguity between orbital and wave phase
-- **Step 4: Side slice, probe, chirp plot, parameters.** Built Nov 13, 2026.
-  - Layout: the orbital plane is the main view; a side column holds the vertical slice (h₊/h× toggle), the probe ring and the chirp plot. Below 900 px wide, the column stacks under the main view.
-  - One shader serves both slices. The harmonics' θ-dependence is an RG32F lookup texture (1025 samples, θ = π/2 exact), and horizons are drawn as the slice's cross-section of each horizon sphere.
-  - Probe: click either view. The ring shows ξ → ξ + ½hξ in the (φ̂, −θ̂) basis, exaggerated with a smooth saturation. The chirp plot shows h₊ and h× received at the probe against retarded time, with a playhead at t − r.
-  - Parameter sliders regenerate the waveform, orbits and remnant live, and update the URL.
-  - Tests: harmonic table exact at θ = π/2 and within 1e-4 between samples; `?selftest` now includes two vertical-slice frames (both polarisations), worst 4.4e-4 of peak on Metal.
-  - Size: 180 KB of wasm plus the 2.28 MB data file (1.7 MB gzipped), so loading is dominated by the data file: well under 3 s on broadband, and slower on mobile data. Hosting is decided when the repo goes public.
-  - Deferred to Phase 2: audio (needs a physical-mass control).
-- **Step 4b: Single view with an animated top ⇄ side swap.** Built Nov 13, 2026, after review.
-  - One main view instead of two unequal ones. The slice is the plane spanned by x̂ and cos β ŷ + sin β ẑ: β = 0 is the top view, 90° the side view, and every β in between is a genuine slice. "Swap" eases β over 1.4 s, so the transition shows the real field as the cutting plane rotates. A tilt slider allows any β; a small 3D sketch shows the orbital plane, the binary, the slice and the viewing direction.
-  - The h₊/h× toggle is always available; choosing h× in the top view shows the blank field with a caption explaining the mirror symmetry.
-  - Horizons the slice cuts are drawn solid (true cross-section); holes off the slice are drawn as faint outlines.
-  - Playback ends once the merger burst has left the visible area (depends on zoom) instead of 3000 M after the ringdown, and loops from t = −2500 M by default.
-  - The shader takes θ = π/2 directly when z = 0: ANGLE on Metal mishandled atan(y, 0) there, which the self-test caught (orbital-plane frames failed at O(1) error). The self-test now also covers a tilted slice.
+- **Step 0: Scaffold.** Cargo workspace (physics + wasm crates), Vite + TypeScript app, uv tools project, CI.
+- **Step 1: Waveform engine.**
+  - NRHybSur3dq8 evaluator in Rust; `Surrogate::evaluate(Params, t_start, dt) -> Waveform`.
+  - Matches gwsurrogate to 1.8e-7 of peak over 7 parameter sets.
+  - The exporter trims the model to t ≥ −10,244 M and resamples the dense merger region to 1 M.
+- **Step 2: Orbital-plane strain view.**
+  - Mode table texture and a mode-sum fragment shader with the near-zone fade.
+  - `?selftest` compares GPU pixels with the Rust CPU reference.
+- **Step 3: Orbits and remnant.**
+  - Remnant from NRSur3dq8Remnant, matching surfinBH to 1e-10.
+  - Orbits derived from φ₂₂.
+  - Found and documented the LAL polarisation convention. Tests: wave arms trail the binary at the retarded time (0.01 rad); the heavier hole sits where LAL PN puts it, compared modulo 2π.
+- **Step 4: Side slice, probe, chirp plot, live parameter sliders.**
+- **Step 4b: Single main view with an animated top ⇄ side tilt.**
+  - Every intermediate tilt is a genuine slice.
+  - h₊/h× everywhere.
+  - Playback ends when the burst leaves the view, and loops.
 
-**Phase 2: Depth without new risk.**
+**Phase 3: 3D. In progress (moved ahead of Phase 2).**
 
-- Far-zone tendex and vortex lines drawn on the slices
-- In-app validation mode overlaying NR data
-- Audio
-- Slice azimuth control (tilt is done in step 4b)
+- **Stage 1: 3D scene with the strain slices placed in space.** Built Nov 14, 2026 on `step-5-3d-scene` (not pushed).
+  - three.js r181; one perspective camera for both modes. Flat = 1° field of view, looking straight at the slice; 3D = 40° orbit camera with +z up.
+  - Switching is a 1.6 s dolly zoom: logarithmic field-of-view interpolation, quaternion slerp, distance chosen to keep the slice framed.
+  - Self-test unchanged from step 4b (worst 4.4e-4).
+  - Bundle: 542 KB JavaScript (141 KB gzipped).
+- **Stage 2: tendex and vortex lines as 3D curves.** Next; see below.
+- **Stage 3: volume view.** Wavefronts as glowing shells, by ray marching the mode sum. Try WebGL2 at reduced resolution before considering WebGPU.
 
-**Phase 3: 3D. Decided Nov 14, 2026: go, before Phase 2, so tendex/vortex lines can be built directly in 3D.**
+**Phase 2: depth without new risk** (after Phase 3 stage 2, or interleaved as the user prefers)
 
-Order: 3D scene → tendex/vortex lines as 3D curves (weak-field quadrupole solution) → volume view → ray-traced lensing (Phase 4).
+- In-app validation mode overlaying NR (SXS) data.
+- Audio. Needs a physical total-mass control to set the pitch.
+- Slice azimuth control (tilt already exists).
+- (The far-zone tendex lines originally listed here are now part of Phase 3 stage 2.)
 
-- **Stage 1: 3D scene with flat field surfaces.** Built Nov 14, 2026 (branch `step-5-3d-scene`).
-  - three.js (r181) on WebGL2. The strain shader now runs on plane meshes (RawShaderMaterial), so any slice can be placed in space. Black holes and the probe are spheres: solid where visible, a faint outline where hidden behind a slice (depth test, ghost pass). Guides: the orbital axis and the outline of the orbital plane.
-  - One perspective camera for both views. Flat view: 1° field of view from far away, looking straight at the slice; a perspective view of a plane perpendicular to the line of sight is an exact scaling, so this matches the 2D app. 3D view: 40° orbit camera with +z up (OrbitControls). Switching is a 1.6 s dolly zoom (logarithmic field-of-view interpolation, quaternion slerp, distance chosen to keep the slice framed).
-  - In 3D, a translucent orbital plane can accompany a tilted slice. Clicking a slice places the probe (ray cast).
-  - Precision: in the flat view and the self-test, slice coordinates come from the pixel position, not interpolated vertex positions. Rasterizers snap vertices to 1/256 px, which in the self-test's 64×40 images moved points by ~0.05 M and raised the GPU−CPU error to 2.5e-3. With the exact mapping the self-test is unchanged from step 4b (worst 4.4e-4).
-  - Size: three.js brings the JavaScript bundle to 542 KB (141 KB gzipped). WebGPU is still not needed; revisit for the volume view or ray tracing.
-- **Stage 2:** tendex and vortex lines as 3D curves.
-- **Stage 3:** volume view, where wavefronts appear as glowing shells.
+**Phase 4: near zone (highest risk)**
 
-**Phase 4: Near zone.**
+- Ray-traced black hole shadows and lensing through an approximate two-black-hole metric. The 3D camera from Phase 3 makes this a natural next step.
+- Near-zone tendex lines from that metric (the strong-field part that stage 2 can't cover).
+- Horizon shapes during merger.
 
-- Ray-traced black hole shadows and lensing through an approximate metric
-- Near-zone tendex lines
-- Merger horizon shapes
+Each later phase adds physics nearer the black holes, where the approximations grow, so the riskiest work comes last.
 
-Each later phase adds physics nearer the black holes, where the approximations grow, so the riskiest work comes last. Phase 3 is an explicit decision point, not a commitment.
+## Next step: Phase 3 stage 2, tendex and vortex lines
+
+**Goal.** Animated 3D curves, rendered alongside the strain slices:
+
+- tendex lines: eigenvectors of the tidal tensor E\_ij, coloured by stretching (eigenvalue < 0) or squeezing (> 0)
+- vortex lines: eigenvectors of the frame-drag tensor B\_ij, coloured by twist direction
+
+Near each hole they should be radial tidal lines; about a wavelength out they bend into spirals; far out they become transverse and lie on the wavefronts.
+
+**Physics plan.** Use the linearized-gravity field of a time-varying mass quadrupole, which is exact in weak gravity and includes the near, intermediate and far terms with retardation. References, from memory and to be verified:
+
+- Teukolsky 1982, linearized quadrupole waves
+- Nichols et al. 2011 (PRD), which treats a rotating quadrupole in linearized theory and is a cross-check for E and B
+
+Drive it with the binary's quadrupole moment I\_ij(t), taken from the (2,2) mode. h₂₂ ∝ d²I₂₂/dt², so integrate twice in time. During the inspiral the adiabatic form I₂₂ ≈ −h₂₂/ω₂₂² is a good first approximation; choose and document the method. Optionally add the current quadrupole from the (2,1) mode.
+
+The result is invalid within a few M of the holes and during the merger. Fade the lines there and label it, consistent with the near-zone mask.
+
+**Tests to write first**
+
+- Far-zone limit: E\_ij computed from the model must equal −½ ḧ\_ij^TT from the existing mode sum (`ModeTable` CPU reference) at large r.
+- Near-zone static limit: E\_ij must match the Newtonian tidal field of the quadrupole.
+- E and B are symmetric and traceless; the eigenvalues sum to 0.
+
+**Rendering plan.**
+
+- Integrate the field lines in Rust/wasm (RK2/RK4 with eigenvector sign continuity), seeded near each hole and on shells.
+- Re-integrate every frame or every few frames; check the cost.
+- Draw them as three.js fat lines (`Line2`/`LineMaterial`) or thin tubes.
+- Toggle in the view panel: colours, lines, or both.
+
+**Suggested first step.** An offline Python prototype that animates one parameter set, to validate the physics and the look before building it into the app. A static Newtonian-tidal-field figure was prototyped in the original conversation (not in the repo). It shows radial red stretching lines into each hole and blue squeezing circles around them.
+
+**2D caveat** (why this is in 3D). Only lines that lie in a slice can be drawn on it. In the orbital plane, the tendex lines are in-plane or perpendicular by symmetry, but far-zone vortex lines are at 45° to the tendex directions and cross the slice.
 
 ## Open questions, risks and references
 
 **Open questions**
 
-- [x] Which waveform source ships first? NRHybSur3dq8 surrogate, evaluated in Rust from a trimmed data file (IMRPhenomT ruled out on licensing; see Core approach).
-- [x] Remnant mass and spin for step 3: NRSur3dq8Remnant fits (same data record and licence as the waveform).
-- [x] How wide a parameter range at launch? Aligned spins only.
-- [x] 2D or 3D first? 2D first; 3D is a Phase 3 decision.
-- [ ] Retarded time: plain t − r, or the tortoise coordinate r\*? Phase 1 uses t − r. The difference, 2M ln(r/2M − 1), is a slowly growing delay (~8 M at r = 100 M, ~12 M at 1000 M). It shifts where the pattern sits relative to the holes by that much retarded time, which is within the near-zone ambiguity. Revisit with the near zone.
-- [ ] Which near-zone metric (Phase 4): superposed boosted Kerr–Schild or a PN near-zone metric? Prototype both and compare against NR.
-- [ ] How to show merger-phase horizons (Phase 4): keyframed NR horizon shapes, or a fade to the remnant?
+- [x] Waveform source: NRHybSur3dq8 (see the decision log).
+- [x] Remnant: NRSur3dq8Remnant.
+- [x] Parameter range: aligned spins only, q ≤ 8, |χ| ≤ 0.8 (the surrogate's trained range; the evaluator refuses values outside it).
+- [x] 2D or 3D: 2D first, then 3D before Phase 2.
+- [ ] Quadrupole source for stage 2: twice-integrated h₂₂, adiabatic −h₂₂/ω², or the PN orbit's μ r² n n? Compare in the prototype.
+- [ ] Retarded time: plain t − r or the tortoise coordinate r\*? The difference, 2M ln(r/2M − 1), is a slowly growing delay (~8 M at r = 100 M, ~12 M at 1000 M) that shifts the pattern relative to the holes. Revisit with stage 2 or the near zone.
+- [ ] Near-zone metric (Phase 4): superposed boosted Kerr–Schild or PN? Prototype both and compare against NR.
+- [ ] Merger-phase horizons (Phase 4): keyframed NR shapes or a fade to the remnant?
 
 **Risks**
 
-- **Waveform accuracy.** Everything rests on it. Mitigation: golden tests against gwsurrogate (in place, passing).
-- **Data licensing.** The surrogate data is CC BY 4.0. Mitigation: the attribution string travels inside the data file and is shown in the app.
-- **Parameter range.** The surrogate is only trained for q ≤ 8, |χ| ≤ 0.8; the evaluator refuses values outside that.
-- **Phase conventions.** Sign and offset mismatches between orbits and waves. Mitigation: the retarded-lag and LAL-PN orientation tests in step 3, which caught the Blanchet-vs-LAL polarisation sign.
-- **Later phases:** stitching the near zone to the wave zone, 32-bit precision for light paths that skim a horizon, and performance of the ray tracing on mid-range GPUs.
+- **Waveform accuracy.** Mitigated: golden tests against gwsurrogate.
+- **Data licensing.** The surrogate and remnant data are CC BY 4.0. The attribution string travels inside the data file and is shown in the app. The code is MIT.
+- **Phase conventions.** Mitigated by the step 3 tests, which caught the Blanchet-vs-LAL polarisation sign.
+- **Stage 2 performance:** integrating many field lines every frame in wasm.
+- **Stage 2 honesty:** weak-field lines near the holes must be faded and labelled.
+- **Later phases:** stitching the near zone to the wave zone, 32-bit precision for light paths that skim a horizon, and ray-tracing performance on mid-range GPUs.
 
-**References** (from memory; verify before citing)
+**References**
 
-- Varma et al., "Surrogate model of hybridized numerical relativity binary black hole waveforms", Phys. Rev. D 99, 064045 (2019), arXiv:1812.07865 (journal and arXiv numbers verified against gwsurrogate); data doi:10.5281/zenodo.3348115
-- Bohn et al., "What does a binary black hole merger look like?" (2015): the reference for ray-traced merger imagery
+Verified:
+
+- Varma et al., "Surrogate model of hybridized numerical relativity binary black hole waveforms", Phys. Rev. D 99, 064045 (2019), arXiv:1812.07865 (journal and arXiv numbers verified against gwsurrogate). Data: doi:10.5281/zenodo.3348115 (record 3348115), CC BY 4.0.
+- NRSur3dq8Remnant: Varma et al., arXiv:1809.09125 (verified against surfinBH). Data: Zenodo record 1435751, CC BY 4.0.
+
+From memory, to verify before citing:
+
+- Teukolsky, linearized quadrupole waves in general relativity (1982)
 - Owen et al., "Frame-dragging vortexes and tidal tendexes attached to colliding black holes" (PRL 2011)
 - Nichols et al., "Visualizing spacetime curvature via frame-drag vortexes and tidal tendexes" (PRD 2011)
-- The SXS waveform catalog, the NRSur surrogate models, and the IMRPhenom and EOB waveform families
+- Bohn et al., "What does a binary black hole merger look like?" (2015), the reference for ray-traced merger imagery
+- Blanchet, Living Rev. Rel. 17, 2 (2014), PN relations (used for the 2PN r(ω))
