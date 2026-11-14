@@ -1,15 +1,20 @@
 # spacetime
 
-A browser-based, real-time visualization of a binary black hole merger and its
-gravitational waves, faithful to general relativity where it counts. See
-[plans/](plans/) for the planning documents (the binary black hole app: [plans/bbh.md](plans/bbh.md)).
+Browser-based, real-time visualizations of extreme spacetimes, faithful to general
+relativity where it counts. One web site, one app per page:
+
+- **Binary black hole** (`/bbh/`): gravitational waves from a merging binary. Finished for
+  now; plan: [plans/bbh.md](plans/bbh.md).
+- **Black hole lensing** (`/lensing/`): light from a background sky bent around a black hole.
+  In development; plan: [plans/lensing.md](plans/lensing.md).
 
 ## Layout
 
 ```
 crates/physics/   Rust physics core (pure, f64, units of total mass M)
 crates/wasm/      wasm-bindgen bindings over the physics crate
-web/              TypeScript + Vite app (three.js scene), shaders in web/src/shaders/
+web/              TypeScript + Vite multi-page site (three.js): index.html (landing),
+                  <app>/index.html per app, code in web/src/<app>/, shared code in web/src/common/
 tools/            Python (uv): golden data from LAL, NR reference tables
 tests/golden/     Small reference files used by the Rust tests
 web/public/       Static data served to the app (trimmed waveform surrogate)
@@ -34,17 +39,17 @@ cd tools && uv sync             # once, installs lalsuite and sxs
 
 `npm run dev` rebuilds wasm only at startup; restart it after changing Rust code.
 
-## Using the app
+## Using the binary black hole app (`/bbh/`)
 
 - The view is a slice through the source: the orbital plane from above, a side view, or any
   tilt in between ("⇄" animates between top and side). Drag to pan, scroll to zoom,
   double-click to reset; h₊/h× chooses the polarisation.
-- "3D view" animates to an orbit camera showing the slice in space (drag to orbit, scroll to
-  zoom, double-click to reset); "Flat view" animates back.
+- "3D view" animates to an orbit camera showing the strain as a glowing volume (drag to orbit,
+  scroll to zoom, double-click to reset); "Flat view" animates back.
 - Click a slice to move the probe (the warm sphere); its ring and chirp plot update.
 - The sliders change the binary; the URL updates so the view can be shared.
 
-## App URL options
+## Binary black hole URL options (append to `/bbh/`)
 
 - `?q=3&chi1=0.6&chi2=0.2`: binary parameters (q ≤ 8, |χ| ≤ 0.8)
 - `?t=-300&zoom=250&tilt=40&paused`: start at a given time (M), half-width (M) and slice
@@ -52,6 +57,15 @@ cd tools && uv sync             # once, installs lalsuite and sxs
 - `?3d`: start in the 3D view
 - `?selftest`: render off-screen and compare GPU pixels with the Rust CPU reference;
   the verdict appears in the page title and status line
+
+## Using the lensing app (`/lensing/`)
+
+- A non-spinning black hole in front of a procedural sky, every pixel ray-traced through the
+  curved spacetime. Drag to orbit; scroll or use the slider to change the distance (in units of
+  the hole's mass M); widen the field of view when close; double-click to reset.
+- URL options: `?r=20` (distance, 3.5–300 M), `?fov=60` (degrees), `?selftest` (GPU escape
+  directions vs the Rust reference), `?lensbench` (GPU timing; needs real time, not
+  `--virtual-time-budget`).
 
 ## Waveform data
 

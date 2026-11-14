@@ -2,6 +2,7 @@
 //! anything worth testing belongs in the physics crate.
 
 use spacetime_physics::binary::Binary;
+use spacetime_physics::geodesic;
 use spacetime_physics::harmonics::spin_weighted_ylm_theta;
 use spacetime_physics::mode_table::{ModeTable, equatorial_peak_22};
 use spacetime_physics::surrogate::{Params, Surrogate, Waveform};
@@ -267,4 +268,27 @@ impl BinaryTrack {
         let [x, y] = self.0.kick();
         x.hypot(y)
     }
+}
+
+/// Lensing self-test reference: for a camera at `cam` (x, y, z; |cam| > 3 M)
+/// and ray directions `dirs` (flat x, y, z, ...), returns flat
+/// `[sx, sy, sz, escaped, ...]`: the sky direction each ray reaches, and 1, or
+/// zeros and 0 if it falls into the hole (Schwarzschild, M = 1).
+#[wasm_bindgen(js_name = lensEscapeDirections)]
+pub fn lens_escape_directions(cam: &[f64], dirs: &[f64]) -> Vec<f64> {
+    let cam = [cam[0], cam[1], cam[2]];
+    dirs.as_chunks::<3>()
+        .0
+        .iter()
+        .flat_map(|d| match geodesic::escape_direction(cam, *d) {
+            Some(s) => [s[0], s[1], s[2], 1.0],
+            None => [0.0, 0.0, 0.0, 0.0],
+        })
+        .collect()
+}
+
+/// Angular radius (rad) of the Schwarzschild shadow seen by a static observer at `r0` (> 3 M).
+#[wasm_bindgen(js_name = shadowAngularRadius)]
+pub fn shadow_angular_radius(r0: f64) -> f64 {
+    geodesic::shadow_angular_radius(r0)
 }

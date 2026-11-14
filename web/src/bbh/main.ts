@@ -1,4 +1,4 @@
-import init, { physics_version } from "./wasm/spacetime_wasm.js";
+import init, { physics_version } from "../wasm/spacetime_wasm.js";
 import { setupParams, setupPlayback, setupPointer, type Playback } from "./controls";
 import { drawGizmo } from "./gizmo";
 import { Probe } from "./probe";
@@ -35,7 +35,7 @@ async function main(): Promise<void> {
     view.setWaveform(w);
 
     if (url.has("volbench")) {
-      view.volume.fixedScale = true;
+      view.volume.pass.fixedScale = true;
       const verdict = runVolumeBenchmark(view, w, canvas.clientWidth, canvas.clientHeight);
       document.title = verdict;
       status.textContent = verdict;

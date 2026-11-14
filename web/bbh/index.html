@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spacetime · binary black hole</title>
+    <link rel="stylesheet" href="../src/bbh/style.css" />
+  </head>
+  <body>
+    <main id="app">
+      <section id="stage" aria-label="Strain field">
+        <canvas id="view"></canvas>
+        <div id="view-panel" class="panel">
+          <div id="view-title">Top view · orbital plane</div>
+          <div class="view-row">
+            <div class="toggle" role="group" aria-label="Polarisation">
+              <button type="button" data-component="plus" aria-pressed="true">h₊</button>
+              <button type="button" data-component="cross" aria-pressed="false">h×</button>
+            </div>
+            <button id="swap" type="button" class="flat-only">⇄ Side view</button>
+          </div>
+          <button id="mode" type="button" class="wide">3D view</button>
+          <label class="tilt flat-only">Tilt <input id="tilt" type="range" min="0" max="90" step="1" value="0" /><span id="tilt-value">0°</span></label>
+          <canvas id="gizmo" aria-label="Orientation of the slice relative to the orbit"></canvas>
+          <div id="legend">
+            <span>h &lt; 0</span><div class="ramp"></div><span>h &gt; 0</span>
+          </div>
+          <p id="view-caption" hidden>
+            h× = 0 everywhere in the orbital plane for aligned spins: the system is mirror-symmetric
+            through this plane. Tilt the slice to see it appear.
+          </p>
+        </div>
+        <div id="title" class="panel">Spacetime <span class="muted">· binary black hole</span></div>
+        <div id="scale" aria-hidden="true"><div id="scale-bar"></div><span id="scale-label"></span></div>
+        <div id="controls" class="panel">
+          <button id="play" type="button">Pause</button>
+          <input id="scrub" type="range" aria-label="Time" />
+          <span id="time"></span>
+          <label>Speed
+            <select id="speed">
+              <option value="0.1">×0.1</option>
+              <option value="0.25">×0.25</option>
+              <option value="0.5">×0.5</option>
+              <option value="1" selected>×1</option>
+              <option value="2">×2</option>
+              <option value="5">×5</option>
+            </select>
+          </label>
+          <label>Gain <input id="gain" type="range" min="1" max="20" step="0.5" /><span id="gain-value"></span></label>
+          <label><input id="loop" type="checkbox" /> Loop</label>
+        </div>
+      </section>
+
+      <aside id="side">
+        <section class="card">
+          <header><h2>Binary <span class="muted">aligned spins</span></h2></header>
+          <div id="params">
+            <label>Mass ratio q <input id="param-q" type="range" step="0.1" /><span id="param-q-value"></span></label>
+            <label>Spin χ₁ (heavier) <input id="param-chi1" type="range" step="0.05" /><span id="param-chi1-value"></span></label>
+            <label>Spin χ₂ (lighter) <input id="param-chi2" type="range" step="0.05" /><span id="param-chi2-value"></span></label>
+            <button id="param-reset" type="button">Reset</button>
+          </div>
+          <div id="remnant"></div>
+          <div id="eval"></div>
+        </section>
+        <section class="card">
+          <header><h2>Probe <span class="muted">free test particles at the marker</span></h2></header>
+          <div class="probe-row">
+            <canvas id="ring"></canvas>
+            <div id="probe-info"></div>
+          </div>
+          <canvas id="chirp"></canvas>
+          <div class="chirp-legend">
+            <span class="plus">h₊</span> <span class="cross">h×</span>
+            <span class="muted">received at the probe vs retarded time; ring deformation exaggerated</span>
+          </div>
+        </section>
+        <section class="card">
+          <details id="about">
+            <summary>About this view</summary>
+            <p>
+              Gravitational-wave strain on a slice through the source: the orbital plane seen from
+              above, a side view through the orbital axis, or any tilt in between (the sketch in the
+              view panel shows where the slice sits). Colour is r·h (the 1/r fall-off removed),
+              divided by its peak (2,2) value in the orbital plane and multiplied by the gain, on a
+              smoothly saturating scale.
+            </p>
+            <p>
+              In the orbital plane the wave is purely + polarised (h× = 0). h₊ &gt; 0 (LAL convention)
+              means space is stretched around the circle centred on the source and squeezed
+              perpendicular to the plane. Off the plane both polarisations appear.
+            </p>
+            <p>
+              Inside the ring is the near zone, where this far-zone formula does not apply. Black
+              discs: horizons where the slice cuts them, at true size (at least a few pixels); faint
+              outlines: the parts of holes hidden behind a slice. Orbits are post-Newtonian, derived
+              from the wave phase, and schematic in the last orbits. Click a slice to move the
+              probe (the warm sphere).
+            </p>
+            <p>
+              The 3D view shows the strain throughout a sphere around the source, ray-marched
+              like a glowing fog: crests (orange, h &gt; 0) and troughs (blue, h &lt; 0) of the wave
+              show as sheets, which for h₊ form the two spiral arms of the binary and move outward
+              at the speed of light. Same normalisation as the slices (r·h, so distant sheets are
+              as bright as near ones); the near zone is left empty. h₊ and h× are measured
+              against directions that wind around the orbital axis, so the sheets meet along it;
+              a narrow cone around the axis is faded out. To keep it fast, the volume sums the
+              three strongest modes (the slices use all of them) and is drawn at reduced
+              resolution, adapted to the frame rate. Drag to orbit, scroll to zoom, double-click
+              to reset.
+            </p>
+          </details>
+          <div id="status">Loading…</div>
+          <div id="credit"></div>
+        </section>
+      </aside>
+    </main>
+    <script type="module" src="../src/bbh/main.ts"></script>
+  </body>
+</html>

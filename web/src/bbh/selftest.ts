@@ -124,7 +124,7 @@ export function runVolumeBenchmark(scene: SpacetimeScene, w: PreparedWaveform, c
     scene.volume.material.uniforms.u_volumeRows.value = rows;
     const frame = { time: -40, scale: 1.5 / w.peak, maskRadius: 10, component: 0 as const, radius: 360, opacity: 1 };
     const run = () => {
-      scene.volume.scale = scale;
+      scene.volume.pass.scale = scale;
       scene.volume.render(scene.renderer, camera, cssW, cssH, frame);
       gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
     };
