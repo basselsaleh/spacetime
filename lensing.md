@@ -1,6 +1,6 @@
 # Black hole lensing app: plan
 
-Nov 13, 2026 · @Bassel · **steps 0 and 1 done**, in PR #3 (`lensing-1-schwarzschild` → `main`; merge, don't squash). Step 2 is next.
+Nov 13, 2026 · @Bassel · **steps 0 and 1 done**, merged to `main` (PR #3). Step 2 is next.
 
 A second app in this repository, alongside the binary black hole (BBH) wave visualizer ([bbh.md](bbh.md)).
 

@@ -2,7 +2,7 @@
 
 Nov 12, 2026 · @Bassel · **finished for now** (wrap-up edition: a record of the app as built, and what a future return to it would pick up)
 
-Other applications in this repository get their own planning documents in `plans/`; this one covers only the binary black hole app.
+Other applications in this repository get their own planning documents; this one covers only the binary black hole app. Plans live on the `dev` branch (only these files, never merged into `main`), checked out as a `plans/` worktree inside the main clone: `git worktree add plans dev`.
 
 ## Status
 
@@ -26,6 +26,7 @@ Other applications in this repository get their own planning documents in `plans
 | Nov 13 | Waveforms from the **NRHybSur3dq8** surrogate, not IMRPhenomT | IMRPhenomT's coefficients are unpublished (supplementary Mathematica only); its only implementation is GPL, and this repo is MIT |
 | Nov 13 | Remnant from **NRSur3dq8Remnant** | Same data record and license, same GPR format, NR-faithful |
 | Nov 13 | Repo private; no GitHub Pages deployment | Private repo |
+| Nov 14 | Preparing to go public: user-facing README with logo (`web/public/logo.svg`), dev details in `docs/development.md`, GitHub Pages deploy via Actions (`.github/workflows/pages.yml`), plans moved off `main` onto the plans-only `dev` branch | User wants a first public version; plans aren't user-facing but must sync across machines. Commit history keeps the personal email (user's choice). Every branch, `dev` included, is public once the repo is |
 | Nov 13 | One main view with an animated top ⇄ side swap, instead of two unequal views | User preferred a single view; the swap shows genuine intermediate slices |
 | Nov 14 | Do 3D (Phase 3) **before** Phase 2, using three.js | Tendex and vortex lines are best built directly in 3D; vortex lines need it |
 | Nov 13 | Spherical shells (stage 1b) dropped; the 3D view will be the tendex/vortex lines | A shell at fixed radius is perpendicular to the propagation direction everywhere, so it can't show waves moving (it shows each distance's received signal brightening and fading in place). h₊/h× on a sphere also have unavoidable pinwheels at the poles |
@@ -190,7 +191,7 @@ tests/golden/       Golden data used by the Rust tests (committed)
 - Commit locally; push and open PRs only when the user asks. Never rewrite a pushed branch without asking.
 - PRs go to `main` per phase or milestone; use a merge commit, not squash, to keep one commit per step.
 - Repo-local git identity is the user's personal account. The remote uses the SSH host alias `github-personal`; the active `gh` account is the personal one. Don't use the user's global (work) identity.
-- CI (`.github/workflows/ci.yml`) runs `cargo fmt --check`, `clippy -D warnings`, `cargo test`, the wasm build and `npm run build`. There's no deployment.
+- CI (`.github/workflows/ci.yml`) runs `cargo fmt --check`, `clippy -D warnings`, `cargo test`, the wasm build and `npm run build`. `.github/workflows/pages.yml` deploys `web/dist` to GitHub Pages on every push to `main`.
 
 **Python**
 
@@ -219,7 +220,7 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 - The self-test must pass (tolerance 2e-3 of peak; currently 4.4e-4 on Metal).
 - Use `--use-angle=metal` for the real GPU; SwiftShader's float arithmetic is less accurate (~1.2e-3).
 
-**Regenerating data** (only if the format or the model changes): see README.md. The downloads are 213 MB and 0.45 MB from Zenodo.
+**Regenerating data** (only if the format or the model changes): see docs/development.md. The downloads are 213 MB and 0.45 MB from Zenodo.
 
 ## Gotchas (learned the hard way)
 
