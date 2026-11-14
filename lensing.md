@@ -29,7 +29,7 @@ This needs no thin-lens or weak-field approximation. The only approximations are
 
 - numerical integration of each ray
 - background sources treated as infinitely far away
-- the camera being a static observer (see open questions)
+- the camera's local frame: a static observer in step 1, a zero-angular-momentum observer in step 2 (see open questions)
 
 All the lensing features listed under Goal fall out of this one calculation.
 
@@ -55,15 +55,37 @@ Known results that become tests:
 
 ### Step 2 physics: Kerr (spin)
 
-A spinning hole has no planar reduction.
+A spinning hole has no planar reduction: rays leave the plane they start in. But Kerr null geodesics still separate (Carter), and in **Mino time** the separated equations become polynomial. That gives a GPU integrator with the same character as step 1: a few smooth variables, RK4, and Hermite interpolation of the escape point. Equations below are from memory, to verify in step 2a.
 
-- **Integration.** The shader integrates the full null geodesic equations. The likely formulation is Hamiltonian in Boyer–Lindquist or Kerr–Schild coordinates, using the constants of motion (energy, angular momentum about the axis, Carter constant).
-- **Camera.** It becomes a zero-angular-momentum observer.
-- **New visuals.** The shadow becomes asymmetric (D-shaped at high spin), and frame dragging skews the lensed sky.
-- **Tests:**
-  - spin → 0 reproduces Schwarzschild
-  - the shadow outline matches the analytic critical curve from spherical photon orbits (Bardeen; from memory, to verify)
-  - the constants of motion are conserved along each ray
+- **Coordinates and units.** Boyer–Lindquist (r, θ, φ), M = 1, spin a ∈ [0, 0.998] along +z. Δ = r² − 2r + a², Σ = r² + a² cos²θ, horizon r₊ = 1 + √(1 − a²). The scene's Cartesian position of a point is the flat-space map of its BL coordinates, x = r sin θ cos φ and so on. At infinity BL directions are flat-space directions, so the sky lookup is unchanged.
+- **Constants of motion.** Energy E = −p_t, scaled to 1; axial angular momentum L = p_φ; Carter constant Q.
+- **Variables.** u = 1/r as in step 1, and μ = cos θ, which is regular at the poles. With λ the Mino time (dλ = dτ_affine / Σ):
+  - **Radial:** (du/dλ)² = P(u) = (1 + (a² − aL)u²)² − u²(1 − 2u + a²u²)(Q + (L − a)²), a quartic.
+  - **Polar:** (dμ/dλ)² = Θ(μ) = Q − (Q + L² − a²)μ² − a²μ⁴.
+  - **Azimuthal:** dφ/dλ = L/(1 − μ²) − a + a(1 + (a² − aL)u²)/(1 − 2u + a²u²).
+- **Second-order form.** The shader integrates u″ = P′(u)/2 and μ″ = Θ′(μ)/2, with φ as a quadrature alongside. Both are polynomials, so there are no square roots, no sign bookkeeping at turning points, and nothing singular at infinity (u = 0 is reached at finite λ) or at the horizon. u and μ evolve independently of φ, so φ's growth near the horizon can't disturb them.
+- **Check at a = 0.** With Q + L² = b² in the ray's plane, P(u) = 1 − b²u²(1 − 2u), which is the step 1 orbit equation: (du/dφ)² = 1/b² − u² + 2u³.
+- **Camera: the zero-angular-momentum observer (ZAMO).** Static observers don't exist inside the ergosphere, and the ZAMO is the standard choice (James et al. 2015). Its frame has lapse α = √(ΣΔ/A), frame-dragging rate ω = 2ar/A and ϖ = √(A/Σ) sin θ, where A = (r² + a²)² − a²Δ sin²θ. The axes are along the BL coordinate directions, matching step 1.
+- **Initial conditions.** A pixel direction (n_r, n_θ, n_φ) in the ZAMO frame, with unit local energy, gives:
+  - p_φ = ϖ n_φ, E = α + ω ϖ n_φ, p_r = √(Σ/Δ) n_r and p_θ = √Σ n_θ, then everything divided by E
+  - L = p_φ and Q = p_θ² + μ²(L²/(1 − μ²) − a²)
+  - starting derivatives u′ = −u²Δ p_r and μ′ = −sin θ p_θ. The second-order form needs only these, with no initial sign choices.
+  - At a = 0 this reduces to step 1: u′ = −n_r and L = b.
+- **Step control.** h = ε / max(|u′|/u, |μ′|, |φ′|, …): each variable changes by about ε per step (ε ≈ 0.02, as in step 1), with a floor. The |u′|/u term shrinks steps as u → 0, as step 1's ½u/|du/dφ| does. To be tuned against the reference, as in step 1.
+- **Termination.**
+  - **Escape:** u ≤ 0. Locate it by Hermite interpolation on u, which also gives φ and μ there. The sky direction is (√(1 − μ²) cos φ, √(1 − μ²) sin φ, μ).
+  - **Capture:** u ≥ 1/r₊. Regular in Mino time, so no ε-shell is needed. At high spin, escaping rays can skim the horizon: the prograde photon orbit sits within 1% of r₊ at a = 0.998.
+  - **Unresolved after the step cap:** black, as in step 1.
+  - Step 1's analytic shadow rejection doesn't carry over directly. A Kerr version (the ray is captured if u′ > 0 and P has no root between u and 1/r₊) is an optional speed-up, not a requirement.
+- **Independent reference.** A Hamiltonian integration of the full geodesic equations in Kerr–Schild Cartesian coordinates, where the inverse metric is g^{μν} = η^{μν} − f l^μ l^ν and nothing is singular at the horizon. It shares none of the algebra above (separation, Mino time, BL), so agreement checks that algebra. The camera's BL position and ZAMO frame must be mapped into Kerr–Schild with the azimuth offset fixed so the two agree at infinity.
+- **New visuals.**
+  - The shadow becomes asymmetric: flattened (D-shaped at high spin) on the side where the hole's rotation moves toward the camera, and shifted away from it.
+  - It stays round when viewed along the spin axis.
+  - Frame dragging twists the lensed sky around the axis.
+- **Analytic shadow edge** (Bardeen 1973). Spherical photon orbits at radius r_p have
+  - L = (r_p²(3 − r_p) − a²(r_p + 1)) / (a(r_p − 1))
+  - Q = r_p³(4a² − r_p(r_p − 3)²) / (a²(r_p − 1)²)
+  - Sweeping r_p between the prograde and retrograde equatorial photon orbits, r = 2(1 + cos(⅔ arccos(∓a))), and mapping (L, Q) to the ZAMO camera's angles traces the exact shadow outline at any camera distance.
 
 ### Step 3 physics: thin accretion disk
 
@@ -104,10 +126,13 @@ Turn `web/` into a multi-page Vite site with two apps sharing common code. Rust 
 crates/physics/src/
   (BBH modules unchanged)
   geodesic.rs                 Schwarzschild null geodesics: reference integrator, deflection, shadow
-  kerr.rs                     step 2
+  kerr.rs                     step 2: Mino-time integrator (mirrors the shader), Kerr–Schild Hamiltonian
+                              reference, ZAMO frame, analytic shadow edge
   disk.rs                     step 3: ISCO, Keplerian orbits, redshift, Page–Thorne flux, reference disk hits
 crates/physics/tests/
   geodesic.rs                 analytic limits and exact-deflection checks
+  kerr.rs                     step 2: spin 0 vs step 1, the two Kerr methods vs each other, constants
+                              of motion, shadow edge, symmetries
   disk.rs                     step 3: ISCO, redshift and flux checks
 crates/wasm/src/lib.rs        BBH bindings + lensing references for the GPU self-test
 web/
@@ -173,7 +198,53 @@ The `web/src/common/` entry in the repository layout above lists only what exist
 
 ### Step 2: Kerr
 
-- Spin slider, full geodesic integration, zero-angular-momentum observer, Kerr reference integrator and tests.
+The physics is under "Step 2 physics" above. Split into sub-steps, each on its own stacked branch (`lensing-2a-kerr-reference`, `lensing-2b-kerr-shader`, …), as BBH Phase 5 was.
+
+#### 2a: Rust reference and tests (no app changes)
+
+- **`kerr.rs`:**
+  - `trace_mino`: the shader's algorithm in f64 (RK4 in Mino time, same step control, Hermite escape point)
+  - `trace_ks`: the Kerr–Schild Hamiltonian with an adaptive high-order integrator, tight tolerance
+  - ZAMO frame and pixel → (L, Q) initial conditions
+  - the analytic shadow edge mapped to camera angles
+  - `escape_direction(cam, a, dir)`, mirroring the step 1 function
+- **Tests** (`crates/physics/tests/kerr.rs`):
+  - **spin 0:** `trace_mino` matches step 1's `sweep_quadrature` to about 1e-9 rad over step 1's ray set
+  - **two methods agree:** `trace_mino` (fine step) and `trace_ks` agree on fate and escape direction to about 1e-8 rad. The grid covers spins 0, 0.5, 0.9 and 0.998, camera inclinations 0° (on the axis), 17°, 60° and 90°, and distances 3.5–300 M, and excludes near-critical rays.
+  - **constants of motion:** in `trace_ks`, H = 0, E, L and Q are conserved along each ray to about 1e-10
+  - **shadow edge:** rays just inside the analytic outline (by 1e-4 in angle) are captured and rays just outside escape, all around the outline, at several spins and inclinations
+  - **symmetries:**
+    - mirroring a ray through the equatorial plane mirrors its escape direction
+    - from a camera on the spin axis, the shadow is round, with the radius the critical curve predicts
+  - **frame-dragging sign:** for an equatorial camera, the shadow is flattened on the side where the hole's rotation moves toward the camera
+  - **weak field** (to verify the formula first): equatorial deflection at large b matches 4/b + 15π/(4b²) ∓ 4a/b², prograde vs retrograde
+- **Prototype question to settle here:** how bad the φ′ ∝ L/(1 − μ²) spike is for rays that pass close to the spin axis, in f32. If it costs too many steps or too much accuracy, integrate the sky direction's Cartesian components instead of φ, or handle the pole passage analytically. Measure it with a float32 build of `trace_mino`.
+
+#### 2b: shader and GPU self-test (spin as a URL option only)
+
+- `lens.frag` gets the Mino-time integrator, with `u_spin` and the ZAMO camera. `?a=` sets the spin, with no slider yet.
+- **GPU self-test** (`?selftest`): the step 1 views, plus spinning views at a = 0.5 and 0.998: on the axis, inclined 17° (the M87 viewing angle), equatorial, and an equatorial view close in (5 M) to stress frame dragging.
+  - Reference: `trace_mino` through a new wasm binding `lensKerrEscapeDirections(cam, a, dirs)`.
+  - Target: about step 1's 3.3e-5 rad worst error.
+  - Exclusion band: rays the reference flags as near-critical, for example those whose closest approach is within 2% of the spherical photon orbit for their (L, Q). This is the counterpart of step 1's band within 2% of b_c.
+  - At a = 0 the numbers must match step 1's.
+- **Performance:** `?lensbench` at a = 0, 0.5 and 0.998, compared with step 1's 3.7 / 11.2 / 38.9 ms. The budget is about 2× step 1's cost; past that, tighten the step control or add the analytic capture test.
+
+#### 2c: the app
+
+- **Spin slider:** a from 0 to 0.998 (Thorne's limit), linear, synced with `?a=`, in the existing panel style.
+- **Readouts:**
+  - the horizon radius r₊
+  - the shadow's angular width and height, from the analytic edge (closed form, ported to TypeScript, so no wasm in the app). This replaces the step 1 radius readout; at a = 0 width = height = the old value.
+- The camera minimum stays at 3.5 M. It is outside the ergosphere (2 M at the equator) for every spin, so the ZAMO is never moving close to light speed.
+- **Visual checks:** a round shadow from on the axis; at a = 0.998, the D-shape with its flat side on the approaching side from the equator; and the twisted sky.
+
+#### 2d: wrap-up
+
+- **One integrator or two:** if the Kerr shader at a = 0 matches step 1's accuracy and speed closely enough, retire the planar Schwarzschild path and keep one integrator. Otherwise keep the planar path as the a = 0 fast path. Record the measurements.
+- Update the README (spin slider, `?a=`) and this plan with results, as was done for step 1.
+
+**Done when:** all 2a tests pass, the GPU self-test passes at every spin within the target, `?lensbench` is within budget, and the visual checks hold.
 
 ### Step 3: thin accretion disk
 
@@ -225,12 +296,15 @@ The physics is under "Step 3 physics" above. Built on the step 2 integrator, so 
 - **Precision.** Rays that skim the photon sphere are sensitive to float32 error. Small errors there only reorder which sky point a winding ray lands on. That is visually harmless, but it limits the GPU-vs-CPU tolerance near b_c, so the self-test should exclude a thin band around it, as the BBH self-test does at boundaries.
 - **Disk dynamic range.** g⁴ makes the approaching side of an inclined disk tens of times brighter than the receding side, and the higher-order images are much fainter still. A tone map and exposure control are needed so all of them read on screen without washing out the sky.
 - **Kerr cost.** Full geodesics may need several hundred steps per pixel. Budget it with the shared adaptive resolution, and fall back to fewer steps far from the hole.
+- **Rays near the spin axis.** φ′ ∝ L/(1 − μ²) spikes when a ray with small L passes close to the axis: φ sweeps about π in a short Mino time. This is a coordinate effect, not physics, but in f32 it can cost steps and accuracy. Step 2a measures it (see there).
+- **Skimming the horizon at high spin.** At a = 0.998, escaping prograde rays pass within 1% of r₊, where φ′ (frame dragging) grows large. The step control's |φ′| term must keep these rays resolved; the close-in equatorial self-test view checks it.
 
 ## Open questions
 
 - [x] Camera model for step 1: a static observer at 3.5–300 M (outside the photon sphere, so the planar escape logic holds). An orbiting or falling camera remains a "maybe later".
 - [x] Integration variable and step control for the GPU, Schwarzschild: RK4 in φ, step min(0.02, ½u/|du/dφ|) ≥ 0.002; 3.3e-5 rad worst against the reference.
-- [ ] Kerr formulation: Boyer–Lindquist (singular at the horizon, fine for rays that stop there) or Kerr–Schild (regular)? Prototype both.
+- [ ] Kerr formulation. **Proposed:** Boyer–Lindquist in Mino time with u = 1/r and μ = cos θ for the shader and its mirror in Rust; a Kerr–Schild Hamiltonian as the independent reference. Confirm in 2a.
+- [ ] Default spin on load: 0 (the step 1 look, with the Einstein ring on load) or high (the D-shaped shadow shows at once)?
 - [ ] Disk look: a smooth Novikov–Thorne profile only, or with procedural texture so the rotation and shearing are readable? If textured, animated?
 - [ ] Disk default: on when the app loads, or off so the lensed sky comes first?
 - [ ] Should the lensing app and the BBH app share one URL-parameter and panel style, or diverge?
@@ -245,4 +319,7 @@ From memory, to verify before citing:
 - Novikov & Thorne, "Astrophysics of black holes", in *Black Holes* (Les Houches 1973): the thin-disk model.
 - Page & Thorne, "Disk-accretion onto a black hole. Time-averaged structure of accretion disk", ApJ 191, 499 (1974): the flux F(r).
 - Bardeen, Press & Teukolsky, "Rotating black holes: locally nonrotating frames, energy extraction, and scalar synchrotron radiation", ApJ 178, 347 (1972): ISCO, circular-orbit Ω and uᵗ, the ZAMO frame.
+- Carter, "Global structure of the Kerr family of gravitational fields", Phys. Rev. 174, 1559 (1968): separability, the Carter constant.
+- Mino, "Perturbative approach to an orbital evolution around a supermassive black hole", Phys. Rev. D 67, 084027 (2003): Mino time.
+- Gralla & Lupsasca, "Null geodesics of the Kerr exterior", Phys. Rev. D 101, 044032 (2020): closed-form Kerr geodesics; a possible third check.
 - Chandrasekhar, *The Mathematical Theory of Black Holes* (1983): geodesics in Schwarzschild and Kerr.
