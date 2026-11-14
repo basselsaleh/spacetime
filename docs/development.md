@@ -37,7 +37,7 @@ CI (`.github/workflows/ci.yml`) runs `cargo fmt --check`, `clippy -D warnings`, 
 
 ## URL options
 
-Binary black hole (`/bbh/`):
+Gravitational waves (`/bbh/`):
 
 - `?q=3&chi1=0.6&chi2=0.2`: binary parameters (q ≤ 8, |χ| ≤ 0.8)
 - `?t=-300&zoom=250&tilt=40&paused`: start at a given time (M), half-width (M) and slice tilt

@@ -15,9 +15,12 @@
 
 ---
 
-## Binary black hole
+## Gravitational waves
 
-<img src="docs/images/bbh.jpg" alt="Gravitational waves spiraling out from a binary black hole, in red and blue" />
+<p align="center">
+  <img src="docs/images/bbh.jpg" width="400" alt="Gravitational waves spiraling out from a binary black hole, in red and blue" />
+  <img src="docs/images/bbh-3d.jpg" width="400" alt="The 3D view: the waves as glowing red and blue sheets" />
+</p>
 
 Two black holes spiral together and merge, sending gravitational waves rippling outward at
 the speed of light. The waves come from a numerical-relativity surrogate model trained on
@@ -31,11 +34,11 @@ supercomputer simulations, evaluated live in your browser.
 - **Change the binary:** mass ratio and spins update everything instantly, and the URL updates
   so you can share what you see.
 
-<img src="docs/images/bbh-3d.jpg" alt="The 3D view: the waves as glowing red and blue sheets" />
-
 ## Black hole lensing
 
-<img src="docs/images/lensing.jpg" alt="A black hole's shadow and Einstein ring against a field of stars" />
+<p align="center">
+  <img src="docs/images/lensing.jpg" width="400" alt="A black hole's shadow and Einstein ring against a field of stars" />
+</p>
 
 A black hole in front of a sky of stars and galaxies. Every pixel's light ray is traced exactly
 through the curved spacetime around the hole, so the shadow, the photon ring, the Einstein ring
