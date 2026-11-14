@@ -10,7 +10,9 @@
 //   Mino-time RK4 with the angular position as a unit vector. Mirrors
 //   `trace_mino` in crates/physics/src/kerr.rs, which documents the equations.
 // - trace (spin 0 only; a static observer at r0 > 3, the same thing at a = 0):
-//   the planar Schwarzschild sweep below.
+//   the planar Schwarzschild sweep below. Kept as the spin-0 fast path (about
+//   1.45x faster than traceKerr at a = 0, which is slightly more accurate) and
+//   as a base for Schwarzschild-only features.
 //
 // Schwarzschild: a ray stays in the plane of the radial direction n̂
 // and its initial direction; with u = 1/r and φ swept from n̂,
