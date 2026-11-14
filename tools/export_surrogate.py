@@ -168,7 +168,7 @@ def export_piece(func_sub, grid: Grid, blob: Blob) -> dict:
 def mode_key(k) -> tuple[int, int]:
     if isinstance(k, (tuple, list, np.ndarray)):
         return int(k[0]), int(k[1])
-    raise ValueError(f"unrecognised mode key {k!r}")
+    raise ValueError(f"unrecognized mode key {k!r}")
 
 
 def main() -> None:

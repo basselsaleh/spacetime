@@ -3,8 +3,6 @@
 #app { position: relative; height: 100vh; overflow: hidden; }
 #view { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
 #view:active { cursor: grabbing; }
-#title { top: 16px; left: 16px; padding: 8px 12px; font-weight: 600; }
-#title a { color: inherit; text-decoration: none; }
 #panel { top: 16px; right: 16px; width: 280px; padding: 10px 12px; display: grid; gap: 8px; }
 .row { display: grid; grid-template-columns: 92px 1fr 48px; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
 .row span { text-align: right; font-variant-numeric: tabular-nums; color: var(--fg); }

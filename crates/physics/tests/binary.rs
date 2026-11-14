@@ -85,7 +85,7 @@ fn wrap_half_pi(a: f64) -> f64 {
 
 #[test]
 fn waves_trail_the_binary_with_retarded_time() {
-    // Leading-order quadrupole, with the LAL polarisation convention the
+    // Leading-order quadrupole, with the LAL polarization convention the
     // surrogate uses (h₊ = ½(h_φφ − h_θθ) in the orbital plane; Blanchet/Kidder
     // differ by an overall sign): h₊ ∝ +cos 2(φ − Φ(t − r)), i.e. h₊ is largest
     // along the binary's axis as it was at the retarded time t − r.
@@ -162,7 +162,7 @@ fn orbit_conventions() {
     assert!(s.heavy.y.abs() < 1e-9 && s.heavy.x > 0.0 && s.light.x < 0.0);
     // Counter-clockwise seen from +z: the angle increases.
     assert!(b.orbital_angle(-999.0) > b.orbital_angle(-1000.0));
-    // Centre of mass at the origin.
+    // Center of mass at the origin.
     let (m1, m2) = (0.75, 0.25);
     assert!((m1 * s.heavy.x + m2 * s.light.x).abs() < 1e-12);
     // Separation shrinks as the binary inspirals.

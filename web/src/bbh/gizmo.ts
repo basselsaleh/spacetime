@@ -59,7 +59,7 @@ export function drawGizmo(canvas: HTMLCanvasElement, slice: SliceConfig, heavyAn
   ctx.font = "10px system-ui, sans-serif";
   ctx.fillText("z", ...offset(P([0, 0, 1.3]), 3, 0));
 
-  // The binary: heavier hole closer to the centre.
+  // The binary: heavier hole closer to the center.
   const dot = (p: Vec3, r: number) => {
     ctx.beginPath();
     ctx.arc(...P(p), r, 0, 2 * Math.PI);
@@ -75,12 +75,12 @@ export function drawGizmo(canvas: HTMLCanvasElement, slice: SliceConfig, heavyAn
   const corner = (a: number, b: number): Vec3 => [
     1.1 * (a * u[0] + b * v[0]), 1.1 * (a * u[1] + b * v[1]), 1.1 * (a * u[2] + b * v[2]),
   ];
-  poly([corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)], "rgba(255,154,56,0.18)", "rgba(255,154,56,0.85)");
+  poly([corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)], "rgba(176,190,216,0.14)", "rgba(176,190,216,0.8)");
   const eye: Vec3 = [1.0 * n[0], 1.0 * n[1], 1.0 * n[2]];
-  line(eye, [0.35 * n[0], 0.35 * n[1], 0.35 * n[2]], "#ff9a38", 1.5);
+  line(eye, [0.35 * n[0], 0.35 * n[1], 0.35 * n[2]], "#b0bed8", 1.5);
   ctx.beginPath();
   ctx.arc(...P(eye), 3, 0, 2 * Math.PI);
-  ctx.fillStyle = "#ff9a38";
+  ctx.fillStyle = "#b0bed8";
   ctx.fill();
 }
 

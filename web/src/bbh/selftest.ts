@@ -58,7 +58,7 @@ export function runSelfTest(scene: SpacetimeScene, w: PreparedWaveform): SelfTes
     for (let py = 0; py < H; py++) {
       for (let px = 0; px < W; px++) {
         const k = 4 * (py * W + px);
-        // Pixel centres of the orthographic view (row 0 is the bottom row).
+        // Pixel centers of the orthographic view (row 0 is the bottom row).
         const sx = f.view.centerX + (((px + 0.5) / W) * 2 - 1) * f.view.halfWidth;
         const sy = f.view.centerY + (((py + 0.5) / H) * 2 - 1) * (f.view.halfWidth / aspect);
         const [x3, y3, z3] = sliceTo3D(f.slice, sx, sy);

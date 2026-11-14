@@ -1,6 +1,6 @@
 // Procedural sky on the celestial sphere at infinity: stars in three layers, a
 // Milky-Way-like band with dust lanes, faint nebulae and a few galaxies.
-// `sky(d, pixelAngle)` returns the colour seen in unit direction d (black hole
+// `sky(d, pixelAngle)` returns the color seen in unit direction d (black hole
 // rest frame, +z up); pixelAngle is the angular size of a pixel, so stars are
 // never drawn smaller than about one pixel.
 precision highp float;
@@ -39,7 +39,7 @@ float fbm(vec3 p) {
   return s;
 }
 
-// Star colour from a 0..1 "temperature": red, through yellow-white, to blue-white.
+// Star color from a 0..1 "temperature": red, through yellow-white, to blue-white.
 vec3 starColor(float t) {
   vec3 red = vec3(1.0, 0.62, 0.42);
   vec3 white = vec3(1.0, 0.95, 0.88);
@@ -103,7 +103,7 @@ vec3 sky(vec3 d, float pixelAngle) {
   float lanes = 1.0 - 0.75 * smoothstep(0.5, 0.68, dust) * exp(-lat * lat / (2.0 * 0.05 * 0.05));
   col += vec3(0.62, 0.56, 0.48) * (0.22 * band * (0.35 + 0.9 * mottle) * lanes);
 
-  // Faint coloured nebulae.
+  // Faint colored nebulae.
   float neb = fbm(d * 2.2 + 11.0);
   col += vec3(0.55, 0.18, 0.32) * 0.10 * smoothstep(0.55, 0.8, neb);
   col += vec3(0.15, 0.32, 0.55) * 0.07 * smoothstep(0.6, 0.85, fbm(d * 2.6 - 7.0));

@@ -13,7 +13,7 @@ export interface ProbePoint {
 const RING_PARTICLES = 24;
 const RING_MAX_STRETCH = 0.6; // h at saturation; the ring deforms by ±h/2 = ±30%
 const CHIRP_WINDOW = 3000; // M of retarded time shown before the end of the data
-const COLORS = { plus: "#eceff7", cross: "#c08cff", grid: "#2a3042", playhead: "#ff9a38" };
+const COLORS = { plus: "#eceff7", cross: "#c08cff", grid: "#2a3042", playhead: "rgba(230, 232, 238, 0.55)" };
 
 export class Probe {
   point: ProbePoint = { x: 200, y: 0, z: 0 };
@@ -88,7 +88,7 @@ export class Probe {
     ctx.beginPath();
     ctx.arc(cx, cy, R, 0, 2 * Math.PI);
     ctx.stroke();
-    // Axes: horizontal = φ̂ (around the source), vertical = −θ̂ (towards +z).
+    // Axes: horizontal = φ̂ (around the source), vertical = −θ̂ (toward +z).
     ctx.beginPath();
     ctx.moveTo(cx - R * 1.45, cy);
     ctx.lineTo(cx + R * 1.45, cy);

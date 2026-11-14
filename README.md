@@ -43,10 +43,10 @@ cd tools && uv sync             # once, installs lalsuite and sxs
 
 - The view is a slice through the source: the orbital plane from above, a side view, or any
   tilt in between ("⇄" animates between top and side). Drag to pan, scroll to zoom,
-  double-click to reset; h₊/h× chooses the polarisation.
+  double-click to reset; h₊/h× chooses the polarization.
 - "3D view" animates to an orbit camera showing the strain as a glowing volume (drag to orbit,
   scroll to zoom, double-click to reset); "Flat view" animates back.
-- Click a slice to move the probe (the warm sphere); its ring and chirp plot update.
+- Click a slice to move the probe (the ring marker); its ring and chirp plot update.
 - The sliders change the binary; the URL updates so the view can be shared.
 
 ## Binary black hole URL options (append to `/bbh/`)

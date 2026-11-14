@@ -1,6 +1,7 @@
 import init, { physics_version } from "../wasm/spacetime_wasm.js";
 import { setupParams, setupPlayback, setupPointer, type Playback } from "./controls";
 import { drawGizmo } from "./gizmo";
+import { setLegend } from "./look";
 import { Probe } from "./probe";
 import { SpacetimeScene } from "./scene3d";
 import { runSelfTest, runVolumeBenchmark } from "./selftest";
@@ -19,6 +20,7 @@ import {
 const DEFAULT_CAMERA: Camera = { centerX: 0, centerY: 0, halfWidth: 450 };
 const LOOP_START = -2500; // M
 const TILT_ANIMATION_MS = 1400;
+const GAIN = 1.5; // color units per r·h ÷ peak, before saturation
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 async function main(): Promise<void> {
@@ -33,6 +35,7 @@ async function main(): Promise<void> {
     const view = new SpacetimeScene(canvas);
     let w = prepare(model, paramsFromUrl());
     view.setWaveform(w);
+    setLegend();
 
     if (url.has("volbench")) {
       view.volume.pass.fixedScale = true;
@@ -57,9 +60,9 @@ async function main(): Promise<void> {
     // Optional ?t=, ?zoom=, ?tilt=<degrees>, ?3d, ?paused, for sharing a moment.
     const scene: SceneState = {
       time: url.has("t") ? Number(url.get("t")) : LOOP_START,
-      gain: 1.5,
+      gain: GAIN,
       maskRadius: 0,
-      discs: new Float32Array(12),
+      disks: new Float32Array(12),
     };
     const camera: Camera = {
       ...DEFAULT_CAMERA,
@@ -131,13 +134,13 @@ async function main(): Promise<void> {
       viewPanel.update(now);
 
       scene.maskRadius = nearZoneRadius(w, scene.time);
-      const discs = w.binary.state(scene.time);
-      scene.discs.set(discs);
+      const disks = w.binary.state(scene.time);
+      scene.disks.set(disks);
       const p = probe.point;
       view.render(scene, slice, camera, [p.x, p.y, p.z]);
       probe.draw(w, scene.time, scene.gain);
       if (view.mode === "flat") {
-        drawGizmo($("gizmo"), slice, Math.atan2(discs[1], discs[0]));
+        drawGizmo($("gizmo"), slice, Math.atan2(disks[1], disks[0]));
         updateScaleBar($("scale-bar"), $("scale-label"), camera.halfWidth, canvas.clientWidth);
       }
 
@@ -170,7 +173,7 @@ function endTime(w: PreparedWaveform, camera: Camera, canvas: HTMLCanvasElement)
 }
 
 /**
- * Title, polarisation toggle, top/side swap with an animated tilt, tilt slider,
+ * Title, polarization toggle, top/side swap with an animated tilt, tilt slider,
  * and the flat/3D switch.
  */
 function setupViewPanel(slice: SliceConfig, view: SpacetimeScene, flat: Camera) {

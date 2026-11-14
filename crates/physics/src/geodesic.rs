@@ -6,7 +6,7 @@
 //!
 //! A ray from a static observer at radius r₀ stays in the plane spanned by the
 //! outward radial direction n̂ and its initial direction. With u = 1/r and φ
-//! the angle swept in that plane, measured from n̂ towards the ray:
+//! the angle swept in that plane, measured from n̂ toward the ray:
 //!
 //! ```text
 //! (du/dφ)² = f(u) = 1/b² − u² + 2u³,   d²u/dφ² = 3u² − u

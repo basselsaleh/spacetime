@@ -1,5 +1,5 @@
 // Shared GLSL for the strain shaders (slice.frag, volume.frag): the
-// NRHybSur3dq8 mode table, the mode sum and the colour map. Prepended to each
+// NRHybSur3dq8 mode table, the mode sum and the color map. Prepended to each
 // shader's own source by scene3d.ts / volume.ts (three.js RawShaderMaterial;
 // three prepends "#version 300 es").
 //
@@ -87,20 +87,29 @@ vec2 strainRows(float tRet, float theta, float phi, int rows, out bool valid) {
   return sum;
 }
 
-// Diverging map: negative blue, 0 near-black, positive orange. Saturates
-
 // r·(h₊ − i h×) from every mode in the table.
 vec2 strain(float tRet, float theta, float phi, out bool valid) {
   return strainRows(tRet, theta, phi, u_rows, valid);
 }
 
-// smoothly (tanh), so the brightening toward merger stays visible at any gain.
+// Color map: an RGBA8 lookup table from s = −1 (left) to +1 (right), built
+// in look.ts, after a saturation curve x/√(1+x²). The curve saturates gently
+// (more slowly than tanh), so the brightening toward merger stays visible.
+uniform sampler2D u_lut;
+
+float saturateStrain(float x) {
+  return x * inversesqrt(1.0 + x * x);
+}
+
+// Palette color at s ∈ [−1, 1] (texel centers at the ends).
+vec3 paletteColor(float s) {
+  float u = (0.5 + 0.5 * s) * (255.0 / 256.0) + 0.5 / 256.0;
+  return texture(u_lut, vec2(u, 0.5)).rgb;
+}
+
 vec3 diverging(float v) {
-  float a = tanh(abs(v));
-  vec3 mid = vec3(0.06, 0.07, 0.10);
-  vec3 neg = vec3(0.30, 0.58, 1.00);
-  vec3 pos = vec3(1.00, 0.60, 0.22);
-  return mix(mid, v < 0.0 ? neg : pos, a);
+  float a = saturateStrain(abs(v));
+  return paletteColor(v < 0.0 ? -a : a);
 }
 
 // Distance, polar angle (from +z, the orbital angular momentum) and azimuth of p.

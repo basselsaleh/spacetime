@@ -23,8 +23,6 @@ export function setupPlayback(scene: SceneState, playback: Playback): { sync: ()
   const scrub = $<HTMLInputElement>("scrub");
   const timeLabel = $<HTMLSpanElement>("time");
   const speed = $<HTMLSelectElement>("speed");
-  const gain = $<HTMLInputElement>("gain");
-  const gainLabel = $<HTMLSpanElement>("gain-value");
   const loop = $<HTMLInputElement>("loop");
   loop.checked = playback.loop;
   loop.addEventListener("change", () => (playback.loop = loop.checked));
@@ -50,11 +48,6 @@ export function setupPlayback(scene: SceneState, playback: Playback): { sync: ()
   const setSpeed = () => (playback.speed = BASE_SPEED * Number(speed.value));
   speed.addEventListener("change", setSpeed);
   setSpeed();
-  gain.value = String(scene.gain);
-  gain.addEventListener("input", () => {
-    scene.gain = Number(gain.value);
-    sync();
-  });
 
   function sync() {
     scrub.min = String(playback.tMin);
@@ -62,7 +55,6 @@ export function setupPlayback(scene: SceneState, playback: Playback): { sync: ()
     playBtn.textContent = playback.playing ? "Pause" : "Play";
     scrub.value = String(scene.time);
     timeLabel.textContent = `t = ${scene.time.toFixed(0)} M`;
-    gainLabel.textContent = `×${scene.gain.toFixed(1)}`;
   }
   sync();
   return { sync };

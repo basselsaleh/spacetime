@@ -22,9 +22,9 @@ use crate::surrogate::{Params, Remnant, Waveform};
 pub const MERGE_WINDOW: (f64, f64) = (-20.0, 5.0);
 const ALIGN_TIME: f64 = -1000.0;
 
-/// One disc to draw: centre, radius (M) and opacity in [0, 1].
+/// One disk to draw: center, radius (M) and opacity in [0, 1].
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub struct Disc {
+pub struct Disk {
     pub x: f64,
     pub y: f64,
     pub radius: f64,
@@ -34,9 +34,9 @@ pub struct Disc {
 /// Heavier hole, lighter hole and remnant at one instant.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BinaryState {
-    pub heavy: Disc,
-    pub light: Disc,
-    pub remnant: Disc,
+    pub heavy: Disk,
+    pub light: Disk,
+    pub remnant: Disk,
 }
 
 #[derive(Debug, Clone)]
@@ -97,7 +97,7 @@ impl Binary {
             .map(|w| pn_separation(w / 2.0, eta))
             .collect();
 
-        // Kick: rotate from the co-orbital frame at t = −100 M (x towards the
+        // Kick: rotate from the co-orbital frame at t = −100 M (x toward the
         // heavier hole) into the inertial frame.
         let a = (phase_at(-100.0) - ref_phase) / 2.0;
         let [vx, vy] = remnant.kick_coorbital;
@@ -148,19 +148,19 @@ impl Binary {
         let (c, sn) = (phi.cos(), phi.sin());
         let drift = t.max(0.0);
         BinaryState {
-            heavy: Disc {
+            heavy: Disk {
                 x: self.m2 * a * c,
                 y: self.m2 * a * sn,
                 radius: self.r1,
                 opacity: 1.0 - s,
             },
-            light: Disc {
+            light: Disk {
                 x: -self.m1 * a * c,
                 y: -self.m1 * a * sn,
                 radius: self.r2,
                 opacity: 1.0 - s,
             },
-            remnant: Disc {
+            remnant: Disk {
                 x: self.kick[0] * drift,
                 y: self.kick[1] * drift,
                 radius: self.remnant_radius,

@@ -15,6 +15,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import sliceVertex from "./shaders/slice.vert?raw";
 import sliceMain from "./shaders/slice.frag?raw";
 import strainGlsl from "./shaders/strain.glsl?raw";
+import { buildLut, hexToRgb, LOOK, LUT_SIZE } from "./look";
 import { sliceAxes, sliceTo3D, type Camera, type SceneState, type SliceConfig, type Vec3 } from "./slice";
 import { Volume } from "./volume";
 import type { PreparedWaveform } from "./waveform";
@@ -29,6 +30,7 @@ const TRANSITION_MS = 1600;
 const BACKGROUND = 0x090a0e;
 const Z_UP = new THREE.Vector3(0, 0, 1);
 const VOLUME_EXTENT = 0.6; // the strain volume fills this fraction of the framed region
+const HALO_SCALE = 3.5; // horizon halo sprite radius, in horizon radii
 
 /** A camera pose: orientation, the point looked at, and the half-height framed there. */
 interface Pose {
@@ -50,10 +52,11 @@ const sphereVertex = /* glsl */ `
 `;
 
 /**
- * A core (black for horizons, `color` for markers) with a bright rim
- * (Fresnel-like); `ghost` draws only a faint rim.
+ * A horizon: a black core with a bright, fairly wide rim (Fresnel-like);
+ * `ghost` draws only a faint rim. `color` is raw sRGB (written to the output
+ * unconverted).
  */
-function sphereMaterial(color: THREE.Color, ghost: boolean, solidCore: boolean): THREE.ShaderMaterial {
+function sphereMaterial(color: THREE.Vector3, ghost: boolean): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     uniforms: { u_opacity: { value: 1 }, u_color: { value: color } },
     vertexShader: sphereVertex,
@@ -64,12 +67,9 @@ function sphereMaterial(color: THREE.Color, ghost: boolean, solidCore: boolean):
       varying vec3 vPosView;
       void main() {
         float facing = abs(dot(normalize(vNormalView), normalize(-vPosView)));
-        float rim = pow(1.0 - facing, 3.0);
         ${ghost
-          ? "gl_FragColor = vec4(u_color, 0.4 * rim * u_opacity);"
-          : solidCore
-            ? "gl_FragColor = vec4(u_color * (0.75 + 0.25 * facing), u_opacity);"
-            : "gl_FragColor = vec4(mix(vec3(0.0), u_color, 0.9 * rim), u_opacity);"}
+          ? "gl_FragColor = vec4(u_color, 0.4 * pow(1.0 - facing, 3.0) * u_opacity);"
+          : "gl_FragColor = vec4(u_color * pow(1.0 - facing, 1.6), u_opacity);"}
       }
     `,
     transparent: true,
@@ -84,9 +84,10 @@ class Ball {
   private readonly solid: THREE.ShaderMaterial;
   private readonly ghost: THREE.ShaderMaterial;
 
-  constructor(geometry: THREE.SphereGeometry, color: THREE.Color, solidCore = false) {
-    this.solid = sphereMaterial(color, false, solidCore);
-    this.ghost = sphereMaterial(color, true, solidCore);
+  constructor(geometry: THREE.SphereGeometry, hex: string) {
+    const color = new THREE.Vector3(...hexToRgb(hex)); // shared by both passes
+    this.solid = sphereMaterial(color, false);
+    this.ghost = sphereMaterial(color, true);
     const solid = new THREE.Mesh(geometry, this.solid);
     const ghost = new THREE.Mesh(geometry, this.ghost);
     solid.renderOrder = 2;
@@ -101,6 +102,77 @@ class Ball {
     this.solid.uniforms.u_opacity.value = opacity;
     this.ghost.uniforms.u_opacity.value = opacity;
   }
+}
+
+/** A camera-facing sprite drawn over everything, sized in screen pixels each frame. */
+function overlaySprite(blending: THREE.Blending = THREE.NormalBlending): THREE.Sprite {
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ depthTest: false, depthWrite: false, transparent: true, blending }),
+  );
+  sprite.renderOrder = 10;
+  return sprite;
+}
+
+function canvasTexture(canvas: HTMLCanvasElement): THREE.CanvasTexture {
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.minFilter = THREE.LinearFilter;
+  tex.generateMipmaps = false;
+  return tex;
+}
+
+/** Soft glow around a horizon: zero inside the horizon, peaking at its edge. */
+function haloTexture(): THREE.CanvasTexture {
+  const n = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = n;
+  const ctx = canvas.getContext("2d")!;
+  const g = ctx.createRadialGradient(n / 2, n / 2, 0, n / 2, n / 2, n / 2);
+  const edge = 1 / HALO_SCALE;
+  g.addColorStop(0, "rgba(255,255,255,0)");
+  g.addColorStop(edge * 0.92, "rgba(255,255,255,0)");
+  for (let i = 0; i <= 12; i++) {
+    const x = edge + ((1 - edge) * i) / 12;
+    const a = Math.exp(-5 * ((x - edge) / (1 - edge))) * (1 - i / 12);
+    g.addColorStop(x, `rgba(255,255,255,${a.toFixed(3)})`);
+  }
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, n, n);
+  return canvasTexture(canvas);
+}
+
+/**
+ * The probe marker, drawn at a fixed screen size: a thin ring with a center
+ * dot, with a dark outline so it reads on any color. Returns the texture and
+ * its size in CSS px.
+ */
+function probeTexture(hex: string, radiusPx: number): { tex: THREE.CanvasTexture; sizePx: number } {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const sizePx = 2 * (radiusPx + 3);
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = Math.ceil(sizePx * dpr);
+  const ctx = canvas.getContext("2d")!;
+  ctx.scale(dpr, dpr);
+  const c = sizePx / 2;
+  const outline = "rgba(5,6,10,0.7)";
+  const circle = (r: number) => {
+    ctx.beginPath();
+    ctx.arc(c, c, r, 0, 2 * Math.PI);
+  };
+  circle(radiusPx);
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 3.5;
+  ctx.stroke();
+  ctx.strokeStyle = hex;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  circle(1.6);
+  ctx.fillStyle = outline;
+  ctx.fill();
+  circle(1);
+  ctx.fillStyle = hex;
+  ctx.fill();
+  return { tex: canvasTexture(canvas), sizePx };
 }
 
 function sliceUniforms(): Record<string, THREE.IUniform> {
@@ -126,6 +198,8 @@ function sliceUniforms(): Record<string, THREE.IUniform> {
     u_resolution: { value: new THREE.Vector2(1, 1) },
     u_center: { value: new THREE.Vector2() },
     u_halfWidth: { value: 1 },
+    u_lut: { value: null },
+    u_nearColor: { value: new THREE.Vector3(...hexToRgb(LOOK.nearZone)) },
   };
 }
 
@@ -158,7 +232,9 @@ export class SpacetimeScene {
   /** Ray-marched strain volume (3D view). */
   readonly volume: Volume;
   private readonly holes: Ball[];
-  private readonly probeBall: Ball;
+  private readonly halos: THREE.Sprite[];
+  private readonly probeMarker: THREE.Sprite;
+  private readonly probeMarkerPx: number; // marker texture size, CSS px
   private readonly guides = new THREE.Group();
   private textures: THREE.DataTexture[] = [];
   private peak = 1;
@@ -182,7 +258,10 @@ export class SpacetimeScene {
     const mu = this.mainMaterial.uniforms;
     this.volume = new Volume(
       Object.fromEntries(
-        ["u_table", "u_width", "u_samples", "u_rows", "u_t0", "u_dt", "u_lm", "u_harmonics", "u_thetaSamples"].map(
+        [
+          "u_table", "u_width", "u_samples", "u_rows", "u_t0", "u_dt", "u_lm", "u_harmonics", "u_thetaSamples",
+          "u_lut",
+        ].map(
           (k) => [k, mu[k]],
         ),
       ),
@@ -191,14 +270,34 @@ export class SpacetimeScene {
     this.mainPlane.matrixAutoUpdate = false;
     this.scene.add(this.mainPlane);
 
+    // The color map's lookup table (look.ts), shared by the slice and the volume.
+    const lut = new THREE.DataTexture(buildLut(), LUT_SIZE, 1);
+    lut.minFilter = THREE.LinearFilter;
+    lut.magFilter = THREE.LinearFilter;
+    lut.generateMipmaps = false;
+    lut.needsUpdate = true;
+    mu.u_lut.value = lut;
+
     const sphere = new THREE.SphereGeometry(1, 48, 24);
-    const white = new THREE.Color(0.92, 0.94, 1.0);
-    this.holes = [new Ball(sphere, white), new Ball(sphere, white), new Ball(sphere, white)];
-    this.probeBall = new Ball(sphere, new THREE.Color(1.0, 0.8, 0.45), true);
-    for (const b of [...this.holes, this.probeBall]) this.scene.add(b.group);
+    this.holes = [0, 1, 2].map(() => new Ball(sphere, LOOK.holeRim));
+    for (const b of this.holes) this.scene.add(b.group);
+    const halo = haloTexture();
+    this.halos = this.holes.map(() => {
+      const s = overlaySprite(THREE.AdditiveBlending);
+      const mat = s.material as THREE.SpriteMaterial;
+      mat.map = halo;
+      mat.color.set(LOOK.holeRim);
+      this.scene.add(s);
+      return s;
+    });
+    this.probeMarker = overlaySprite();
+    const marker = probeTexture(LOOK.probeColor, LOOK.probePx);
+    (this.probeMarker.material as THREE.SpriteMaterial).map = marker.tex;
+    this.probeMarkerPx = marker.sizePx;
+    this.scene.add(this.probeMarker);
 
     // Guides for the 3D view: the orbital axis and the outline of the orbital plane.
-    const line = new THREE.LineBasicMaterial({ color: 0x5b6478, transparent: true, opacity: 0.8 });
+    const line = new THREE.LineBasicMaterial({ color: 0x5b6478, transparent: true, opacity: LOOK.guideOpacity });
     const axis = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 0, 1)]);
     const circle = new THREE.BufferGeometry().setFromPoints(
       Array.from({ length: 129 }, (_, i) => {
@@ -297,19 +396,19 @@ export class SpacetimeScene {
     };
   }
 
-  /** Default 3D pose: tilted away from the slice normal towards +z, +z up. */
+  /** Default 3D pose: tilted away from the slice normal toward +z, +z up. */
   private orbitPose(slice: SliceConfig): Pose {
     const { n, v } = sliceAxes(slice);
     const nn = new THREE.Vector3(...n);
-    // Tilt towards the part of +z perpendicular to the normal; for the top view, towards −v.
-    const towards = Z_UP.clone().addScaledVector(nn, -Z_UP.dot(nn));
-    if (towards.lengthSq() < 1e-6) towards.set(...v).negate();
-    towards.normalize();
-    const dir = nn.multiplyScalar(Math.cos(ORBIT_ELEVATION)).addScaledVector(towards, Math.sin(ORBIT_ELEVATION));
+    // Tilt toward the part of +z perpendicular to the normal; for the top view, toward −v.
+    const toward = Z_UP.clone().addScaledVector(nn, -Z_UP.dot(nn));
+    if (toward.lengthSq() < 1e-6) toward.set(...v).negate();
+    toward.normalize();
+    const dir = nn.multiplyScalar(Math.cos(ORBIT_ELEVATION)).addScaledVector(toward, Math.sin(ORBIT_ELEVATION));
     if (dir.z < 0) dir.z = -dir.z; // stay above the orbital plane
     return {
       quaternion: lookQuaternion(dir.normalize(), Z_UP),
-      // Centred on the source, framing the strain volume.
+      // Centered on the source, framing the strain volume.
       target: new THREE.Vector3(0, 0, 0),
       halfHeight: VOLUME_EXTENT * this.extent * 1.25,
       fov: ORBIT_FOV,
@@ -373,7 +472,7 @@ export class SpacetimeScene {
       this.camera.updateProjectionMatrix();
     }
 
-    // The slice (flat view), fading out towards 3D.
+    // The slice (flat view), fading out toward 3D.
     placePlane(this.mainPlane, slice, this.extent);
     this.mainPlane.visible = blend < 0.999;
     const mat = this.mainMaterial;
@@ -404,13 +503,21 @@ export class SpacetimeScene {
     // Black holes and probe, at least a few pixels across.
     const pxWorld = (p: THREE.Vector3) =>
       (2 * this.camera.position.distanceTo(p) * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2)) / Math.max(h, 1);
-    const d = scene.discs;
+    const d = scene.disks;
     this.holes.forEach((ball, k) => {
       const p = new THREE.Vector3(d[4 * k], d[4 * k + 1], 0);
-      ball.set([p.x, p.y, 0], Math.max(d[4 * k + 2], 2.5 * pxWorld(p)), d[4 * k + 3]);
+      const radius = Math.max(d[4 * k + 2], LOOK.holeMinPx * pxWorld(p));
+      const opacity = d[4 * k + 3];
+      ball.set([p.x, p.y, 0], radius, opacity);
+      const sprite = this.halos[k];
+      sprite.visible = opacity > 0.001;
+      sprite.position.copy(p);
+      sprite.scale.setScalar(2 * HALO_SCALE * radius);
+      (sprite.material as THREE.SpriteMaterial).opacity = LOOK.haloStrength * opacity;
     });
     const pp = new THREE.Vector3(...probe);
-    this.probeBall.set(probe, 5 * pxWorld(pp), 1);
+    this.probeMarker.position.copy(pp);
+    this.probeMarker.scale.setScalar(this.probeMarkerPx * pxWorld(pp));
 
     this.renderer.render(this.scene, this.camera);
     if (blend > 0.001) {

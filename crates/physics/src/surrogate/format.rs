@@ -11,7 +11,7 @@
 //! ```
 //!
 //! Written by `tools/export_surrogate.py`. The exporter folds the Gaussian-
-//! process normalisations into `scale`/`offset` so evaluation is one kernel sum.
+//! process normalizations into `scale`/`offset` so evaluation is one kernel sum.
 
 use serde::Deserialize;
 

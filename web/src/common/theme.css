@@ -1,4 +1,4 @@
-/* Shared look for every app in the repo: colours, base type, panels, cards, buttons, toggles. */
+/* Shared look for every app in the repo: colors, base type, panels, cards, buttons, toggles. */
 :root {
   --bg: #090a0e;
   --fg: #e6e8ee;
@@ -31,3 +31,6 @@ button, select {
 .toggle button[aria-pressed="true"] { background: #2e3650; border-color: #48537a; }
 .check { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
 .check[hidden] { display: none; }
+/* App title in the top-left corner; "Spacetime" links back to the landing page. */
+#title { top: 16px; left: 16px; padding: 8px 12px; font-weight: 600; }
+#title a { color: inherit; text-decoration: none; }
