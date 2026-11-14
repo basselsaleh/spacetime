@@ -1,6 +1,6 @@
 # Black hole lensing app: plan
 
-Nov 13, 2026 (updated Nov 14) · @Bassel · **steps 0 and 1 done**, merged to `main` (PR #3). Step 2 (Kerr) in progress: **2a, 2b and 2c done** (branches `lensing-2a-kerr-reference`, `lensing-2b-kerr-shader`, `lensing-2c-kerr-app`), 2d next.
+Nov 13, 2026 (updated Nov 14) · @Bassel · **steps 0 and 1 done**, merged to `main` (PR #3). **Step 2 (Kerr) done** (2a–2d, stacked branches `lensing-2a-kerr-reference` → `lensing-2d-wrapup`), not yet pushed or merged. Step 3 (accretion disk) is next.
 
 A second app in this repository, alongside the binary black hole (BBH) wave visualizer ([bbh.md](bbh.md)).
 
@@ -103,7 +103,7 @@ A geometrically thin, optically thick disk in the equatorial plane (z = 0, perpe
   - the image of the far side, lifted over the shadow (the "hat" in Luminet's picture and in *Interstellar*)
   - thin higher-order images hugging the shadow
   - **Kerr integrator:** detect a sign change of cos θ (or z) between steps, then locate the crossing by Hermite interpolation, as the Schwarzschild shader already does for the escape point.
-  - **Schwarzschild planar path** (if step 2 keeps it for spin 0): the ray's orbit plane meets the equatorial plane along a line, so crossings happen at known values of φ, every π apart. The crossing radius comes from interpolating u at those φ values.
+  - **Schwarzschild planar path** (step 2 kept it for spin 0): the ray's orbit plane meets the equatorial plane along a line, so crossings happen at known values of φ, every π apart. The crossing radius comes from interpolating u at those φ values.
 - **Redshift.** The photon's conserved energy E = −p_t and axial angular momentum L = p_φ give the frequency ratio g = ν_obs / ν_em directly, with no extra integration:
   - Emitter on a circular orbit with angular velocity Ω: ν_em ∝ uᵗ (E − Ω L). In Schwarzschild Ω = √(M/r³) and uᵗ = 1/√(1 − 3M/r). In Kerr Ω = √M / (r^{3/2} + a√M), and uᵗ has a closed form (Bardeen–Press–Teukolsky; to verify).
   - Camera: ν_obs ∝ E / √(1 − 2M/r₀) for the static observer; for the ZAMO, (E − ω L)/α, where ω is the frame-dragging rate and α the lapse.
@@ -322,7 +322,17 @@ The physics is under "Step 2 physics" above. Split into sub-steps, each on its o
 - **One integrator or two:** if the Kerr shader at a = 0 matches step 1's accuracy and speed closely enough, retire the planar Schwarzschild path and keep one integrator. Otherwise keep the planar path as the a = 0 fast path. Record the measurements.
 - Update the README (spin slider, `?a=`) and this plan with results, as was done for step 1.
 
-**Done when:** all 2a tests pass, the GPU self-test passes at every spin within the target, `?lensbench` is within budget, and the visual checks hold.
+**Done (Nov 14, 2026).** Branch `lensing-2d-wrapup`.
+
+- **One integrator or two: two.** The planar Schwarzschild path stays as the spin-0 fast path. It is about 1.45× faster than the Kerr path at a = 0, and it's a base for possible future Schwarzschild-only features. The Kerr path is slightly more accurate at a = 0 (2b's table), and the self-test and `?lensbench` keep measuring both. Decided with @Bassel, Nov 14.
+- **README:** a "Spin it" bullet (slider up to 0.998, the shifted and flattened shadow, frame dragging, `?a=` in the URL). The "doesn't spin yet" line is gone.
+- The shader's header comment records why the planar path is kept.
+
+**Done when:** all 2a tests pass, the GPU self-test passes at every spin within the target, `?lensbench` is within budget, and the visual checks hold. **All met:**
+- 12 Rust tests pass.
+- The self-test passes at a = 0, 0.5 and 0.998, worst 3.27e-5 rad (Kerr views ≤ 2.5e-5).
+- The Kerr path costs 1.45–1.7× the planar one, within the 2× budget.
+- The D-shape, the round shadow from the axis and the readouts all check out.
 
 ### Step 3: thin accretion disk
 
