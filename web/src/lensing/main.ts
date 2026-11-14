@@ -9,7 +9,7 @@ import { runLensBenchmark, runLensSelfTest } from "./selftest";
 
 const R_MIN = 3.5; // M; the camera must stay outside the photon sphere (r = 3)
 const R_MAX = 300;
-const R_DEFAULT = 20;
+const R_DEFAULT = 40;
 const DEFAULT_DIR = new THREE.Vector3(0, -20, 3).normalize();
 const B_CRIT = 3 * Math.sqrt(3);
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;

@@ -4,7 +4,8 @@
 #view { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
 #view:active { cursor: grabbing; }
 #panel { top: 16px; right: 16px; width: 280px; padding: 10px 12px; display: grid; gap: 8px; }
-.row { display: grid; grid-template-columns: 92px 1fr 48px; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.row { display: grid; grid-template-columns: 92px minmax(0, 1fr) 52px; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.row input { width: 100%; min-width: 0; margin: 0; }
 .row span { text-align: right; font-variant-numeric: tabular-nums; color: var(--fg); }
 #shadow-info, #status { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 #status.error { color: #ff8a80; }
