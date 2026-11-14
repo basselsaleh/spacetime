@@ -1,6 +1,8 @@
 import init, { physics_version } from "../wasm/spacetime_wasm.js";
 import { setupParams, setupPlayback, setupPointer, type Playback } from "./controls";
+import { loadLook, setupDevPanel } from "./devpanel";
 import { drawGizmo } from "./gizmo";
+import { applyLookToPage, DEFAULT_LOOK, type Look } from "./look";
 import { Probe } from "./probe";
 import { SpacetimeScene } from "./scene3d";
 import { runSelfTest, runVolumeBenchmark } from "./selftest";
@@ -33,6 +35,14 @@ async function main(): Promise<void> {
     const view = new SpacetimeScene(canvas);
     let w = prepare(model, paramsFromUrl());
     view.setWaveform(w);
+
+    // The look; ?dev opens a panel for tuning it (remembered in localStorage).
+    const applyLook = (look: Look) => {
+      view.setLook(look);
+      applyLookToPage(look);
+    };
+    if (url.has("dev")) setupDevPanel($("stage"), loadLook(), applyLook);
+    else applyLook(DEFAULT_LOOK);
 
     if (url.has("volbench")) {
       view.volume.pass.fixedScale = true;

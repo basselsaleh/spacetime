@@ -87,20 +87,30 @@ vec2 strainRows(float tRet, float theta, float phi, int rows, out bool valid) {
   return sum;
 }
 
-// Diverging map: negative blue, 0 near-black, positive orange. Saturates
-
 // r·(h₊ − i h×) from every mode in the table.
 vec2 strain(float tRet, float theta, float phi, out bool valid) {
   return strainRows(tRet, theta, phi, u_rows, valid);
 }
 
-// smoothly (tanh), so the brightening toward merger stays visible at any gain.
+// Colour map: an RGBA8 lookup table from s = −1 (left) to +1 (right), built
+// from the chosen palette in look.ts, and a saturation curve applied first, so
+// the brightening toward merger stays visible at any gain.
+uniform sampler2D u_lut;
+uniform int u_curve;          // 0: tanh, 1: soft (x/√(1+x²), saturates more slowly)
+
+float saturateStrain(float x) {
+  return u_curve == 0 ? tanh(x) : x * inversesqrt(1.0 + x * x);
+}
+
+// Palette colour at s ∈ [−1, 1] (texel centres at the ends).
+vec3 paletteColor(float s) {
+  float u = (0.5 + 0.5 * s) * (255.0 / 256.0) + 0.5 / 256.0;
+  return texture(u_lut, vec2(u, 0.5)).rgb;
+}
+
 vec3 diverging(float v) {
-  float a = tanh(abs(v));
-  vec3 mid = vec3(0.06, 0.07, 0.10);
-  vec3 neg = vec3(0.30, 0.58, 1.00);
-  vec3 pos = vec3(1.00, 0.60, 0.22);
-  return mix(mid, v < 0.0 ? neg : pos, a);
+  float a = saturateStrain(abs(v));
+  return paletteColor(v < 0.0 ? -a : a);
 }
 
 // Distance, polar angle (from +z, the orbital angular momentum) and azimuth of p.

@@ -28,6 +28,7 @@ uniform bool u_screenMapped;
 uniform vec2 u_resolution;    // drawing-buffer pixels
 uniform vec2 u_center;        // slice coordinates at the view centre, M
 uniform float u_halfWidth;    // half the view width, M
+uniform vec3 u_nearColor;     // fill inside the near zone (sRGB)
 
 
 void main() {
@@ -55,12 +56,12 @@ void main() {
     return;
   }
 
-  vec3 background = vec3(0.035, 0.04, 0.055);
   float value = u_component == 0 ? hplus : hcross;
-  vec3 color = valid ? diverging(value * u_scale) : background;
-  // Near zone: fade to background where the far-zone formula does not apply.
+  // Outside the data (before the waveform starts or after the ringdown): zero strain.
+  vec3 color = valid ? diverging(value * u_scale) : paletteColor(0.0);
+  // Near zone: fade to its own fill where the far-zone formula does not apply.
   float mask = smoothstep(0.75 * u_maskRadius, u_maskRadius, r);
-  color = mix(background, color, mask);
+  color = mix(u_nearColor, color, mask);
   // Faint ring marking the near-zone boundary (width from screen derivatives).
   float aa = max(fwidth(r), 1e-4);
   float ring = 1.0 - smoothstep(0.0, 1.5 * aa, abs(r - u_maskRadius));

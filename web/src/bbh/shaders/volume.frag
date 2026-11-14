@@ -5,7 +5,7 @@
 // Each sample along a pixel's ray is a 3D point at distance r; it carries
 // r·h₊ (or r·h×) at retarded time t − r, normalised like the slices. Density
 // rises steeply with |r·h| (crests and troughs), so the wave shows as glowing
-// sheets: orange where h > 0, blue where h < 0. With h₊ these are the two-armed
+// sheets in the palette's positive and negative colours. With h₊ these are the two-armed
 // spiral sheets of the binary, moving outward with the wave. Samples inside the
 // near zone, where the far-zone formula does not apply, are skipped.
 //
@@ -70,8 +70,9 @@ void main() {
   }
   float ds = (a1 - a0) / float(u_steps);
   float jit = fract(noise(gl_FragCoord.xy) + u_jitter);
-  vec3 pos = vec3(1.0, 0.60, 0.22);
-  vec3 neg = vec3(0.30, 0.58, 1.0);
+  // Emission colours: the palette's ends (the same colour map as the slices).
+  vec3 pos = paletteColor(1.0);
+  vec3 neg = paletteColor(-1.0);
 
   vec4 acc = vec4(0.0);
   for (int i = 0; i < MAX_STEPS; i++) {
