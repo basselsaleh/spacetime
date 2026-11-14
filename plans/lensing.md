@@ -1,6 +1,6 @@
 # Black hole lensing app: plan
 
-Nov 13, 2026 · @Bassel · **not started** (step 0 is next)
+Nov 13, 2026 · @Bassel · **step 0 done** (step 1 is next)
 
 A second app in this repository, alongside the binary black hole (BBH) wave visualizer ([bbh.md](bbh.md)).
 
@@ -109,12 +109,16 @@ web/
 
 ## Stages
 
-### Step 0: repository reorganisation
+### Step 0: repository reorganisation (done)
 
-- Multi-page Vite config, landing page, BBH moved under `web/bbh/` and `web/src/bbh/`.
-- Shared code pulled into `web/src/common/`.
+- Multi-page Vite config (`web/vite.config.ts`), landing page (`web/index.html`), BBH moved under `web/bbh/` and `web/src/bbh/`, and a placeholder `web/lensing/index.html`.
+- Shared code in `web/src/common/`: `rays.ts` (`rayMatrix`), `reducedPass.ts` (the adaptive reduced-resolution full-screen pass and composite, extracted from the BBH volume) and `theme.css`.
+- Deferred to step 1, when there's a second user: an orbit-camera helper and a generic self-test harness.
+- The BBH data file stays in `web/public/` (the Rust tests read it there). The page fetches it relative to itself (`../nrhybsur3dq8.stsur`), so the build works at any URL prefix.
 - README and `plans/bbh.md` paths updated.
-- **Done when:** the BBH app behaves exactly as before. The BBH self-test passes with unchanged numbers (worst 4.4e-4), and the build and CI are green.
+- **Result:** the BBH app behaves exactly as before. Its self-test passes with unchanged numbers (worst 4.4e-4) in both the production build and the dev server.
+
+The `web/src/common/` entry in the repository layout above lists only what exists so far.
 
 ### Step 1: Schwarzschild lensing of a procedural sky
 

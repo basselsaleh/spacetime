@@ -1,7 +1,7 @@
 // Evaluates the surrogate for one binary and prepares everything the views
 // need: the packed mode table, harmonic table, orbits and timing info.
 
-import { WaveformModel, type BinaryTrack, type ModeTableData } from "./wasm/spacetime_wasm.js";
+import { WaveformModel, type BinaryTrack, type ModeTableData } from "../wasm/spacetime_wasm.js";
 
 export interface BinaryParams {
   q: number;
@@ -38,7 +38,9 @@ export const PARAM_RANGE = { q: [1, 8], chi: [-0.8, 0.8] } as const;
 export const DEFAULT_PARAMS: BinaryParams = { q: 3, chi1: 0.6, chi2: 0.2 };
 
 export async function loadModel(): Promise<WaveformModel> {
-  const response = await fetch(`${import.meta.env.BASE_URL}nrhybsur3dq8.stsur`);
+  // web/public/ is served at the site root; this page lives one level down (/bbh/).
+  // Relative to the page, so the build works at any URL prefix (base: "./").
+  const response = await fetch(new URL("../nrhybsur3dq8.stsur", document.baseURI));
   if (!response.ok) throw new Error(`Waveform data: HTTP ${response.status}`);
   return new WaveformModel(new Uint8Array(await response.arrayBuffer()));
 }
