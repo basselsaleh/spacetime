@@ -1,17 +1,17 @@
 # Binary black hole spacetime visualizer: project plan
 
-Nov 12, 2026 · @Bassel · **Phase 5 (precession) planned** (a record of the app as built, plus the next phase)
+Nov 12, 2026 · @Bassel · **Phase 5 (precession) in progress** (a record of the app as built, plus the next phase)
 
 Other applications in this repository get their own planning documents; this one covers only the binary black hole app. Plans live on the `dev` branch (only these files, never merged into `main`), checked out as a `plans/` worktree inside the main clone: `git worktree add plans dev`.
 
 ## Status
 
-**Phases 1 and 3 are done and public; Phase 5 (precessing spins) is planned and not started.** The original goal, visualizing gravitational waves away from the binary faithfully and beautifully, is met. Phase 5 replaces the waveform model so the spins can point in any direction and the orbit visibly precesses.
+**Phases 1 and 3 are done and public; Phase 5 (precessing spins) is in progress: step 7a done.** The original goal, visualizing gravitational waves away from the binary faithfully and beautifully, is met. Phase 5 replaces the waveform model so the spins can point in any direction and the orbit visibly precesses.
 
 - Phase 1 (2D wave-zone app): merged, PR #1.
 - Phase 3 (3D view with the ray-marched strain volume): merged, PR #2. The user reviewed the 3D view interactively and approved it.
 - Phase 2 was cut. Phase 4 (the near zone) is **parked**: it may be attempted in the future (see "If this app is revisited").
-- Phase 5 (precession, NRSur7dq4): planned Nov 14, 2026; see the roadmap.
+- Phase 5 (precession, NRSur7dq4): planned Nov 14, 2026. Step 7a (offline prototype) done Nov 14 on `step-7a-precession-prototype` (commit `6e2276f`, local, not pushed); next is step 7b.
 
 **Not verified by a person**
 
@@ -39,6 +39,9 @@ Other applications in this repository get their own planning documents; this one
 | Nov 14 | Look retuned (branch `bbh-aesthetics`): Crameri **Berlin** color map, gentler x/√(1+x²) saturation, slate near-zone fill, rim + halo on horizons, small neutral ring for the probe, fainter 3D guides; gain fixed at 1.5 (slider removed) | Black horizons were lost against a black near zone, black zero-strain bands and a black page; the bright warm probe ball drew the eye and shared orange with h > 0. The user picked the settings with a temporary `?dev` panel comparing ten color maps (commit `117a614` has it) |
 | Nov 13 | **BBH app finished for now; Phase 4 (near zone) parked** | The goal, waves away from the binary, is met; the near zone is the highest-risk work and may be revisited later. Future applications in this repo get their own plans |
 | Nov 14 | **Phase 5: precessing spins via NRSur7dq4 (v1), replacing NRHybSur3dq8 completely** | NRHybSur3dq8 is aligned-spin only and can't be extended. Precession is more visually interesting for this app than a higher mass ratio, so the range drops from q ≤ 8 to q ≤ 4 (q ≤ 6 extrapolated) and the inspiral from ~10,000 M to 4300 M. One model, not two. v1 rather than NRSur7dq4v2 (arXiv:2609.07873: better ringdown, ℓ ≤ 5, 78 MB): smaller, validated longer; v2 is a possible follow-up |
+| Nov 14 | Phase 5 display frame: **+z along J at the start of the data** (t ≈ −4300 M), L̂ there in the x–z plane | L̂ then sweeps a cone about a fixed axis. J uses the 2PN orbital angular momentum without spin terms; it only picks the axes. Check: the remnant spin comes out within ~2° of this axis |
+| Nov 14 | Phase 5 spin reference: **the sliders set the spins at the start of the data** (t ≈ −4300 M), in the co-orbital frame there | gwsurrogate's default (fM_ref = 0): the ODE integrates forward only, avoiding the backward RK4/AB4 start. The loop starts at −2500 M, so the spins shown at the loop start have already precessed a little. Revisit if that confuses |
+| Nov 14 | STSUR002 stores bases and polynomial coefficients as **f32**; times and the remnant as f64 | 4.24 MB instead of 6.94 MB; costs 1.3e-6 of peak in the modes and 8e-7 in the frame dynamics |
 | Nov 13 | **Cut Phase 2 entirely**: no in-app NR validation overlay, no audio, no slice azimuth control. Phase numbers are kept as they were (1, 3, 4) | User doesn't want these features; validation stays as offline golden tests |
 
 ## Vision and goals
@@ -243,6 +246,7 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 **Physics and data**
 
 - **Polarization sign:** the LAL convention (see Conventions). Textbook (Blanchet/Kidder) formulas have the opposite sign of h.
+- **gwsurrogate 1.2.0's C spline is wrong in the last knot interval.** Its interval search (`hunt` in `_spline_interp.cpp`) caps the upper bound at interval n − 2, so points between the last two knots are evaluated with the previous interval's cubic, extrapolated. For NRSur7dq4 resampled to a uniform grid, that affects t ∈ (99.8, 100] M, the faint ringdown tail (errors up to 1e-5 of peak). Our natural spline is correct. Golden data uses the model's own time grid to avoid it. Not yet reported upstream.
 - **Spline joins:** the surrogate's time grid jumps from sparse (~65 M) to dense (0.1 M) at about −1000 M. The exporter keeps the original dense samples for 10 M past that join before coarsening to 1 M. Without that, the error near the join was 15× larger.
 - **References:** only cite references you have verified. Several in this file are from memory and marked as such.
 
@@ -311,12 +315,12 @@ Fits are forward-stepwise polynomial basis functions (`bfOrders`, `coefs`; C ker
 
 *Steps* (each on its own branch):
 
-- **Step 7a: offline prototype** (Python, `tools/`).
-  - Export a trimmed NRSur7dq4 file in our own format.
-  - Check whether the NRSur7dq4Remnant fit file can be trimmed (see the open questions).
-  - Choose the inertial frame (proposed: +z along the initial total angular momentum J, so L̂ sweeps a cone about a fixed axis).
-  - Render a few precessing slices to check how the wobble reads.
-  - Generate golden data.
+- **Step 7a: offline prototype. Done** (Nov 14, branch `step-7a-precession-prototype`).
+  - `tools/export_nrsur7dq4.py` writes STSUR002 (4.24 MB, 3.46 MB gzipped): a JSON header, then a u32 section (each fit term's 7 basis-function orders packed base 4), an f32 section (bases, coefficients) and an f64 section (times, remnant). The remnant GPR fits keep only training points and weights: each fit's 18.7 MB Cholesky factor `L_` is used only for error estimates. The remnant goes from 131.6 MB to 0.7 MB.
+  - `tools/nrsur7dq4_ref.py`: plain-NumPy reader and evaluator of that file, **the spec for step 7b**. It covers the dynamics (3 RK4 steps over the half-nodes, then AB4, renormalizing the quaternion and spin magnitudes each step), the co-orbital modes, the Wigner-D rotation (gwsurrogate's formula with its two degenerate cases) and the remnant.
+  - `tools/compare_nrsur7dq4.py`: against gwsurrogate and surfinBH over 7 binaries, 3 with a non-trivial initial frame. Modes are within 1.1e-6 of the peak |h₂₂|, the dynamics within 8e-7, and the remnant within 1e-12. With an f64 export the modes agree to 6e-14, so the f32 storage accounts for all of the difference.
+  - `tools/proto_precession.py`: renders the J-frame slices, an L̂/spin plot and animations into `tools/out/`. Precession reads clearly: the top-view spiral turns lopsided and its bright side swings around, and the side view's up/down asymmetry flips. For q = 4, χ_A = 0.8 in-plane, L̂ stays 35–41° from J and goes 0.87 of the way around in the loop.
+  - `tests/golden/nrsur7dq4.json` (0.81 MB), from `tools/gen_golden_nrsur7dq4.py`. It holds the raw dynamics on the 230 full nodes, 8 modes on every 10th sample of t_coorb, and the remnant at the co-orbital spins of the node nearest −100 M (how the app evaluates it; that's how surfinBH evolves spins itself).
 - **Step 7b: Rust evaluator.**
   - Dynamics ODE, co-orbital surrogate and Wigner-D rotation, plus the NRSur7dq4Remnant fits.
   - Golden tests against gwsurrogate and surfinBH, at the current tolerances.
@@ -359,9 +363,9 @@ Phase 5 (precessing spins) is next; see the roadmap. Beyond it, a future return 
 - [x] Remnant: NRSur3dq8Remnant.
 - [x] Parameter range: aligned spins only, q ≤ 8, |χ| ≤ 0.8 (the surrogate's trained range; the evaluator refuses values outside it). **Superseded by Phase 5:** precessing spins, q ≤ 4, |χ| ≤ 0.8.
 - [x] Precession model (Phase 5): NRSur7dq4 v1, replacing NRHybSur3dq8 (see the decision log).
-- [ ] Remnant data (Phase 5): NRSur7dq4Remnant's `fit_7dq4.h5` is 131.6 MB (Zenodo record 3455886, CC BY 4.0). Unverified guess: most of it is GPR error-estimate data the app doesn't need, so it could be trimmed like `fit_3dq8`. If not, use published closed-form fits for the remnant, or take the final spin direction from the waveform.
-- [ ] Inertial frame (Phase 5): +z along the initial J (proposed) or along L̂ at the reference time (gwsurrogate's default)?
-- [ ] Spin reference (Phase 5): define the slider spins at a fixed time (e.g. −2500 M, the loop start) or a reference frequency?
+- [x] Remnant data (Phase 5): trimmed to 0.7 MB by dropping the GPR error-estimate data (step 7a).
+- [x] Display frame (Phase 5): +z along the initial J (see the decision log).
+- [x] Spin reference (Phase 5): spins set at the start of the data, t ≈ −4300 M (see the decision log).
 - [x] 2D or 3D: 2D first, then 3D.
 - [ ] Retarded time: plain t − r or the tortoise coordinate r\*? The difference, 2M ln(r/2M − 1), is a slowly growing delay (~8 M at r = 100 M, ~12 M at 1000 M) that shifts the pattern relative to the holes. Revisit with the near zone.
 - [ ] Near-zone metric (Phase 4): superposed boosted Kerr–Schild or PN? Prototype both and compare against NR.
