@@ -6,12 +6,12 @@ Other applications in this repository get their own planning documents; this one
 
 ## Status
 
-**Phases 1 and 3 are done and public; Phase 5 (precessing spins) is in progress: step 7a done.** The original goal, visualizing gravitational waves away from the binary faithfully and beautifully, is met. Phase 5 replaces the waveform model so the spins can point in any direction and the orbit visibly precesses.
+**Phases 1 and 3 are done and public; Phase 5 (precessing spins) is in progress: steps 7a and 7b done.** The original goal, visualizing gravitational waves away from the binary faithfully and beautifully, is met. Phase 5 replaces the waveform model so the spins can point in any direction and the orbit visibly precesses.
 
 - Phase 1 (2D wave-zone app): merged, PR #1.
 - Phase 3 (3D view with the ray-marched strain volume): merged, PR #2. The user reviewed the 3D view interactively and approved it.
 - Phase 2 was cut. Phase 4 (the near zone) is **parked**: it may be attempted in the future (see "If this app is revisited").
-- Phase 5 (precession, NRSur7dq4): planned Nov 14, 2026. Step 7a (offline prototype) done Nov 14 on `step-7a-precession-prototype` (commit `6e2276f`, local, not pushed); next is step 7b.
+- Phase 5 (precession, NRSur7dq4): planned Nov 14, 2026. Step 7a (offline prototype) done on `step-7a-precession-prototype` (`6e2276f`); step 7b (Rust evaluator) done on `step-7b-rust-evaluator` (`6a8ac92`), stacked on 7a. Both local, not pushed. Next is step 7c.
 
 **Not verified by a person**
 
@@ -246,6 +246,8 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 **Physics and data**
 
 - **Polarization sign:** the LAL convention (see Conventions). Textbook (Blanchet/Kidder) formulas have the opposite sign of h.
+- **NRSur7dq4's frame drifts in the ringdown.** Even for aligned (or zero) spins, the fitted coprecessing frame tilts by up to ~3° in the last ~100 M after the peak (gwsurrogate behaves identically; there is no orbit left to define the frame). Before the peak it stays within ~1e-3 rad. Take orbital-plane quantities (hole positions, L̂) from before merger.
+- **Wigner-D composition order.** In gwsurrogate's convention (and `nrsur7dq4/wigner.rs`), D(a)·D(b) = D(b·a), not D(a·b).
 - **gwsurrogate 1.2.0's C spline is wrong in the last knot interval.** Its interval search (`hunt` in `_spline_interp.cpp`) caps the upper bound at interval n − 2, so points between the last two knots are evaluated with the previous interval's cubic, extrapolated. For NRSur7dq4 resampled to a uniform grid, that affects t ∈ (99.8, 100] M, the faint ringdown tail (errors up to 1e-5 of peak). Our natural spline is correct. Golden data uses the model's own time grid to avoid it. Not yet reported upstream.
 - **Spline joins:** the surrogate's time grid jumps from sparse (~65 M) to dense (0.1 M) at about −1000 M. The exporter keeps the original dense samples for 10 M past that join before coarsening to 1 M. Without that, the error near the join was 15× larger.
 - **References:** only cite references you have verified. Several in this file are from memory and marked as such.
@@ -321,11 +323,14 @@ Fits are forward-stepwise polynomial basis functions (`bfOrders`, `coefs`; C ker
   - `tools/compare_nrsur7dq4.py`: against gwsurrogate and surfinBH over 7 binaries, 3 with a non-trivial initial frame. Modes are within 1.1e-6 of the peak |h₂₂|, the dynamics within 8e-7, and the remnant within 1e-12. With an f64 export the modes agree to 6e-14, so the f32 storage accounts for all of the difference.
   - `tools/proto_precession.py`: renders the J-frame slices, an L̂/spin plot and animations into `tools/out/`. Precession reads clearly: the top-view spiral turns lopsided and its bright side swings around, and the side view's up/down asymmetry flips. For q = 4, χ_A = 0.8 in-plane, L̂ stays 35–41° from J and goes 0.87 of the way around in the loop.
   - `tests/golden/nrsur7dq4.json` (0.81 MB), from `tools/gen_golden_nrsur7dq4.py`. It holds the raw dynamics on the 230 full nodes, 8 modes on every 10th sample of t_coorb, and the remnant at the co-orbital spins of the node nearest −100 M (how the app evaluates it; that's how surfinBH evolves spins itself).
-- **Step 7b: Rust evaluator.**
-  - Dynamics ODE, co-orbital surrogate and Wigner-D rotation, plus the NRSur7dq4Remnant fits.
-  - Golden tests against gwsurrogate and surfinBH, at the current tolerances.
-  - Remove the NRHybSur3dq8 evaluator, data and golden tests.
-- **Step 7c: mode table and shaders.**
+- **Step 7b: Rust evaluator. Done** (Nov 14, branch `step-7b-rust-evaluator`).
+  - `crates/physics/src/nrsur7dq4/` covers the STSUR002 reader, the dynamics ODE, the co-orbital surrogate, the Wigner-D rotation (`wigner.rs`), uniform resampling, and the NRSur7dq4Remnant fits (`remnant_coorbital`, plus `remnant` from the node nearest −100 M). `crates/physics/src/quaternion.rs` has the frame helpers, which step 7d will reuse.
+  - API: `Nrsur7dq4::evaluate(Params { q, chi_a, chi_b }, init_quat, t_start, dt)` returns a `Waveform` (21 inertial modes, the coprecessing frame, the orbital phase and the inertial spins) and the raw `Dynamics`. `evaluate_sparse` returns the same on the model's own grid. The evaluator accepts the extrapolation range (q ≤ 6, |χ| ≤ 1) like gwsurrogate; which range the sliders offer is still step 7e's decision.
+  - `web/public/nrsur7dq4.stsur` (4.24 MB) is committed; the app doesn't load it yet.
+  - Tests (`crates/physics/tests/nrsur7dq4_golden.rs`) compare against gwsurrogate and surfinBH: modes within 1.15e-6 of peak, dynamics within 7.8e-7, remnant fits within 1e-10, and the full path to the remnant. They also check the aligned-spin planar symmetry (3.6e-3 of peak before the peak, i.e. model noise), uniform resampling, and range rejection. Wigner-D is checked for unitarity and composition.
+  - One evaluation takes ~4 ms natively (release build); wasm is untimed.
+  - **Changed from the plan:** NRHybSur3dq8 stays until step 7c. `mode_table.rs`, `binary.rs` and the wasm bindings all use it, so removing it here would have left the app unbuildable.
+- **Step 7c: mode table and shaders.** Also remove the NRHybSur3dq8 evaluator, its data and its golden tests (moved here from 7b), once the app reads NRSur7dq4.
   - All 21 modes; drop the h\_{l,−m} = (−1)^l h\*\_{lm} symmetry (it fails with precession) and raise `MAX_ROWS`.
   - Rotate to inertial modes on the CPU, then keep the co-orbital storage trick: divide by a common orbital phase. Precession is slow, so the rows stay smooth at 1 M sampling.
   - Slices sum every mode, so they cost roughly twice as much; measure. The volume keeps its 3 strongest modes.
