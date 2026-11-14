@@ -8,7 +8,8 @@ export type RGB = [number, number, number]; // sRGB, 0..1
 export const LOOK = {
   nearZone: "#1c2230", // fill inside the near-zone ring: distinct from zero strain and the page
   holeRim: "#dfe6ff", // horizon rim and halo
-  holeMinPx: 4, // minimum on-screen horizon radius, CSS px
+  holeMinPx: 5, // the largest horizon is magnified to at least this radius, CSS px (all by the same factor)
+  holeFloorPx: 2, // ...and none is drawn smaller than this
   haloStrength: 0.6, // 0..1
   probeColor: "#eef1f8",
   probePx: 6, // probe marker radius, CSS px

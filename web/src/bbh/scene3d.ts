@@ -291,6 +291,10 @@ export class SpacetimeScene {
       const mat = s.material as THREE.SpriteMaterial;
       mat.map = halo;
       mat.color.set(LOOK.holeRim);
+      // Depth-tested (placed in front of its own horizon each frame), so a hole
+      // in front hides the halo of one behind it.
+      mat.depthTest = true;
+      s.renderOrder = 4;
       this.scene.add(s);
       return s;
     });
@@ -525,18 +529,29 @@ export class SpacetimeScene {
     const lhat = new THREE.Vector3(...scene.orbitalAxis);
     if (lhat.lengthSq() > 0) this.orbitGuide.quaternion.setFromUnitVectors(Z_UP, lhat.normalize());
 
-    // Black holes and probe, at least a few pixels across.
+    // Black holes: when too small to see, all are magnified by one common factor
+    // (the largest visible one at least LOOK.holeMinPx), so their relative sizes
+    // stay true; the smallest is kept at least LOOK.holeFloorPx.
     const pxWorld = (p: THREE.Vector3) =>
       (2 * this.camera.position.distanceTo(p) * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2)) / Math.max(h, 1);
     const d = scene.disks;
+    const at = (k: number) => new THREE.Vector3(d[5 * k], d[5 * k + 1], d[5 * k + 2]);
+    let magnify = 1;
+    let biggest = -1;
+    for (let k = 0; k < 3; k++) {
+      if (d[5 * k + 4] > 0.001 && (biggest < 0 || d[5 * k + 3] > d[5 * biggest + 3])) biggest = k;
+    }
+    if (biggest >= 0) magnify = Math.max(1, (LOOK.holeMinPx * pxWorld(at(biggest))) / d[5 * biggest + 3]);
     this.holes.forEach((ball, k) => {
-      const p = new THREE.Vector3(d[5 * k], d[5 * k + 1], d[5 * k + 2]);
-      const radius = Math.max(d[5 * k + 3], LOOK.holeMinPx * pxWorld(p));
+      const p = at(k);
+      const radius = Math.max(d[5 * k + 3] * magnify, LOOK.holeFloorPx * pxWorld(p));
       const opacity = d[5 * k + 4];
       ball.set([p.x, p.y, p.z], radius, opacity);
       const sprite = this.halos[k];
       sprite.visible = opacity > 0.001;
-      sprite.position.copy(p);
+      // In front of its own horizon (the halo is zero inside it), so the slice
+      // through the hole doesn't hide it but a nearer hole does.
+      sprite.position.copy(p).addScaledVector(this.camera.position.clone().sub(p).normalize(), 1.02 * radius);
       sprite.scale.setScalar(2 * HALO_SCALE * radius);
       (sprite.material as THREE.SpriteMaterial).opacity = LOOK.haloStrength * opacity;
 
