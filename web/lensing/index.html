@@ -4,12 +4,39 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spacetime · black hole lensing</title>
-    <link rel="stylesheet" href="../src/landing.css" />
+    <link rel="stylesheet" href="../src/lensing/style.css" />
   </head>
   <body>
-    <main class="landing">
-      <h1>Black hole lensing</h1>
-      <p>In development: see plans/lensing.md. <a href="../" style="color: var(--accent)">Back to Spacetime</a></p>
+    <main id="app">
+      <canvas id="view"></canvas>
+      <div id="title" class="panel"><a href="../">Spacetime</a> <span class="muted">· black hole lensing</span></div>
+      <div id="panel" class="panel">
+        <label class="row">Distance <input id="distance" type="range" min="0" max="1000" step="1" /><span id="distance-value"></span></label>
+        <label class="row">Field of view <input id="fov" type="range" min="20" max="140" step="1" /><span id="fov-value"></span></label>
+        <div id="shadow-info"></div>
+        <details id="about">
+          <summary>About this view</summary>
+          <p>
+            A non-spinning (Schwarzschild) black hole in front of a made-up sky of stars, a galactic
+            band and a few galaxies. Every pixel's light ray is traced backwards from the camera
+            through the curved spacetime, exactly: if it falls into the hole the pixel is black (the
+            shadow); otherwise it shows the part of the sky the ray reaches.
+          </p>
+          <p>
+            Everything you see follows from that: the shadow, about 2.6 times the horizon's size; the
+            Einstein ring when a galaxy lies right behind the hole; second, fainter images of the whole
+            sky squeezed into a thin ring at the shadow's edge; and the distortion of the sky as you move.
+          </p>
+          <p>
+            Drag to orbit, scroll or use the slider to change the distance (in units of the hole's mass
+            M; the horizon is at 2 M), double-click to reset. Close in, the shadow covers most of the
+            sky; widen the field of view to see past it. The camera hovers at a fixed distance
+            (it isn't orbiting or falling) and can't come closer than 3.5 M.
+          </p>
+        </details>
+        <div id="status">Loading…</div>
+      </div>
     </main>
+    <script type="module" src="../src/lensing/main.ts"></script>
   </body>
 </html>

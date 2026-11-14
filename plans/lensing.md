@@ -1,6 +1,6 @@
 # Black hole lensing app: plan
 
-Nov 13, 2026 · @Bassel · **step 0 done** (step 1 is next)
+Nov 13, 2026 · @Bassel · **steps 0 and 1 done** (step 2 is next)
 
 A second app in this repository, alongside the binary black hole (BBH) wave visualizer ([bbh.md](bbh.md)).
 
@@ -39,7 +39,7 @@ Light around a non-spinning hole stays in the plane containing the hole, the cam
 d²u/dφ² = 3Mu² − u,    u = 1/r
 ```
 
-- **Initial conditions.** The pixel's direction makes an angle ψ with the outward radial direction in the camera's local frame. For a static observer at radius r₀, the impact parameter is b = r₀ sin ψ / √(1 − 2M/r₀). Then u = 1/r₀ and du/dφ = −u cot ψ.
+- **Initial conditions.** The pixel's direction makes an angle ψ with the outward radial direction in the camera's local frame. For a static observer at radius r₀, the impact parameter is b = r₀ sin ψ / √(1 − 2M/r₀). Then u = 1/r₀ and du/dφ = −u √(1 − 2M/r₀) cot ψ (the square-root factor was missing from the first draft of this plan).
 - **Termination.** The ray escapes when u ≤ 0, and is captured when u ≥ 1/(2M).
 - **Final direction.** The ray's direction at infinity is the initial direction rotated within its plane by the accumulated φ. It's looked up on the sky.
 - **Step control.** Steps in φ shrink near the photon sphere (r = 3M), where rays can wind around several times. A step cap ends the rare rays that never resolve; those pixels are drawn as part of the photon ring.
@@ -98,7 +98,8 @@ web/
   src/common/                 shared: rayMatrix, adaptive reduced-resolution pass, orbit camera,
                               panel styles, self-test harness
   src/bbh/                    the current web/src files, moved
-  src/lensing/                scene, sky, lensing shader, controls, self-test
+  src/lensing/                main.ts (page, orbit camera, sliders), lens.ts (pass), selftest.ts,
+                              shaders/lens.frag (ray tracer), shaders/sky.glsl (procedural sky)
   vite.config.ts              multi-page build inputs
 ```
 
@@ -126,6 +127,27 @@ The `web/src/common/` entry in the repository layout above lists only what exist
 - Lensing fragment shader in the shared reduced-resolution pass. Procedural sky. Orbit camera with camera distance (in M) as an explicit control.
 - **GPU self-test:** a raw mode where the shader outputs each pixel's escape direction (or a capture flag), compared with the Rust reference per pixel.
 - Performance measured like the BBH `?volbench`.
+
+**Done (Nov 13, 2026).**
+
+- **Rust reference** (`crates/physics/src/geodesic.rs`): two independent methods.
+  - `sweep_quadrature`: the integral of du/√f. The turning-point singularity is removed with u = u₁ − w², which is exact because f is cubic. On the observer side the limit comes from f(u₀), known exactly, not from u₁ − u₀: for a tangential ray that difference loses all precision (it caused a 7e-8 error before the fix).
+  - `sweep_ode`: RK4 on the second-order equation, with a Hermite-interpolated escape point, as the shader does.
+- **Rust tests** (`crates/physics/tests/geodesic.rs`):
+  - the two methods agree to 1e-11 over r₀ = 3.5–100 M
+  - weak-field deflection 4/b + 15π/(4b²) to 1e-4 relative at b = 10³–10⁴
+  - capture exactly at b_c, at the shadow-edge angle
+  - winding grows as b → b_c
+  - escape directions stay in the ray's plane and bend towards the hole
+- **Shader** (`web/src/lensing/shaders/lens.frag`): RK4 in φ with step min(0.02, ½u/|du/dφ|), floored at 0.002 for near-radial rays. Rays inside the shadow are rejected analytically, and rays still unresolved after 1000 steps (the photon ring) are drawn black.
+- **Procedural sky** (`sky.glsl`), evaluated per pixel with no texture:
+  - three star layers on a seamless 3D grid; stars are widened to at least ~1 pixel with their brightness preserved
+  - a galactic band with dust lanes, and faint nebulae
+  - three galaxies, one directly behind the hole as seen from the default camera, so the Einstein ring shows on load
+- **App** (`/lensing/`): orbit camera around the hole, a distance slider (logarithmic, 3.5–300 M, kept in sync with scroll-zoom), a field-of-view slider (20–140°: close in the shadow covers most of the sky) and a shadow-radius readout. URL options: `?r=`, `?fov=`, `?selftest`, `?lensbench`.
+- **GPU self-test** (`?selftest`): the escape direction of every pixel in 4 views (default, close, just outside the photon sphere looking sideways, far and narrow) vs the Rust quadrature. Worst error 3.3e-5 rad over 9750 rays. Rays within 2% of b_c are skipped (490), and capture/escape must agree everywhere else. The Rust reference loads via wasm only on the self-test page.
+- **Checks against known results in the image:** at 60 M the Einstein ring of the galaxy behind the hole sits at 15.3°, against √(4M/r) = 14.8°. The shadow-radius readout uses the exact formula.
+- **Performance** (Apple M4, `?lensbench`): 720×407 3.7 ms, 1440×813 11.2 ms, 2880×1626 (full retina) 38.9 ms. The pass adapts between 0.35× and the device-pixel ratio.
 
 ### Step 2: sky and teaching aids
 
@@ -158,9 +180,9 @@ The `web/src/common/` entry in the repository layout above lists only what exist
 
 ## Open questions
 
-- [ ] Camera model for stage 1: static observer (simplest; aberration-free) or an orbiting observer? A static observer can't exist inside r = 2M, and the view changes character inside 3M. Decide the allowed range of camera distances.
+- [x] Camera model for stage 1: a static observer at 3.5–300 M (outside the photon sphere, so the planar escape logic holds). An orbiting or falling camera remains a "maybe later".
 - [ ] Sky: procedural only, or also a real star map? Which one, and under what licence?
-- [ ] Integration variable and step control for the GPU, Schwarzschild: fixed steps in φ with refinement near 3M, or an adaptive scheme? Settle by measuring against the Rust reference.
+- [x] Integration variable and step control for the GPU, Schwarzschild: RK4 in φ, step min(0.02, ½u/|du/dφ|) ≥ 0.002; 3.3e-5 rad worst against the reference.
 - [ ] Kerr formulation: Boyer–Lindquist (singular at the horizon, fine for rays that stop there) or Kerr–Schild (regular)? Prototype both.
 - [ ] Should the lensing app and the BBH app share one URL-parameter and panel style, or diverge?
 

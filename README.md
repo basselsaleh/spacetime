@@ -58,6 +58,15 @@ cd tools && uv sync             # once, installs lalsuite and sxs
 - `?selftest`: render off-screen and compare GPU pixels with the Rust CPU reference;
   the verdict appears in the page title and status line
 
+## Using the lensing app (`/lensing/`)
+
+- A non-spinning black hole in front of a procedural sky, every pixel ray-traced through the
+  curved spacetime. Drag to orbit; scroll or use the slider to change the distance (in units of
+  the hole's mass M); widen the field of view when close; double-click to reset.
+- URL options: `?r=20` (distance, 3.5–300 M), `?fov=60` (degrees), `?selftest` (GPU escape
+  directions vs the Rust reference), `?lensbench` (GPU timing; needs real time, not
+  `--virtual-time-budget`).
+
 ## Waveform data
 
 The app evaluates the NRHybSur3dq8 numerical-relativity surrogate
