@@ -22,7 +22,7 @@ import type { PreparedWaveform } from "./waveform";
 
 export type ViewMode = "flat" | "3d";
 
-const MAX_ROWS = 16;
+const MAX_ROWS = 24; // strain.glsl
 const FLAT_FOV = 1; // degrees
 const ORBIT_FOV = 40; // degrees
 const ORBIT_ELEVATION = (55 * Math.PI) / 180; // camera angle from the slice normal in 3D
@@ -336,6 +336,7 @@ export class SpacetimeScene {
       u.u_dt.value = w.dt;
       u.u_lm.value = lm;
     }
+    this.volume.material.uniforms.u_volumeRows.value = w.volumeRows;
     this.peak = w.peak;
   }
 
@@ -505,10 +506,10 @@ export class SpacetimeScene {
       (2 * this.camera.position.distanceTo(p) * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2)) / Math.max(h, 1);
     const d = scene.disks;
     this.holes.forEach((ball, k) => {
-      const p = new THREE.Vector3(d[4 * k], d[4 * k + 1], 0);
-      const radius = Math.max(d[4 * k + 2], LOOK.holeMinPx * pxWorld(p));
-      const opacity = d[4 * k + 3];
-      ball.set([p.x, p.y, 0], radius, opacity);
+      const p = new THREE.Vector3(d[5 * k], d[5 * k + 1], d[5 * k + 2]);
+      const radius = Math.max(d[5 * k + 3], LOOK.holeMinPx * pxWorld(p));
+      const opacity = d[5 * k + 4];
+      ball.set([p.x, p.y, p.z], radius, opacity);
       const sprite = this.halos[k];
       sprite.visible = opacity > 0.001;
       sprite.position.copy(p);

@@ -46,10 +46,23 @@ async function main(): Promise<void> {
     }
 
     if (url.has("selftest")) {
-      const r = runSelfTest(view, w);
+      // The binary from the URL, then a strongly precessing one (q = 4, χ₁ = 0.8 in the plane).
+      const runs = [runSelfTest(view, w)];
+      const precessing = prepare(model, { q: 4, chi1: 0, chi2: 0, spins: { a: [0.8, 0, 0], b: [0, 0, 0] } });
+      view.setWaveform(precessing);
+      runs.push(runSelfTest(view, precessing));
+      view.setWaveform(w);
+      release(precessing);
+      const r = {
+        pass: runs.every((x) => x.pass),
+        worst: Math.max(...runs.map((x) => x.worst)),
+        pixels: runs.reduce((n, x) => n + x.pixels, 0),
+        perFrame: runs.flatMap((x) => x.perFrame),
+      };
       const verdict =
         `SELFTEST ${r.pass ? "PASS" : "FAIL"}: max |GPU−CPU|/peak = ${r.worst.toExponential(2)} ` +
-        `over ${r.pixels} pixels (per frame: ${r.perFrame.map((e) => e.toExponential(1)).join(", ")})`;
+        `over ${r.pixels} pixels (per frame, URL binary then precessing: ` +
+        `${r.perFrame.map((e) => e.toExponential(1)).join(", ")})`;
       document.title = verdict;
       status.textContent = verdict;
       status.classList.toggle("error", !r.pass);
@@ -62,7 +75,7 @@ async function main(): Promise<void> {
       time: url.has("t") ? Number(url.get("t")) : LOOP_START,
       gain: GAIN,
       maskRadius: 0,
-      disks: new Float32Array(12),
+      disks: new Float32Array(15),
     };
     const camera: Camera = {
       ...DEFAULT_CAMERA,

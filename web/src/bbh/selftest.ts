@@ -63,9 +63,7 @@ export function runSelfTest(scene: SpacetimeScene, w: PreparedWaveform): SelfTes
         const sy = f.view.centerY + (((py + 0.5) / H) * 2 - 1) * (f.view.halfWidth / aspect);
         const [x3, y3, z3] = sliceTo3D(f.slice, sx, sy);
         const r = Math.hypot(x3, y3, z3);
-        const theta = Math.atan2(Math.hypot(x3, y3), z3);
-        const phi = Math.atan2(y3, x3);
-        const [hp, hc] = w.table.strain(theta, phi, f.time - r);
+        const [hp, hc] = r > 0 ? w.table.strain(x3, y3, z3, f.time - r) : [NaN, NaN];
         const cpuValid = Number.isFinite(hp);
         if (cpuValid !== (pixels[k + 2] === 1)) continue; // boundary pixel, rounding
         if (!cpuValid) continue;
@@ -89,7 +87,7 @@ export function runSelfTest(scene: SpacetimeScene, w: PreparedWaveform): SelfTes
         const d = ray.ray.direction;
         const m = o.clone().addScaledVector(d, -o.dot(d));
         const r = m.length();
-        const [hp, hc] = w.table.strain(Math.atan2(Math.hypot(m.x, m.y), m.z), Math.atan2(m.y, m.x), f.time - r);
+        const [hp, hc] = w.table.strain(m.x, m.y, m.z, f.time - r);
         if (!Number.isFinite(hp) || pixels[k + 2] !== 1) continue;
         const err = Math.max(Math.abs(pixels[k] - hp), Math.abs(pixels[k + 1] - hc)) / w.peak;
         frameWorst = Math.max(frameWorst, err);
@@ -114,11 +112,13 @@ export function runVolumeBenchmark(scene: SpacetimeScene, w: PreparedWaveform, c
   const px = new Uint8Array(4);
   const gl = scene.renderer.getContext();
   const results: string[] = [];
+  const lead = w.volumeRows;
   const configs: [number, number][] = [
-    [1, 0.75],
-    [3, 0.5],
-    [3, 0.75],
-    [3, 1.0],
+    [2, 0.75],
+    [lead, 0.5],
+    [lead, 0.75],
+    [lead, 1.0],
+    [w.rows.length / 2, 0.75],
   ];
   for (const [rows, scale] of configs) {
     scene.volume.material.uniforms.u_volumeRows.value = rows;
@@ -135,5 +135,6 @@ export function runVolumeBenchmark(scene: SpacetimeScene, w: PreparedWaveform, c
     const ms = (performance.now() - start) / n;
     results.push(`${rows} modes ${Math.round(cssW * scale)}×${Math.round(cssH * scale)}: ${ms.toFixed(1)} ms`);
   }
+  scene.volume.material.uniforms.u_volumeRows.value = lead;
   return `VOLBENCH ${results.join(", ")}`;
 }

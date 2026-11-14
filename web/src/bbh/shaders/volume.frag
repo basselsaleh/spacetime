@@ -23,7 +23,7 @@ uniform mat3 u_rayBasis;
 uniform vec2 u_resolution;    // render-target pixels
 uniform float u_radius;       // the volume is the sphere |p| < u_radius, M
 uniform int u_steps;
-uniform int u_volumeRows;     // modes in the volume's sum (the first rows: (2,2) first); the slices use all
+uniform int u_volumeRows;     // mode rows in the volume's sum (the leading (l, ±m) groups); the slices use all
 uniform int u_component;      // 0: h₊, 1: h×
 uniform float u_time;         // coordinate time at the source, M
 uniform float u_scale;        // color units per r·h (1/peak × gain)
@@ -48,10 +48,10 @@ void main() {
   vec3 m = u_eye + tc * d;
 
   if (u_raw) {
-    float r, theta, phi;
-    sphericalAngles(m, r, theta, phi);
+    float r = length(m);
+    vec3 n = r > 0.0 ? m / r : vec3(0.0, 0.0, 1.0);
     bool valid;
-    vec2 h = strain(u_time - r, theta, phi, valid);
+    vec2 h = strain(u_time - r, n, valid);
     outColor = vec4(h.x, -h.y, valid ? 1.0 : 0.0, 1.0);
     return;
   }
@@ -83,7 +83,7 @@ void main() {
     float fade = smoothstep(0.75 * u_maskRadius, u_maskRadius, r) * (1.0 - smoothstep(0.85 * u_radius, u_radius, r));
     if (fade <= 0.0) continue;
     bool valid;
-    vec2 h = strainRows(u_time - r, theta, phi, min(u_rows, u_volumeRows), valid);
+    vec2 h = strainRows(u_time - r, p / r, min(u_rows, u_volumeRows), valid);
     if (!valid) continue;
     float v = (u_component == 0 ? h.x : -h.y) * u_scale;
     float a = tanh(abs(v));

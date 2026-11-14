@@ -9,7 +9,7 @@ import strainGlsl from "./shaders/strain.glsl?raw";
 import volumeMain from "./shaders/volume.frag?raw";
 
 const STEPS = 128;
-const VOLUME_ROWS = 3; // (2,2) and the two strongest other modes (the table orders rows by peak amplitude)
+const VOLUME_ROWS = 6; // replaced per waveform by the rows of its three strongest (l, ±m) groups
 const DENSITY = 0.035; // per M at full saturation
 const SHARPNESS = 8;
 const AXIS_CONE = (8 * Math.PI) / 180;

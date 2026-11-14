@@ -7,8 +7,11 @@ modes fix which hole is where. PN tail terms leave a ~0.15 rad ambiguity
 between orbital and wave phase at these separations, so tests compare
 loosely; the point is to catch quarter- and half-turn convention errors.
 
+The model is NRSur7dq4 with aligned spins, in its default frame (spins and
+frame defined at the start of the data, t ≈ -4300 M).
+
 Usage:
-    uv run python gen_orientation_golden.py data/NRHybSur3dq8.h5 ../tests/golden/orientation_lal.json
+    uv run python gen_orientation_golden.py data/NRSur7dq4.h5 ../tests/golden/orientation_lal.json
 """
 
 import argparse
@@ -20,8 +23,8 @@ import lal
 import lalsimulation as ls
 import numpy as np
 
-CASES = [(1.5, 0.0, 0.0), (2.0, 0.0, 0.0), (4.0, 0.3, -0.2), (8.0, 0.0, 0.5)]
-TIMES = [-5000.0, -4000.0, -3000.0]
+CASES = [(1.5, 0.0, 0.0), (2.0, 0.0, 0.0), (3.0, 0.3, -0.2), (4.0, 0.0, 0.5)]
+TIMES = [-4000.0, -3000.0, -2000.0]
 MODES = [(2, 2), (2, 1), (3, 3)]
 
 
@@ -55,18 +58,20 @@ def main() -> None:
     ap.add_argument("out", type=Path)
     args = ap.parse_args()
 
-    from gwsurrogate.surrogate import NRHybSur3dq8
+    import gwsurrogate
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        s = NRHybSur3dq8(str(args.h5))._sur_dimless
+        sur = gwsurrogate.LoadSurrogate(str(args.h5))
 
     rows = []
     for q, c1, c2 in CASES:
         m1, m2 = q / (1 + q), 1 / (1 + q)
         for t in TIMES:
             ts = t + np.arange(-2.0, 3.0)
-            _, h, _ = s([q, c1, c2], fM_low=0, fM_ref=0, timesM=ts, mode_list=MODES, do_not_align=True)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                _, h, _ = sur(q, [0, 0, c1], [0, 0, c2], f_low=0, times=ts)
             phi22 = -np.unwrap(np.angle(h[(2, 2)]))
             v = (np.gradient(phi22, ts)[2] / 2) ** (1 / 3)
             angle, mis = heavier_angle({k: h[k][2] for k in MODES}, v, m1, m2)

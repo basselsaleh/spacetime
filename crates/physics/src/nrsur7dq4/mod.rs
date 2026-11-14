@@ -86,8 +86,10 @@ pub struct Dynamics {
 #[derive(Debug, Clone)]
 pub struct Waveform {
     pub t: Vec<f64>,
-    /// `h[mode_index(l, m)][i]`, all 21 modes with 2 ≤ l ≤ 4.
+    /// Inertial frame: `h[mode_index(l, m)][i]`, all 21 modes with 2 ≤ l ≤ 4.
     pub h: Vec<Vec<Complex64>>,
+    /// The same modes in the co-orbital frame, where they vary slowly.
+    pub h_coorb: Vec<Vec<Complex64>>,
     /// Coprecessing frame (z along the orbital angular momentum).
     pub quat: Vec<Quat>,
     /// Orbital phase in the coprecessing frame: the co-orbital frame (x from
@@ -99,6 +101,27 @@ pub struct Waveform {
 }
 
 impl Waveform {
+    pub fn len(&self) -> usize {
+        self.t.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.t.is_empty()
+    }
+
+    /// Orbital angular frequency dφ/dt at each sample (central differences,
+    /// one-sided at the ends).
+    pub fn omega_orb(&self) -> Vec<f64> {
+        let (p, t) = (&self.orbphase, &self.t);
+        let n = p.len();
+        (0..n)
+            .map(|i| {
+                let (a, b) = (i.saturating_sub(1), (i + 1).min(n - 1));
+                (p[b] - p[a]) / (t[b] - t[a])
+            })
+            .collect()
+    }
+
     /// The co-orbital frame at sample `i`.
     pub fn coorbital_frame(&self, i: usize) -> Quat {
         quaternion::mul(self.quat[i], quaternion::about_z(self.orbphase[i]))
@@ -741,6 +764,7 @@ impl Nrsur7dq4 {
 
         let zero = Complex64::new(0.0, 0.0);
         let mut h = vec![vec![zero; tc.len()]; N_MODES];
+        let mut h_coorb = vec![vec![zero; tc.len()]; N_MODES];
         for i in 0..tc.len() {
             let mut co = [zero; N_MODES];
             for l in wigner::ELL_MIN..=wigner::ELL_MAX {
@@ -757,6 +781,7 @@ impl Nrsur7dq4 {
             let inertial = self.wigner.rotate_modes(frame, &co);
             for (k, v) in inertial.into_iter().enumerate() {
                 h[k][i] = v;
+                h_coorb[k][i] = co[k];
             }
         }
 
@@ -769,6 +794,7 @@ impl Nrsur7dq4 {
         let wf = Waveform {
             t: tc.clone(),
             h,
+            h_coorb,
             chi_a: to_inertial(&chi_a),
             chi_b: to_inertial(&chi_b),
             quat,
@@ -799,20 +825,23 @@ impl Nrsur7dq4 {
         let n_out = ((t_max - t_start) / dt + 1e-9).floor() as usize + 1;
         let ts: Vec<f64> = (0..n_out).map(|i| t_start + dt * i as f64).collect();
 
-        let h = sparse
-            .h
-            .iter()
-            .map(|mode| {
-                let re: Vec<f64> = mode.iter().map(|z| z.re).collect();
-                let im: Vec<f64> = mode.iter().map(|z| z.im).collect();
-                let re = NaturalCubicSpline::new(&sparse.t, &re).eval_sorted(&ts);
-                let im = NaturalCubicSpline::new(&sparse.t, &im).eval_sorted(&ts);
-                re.into_iter()
-                    .zip(im)
-                    .map(|(a, b)| Complex64::new(a, b))
-                    .collect()
-            })
-            .collect();
+        let resample = |modes: &[Vec<Complex64>]| -> Vec<Vec<Complex64>> {
+            modes
+                .iter()
+                .map(|mode| {
+                    let re: Vec<f64> = mode.iter().map(|z| z.re).collect();
+                    let im: Vec<f64> = mode.iter().map(|z| z.im).collect();
+                    let re = NaturalCubicSpline::new(&sparse.t, &re).eval_sorted(&ts);
+                    let im = NaturalCubicSpline::new(&sparse.t, &im).eval_sorted(&ts);
+                    re.into_iter()
+                        .zip(im)
+                        .map(|(a, b)| Complex64::new(a, b))
+                        .collect()
+                })
+                .collect()
+        };
+        let h = resample(&sparse.h);
+        let h_coorb = resample(&sparse.h_coorb);
         let (quat, orbphase, chi_a, chi_b) = Self::resample_dynamics(&dynm, &p, &ts);
         let to_inertial = |chi: &[[f64; 3]]| -> Vec<[f64; 3]> {
             chi.iter()
@@ -823,6 +852,7 @@ impl Nrsur7dq4 {
         let wf = Waveform {
             t: ts,
             h,
+            h_coorb,
             chi_a: to_inertial(&chi_a),
             chi_b: to_inertial(&chi_b),
             quat,

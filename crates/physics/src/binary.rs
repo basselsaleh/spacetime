@@ -1,32 +1,36 @@
-//! Black-hole positions and sizes, derived from the waveform so that the
-//! orbits and the waves can never drift apart.
+//! Black-hole positions and sizes, derived from the waveform model's own
+//! dynamics so that the orbits and the waves can never drift apart.
 //!
-//! - Direction: the surrogate's frame has the heavier hole on +x at
-//!   t = −1000 M and h₂₂ ∝ e^{−iφ₂₂}, so the heavier hole sits at angle
-//!   Φ(t) = (φ₂₂(t) − φ₂₂(−1000 M)) / 2, orbiting counter-clockwise seen from +z.
+//! - Direction: NRSur7dq4's co-orbital frame has its x-axis from the lighter
+//!   to the heavier hole (the frame the model's spins are defined in), so the
+//!   heavier hole sits along +x̂_coorb(t) and the lighter along −x̂_coorb(t),
+//!   in the plane perpendicular to the orbital angular momentum.
 //! - Separation: 2PN relation between orbital frequency and separation in
 //!   harmonic coordinates for non-spinning bodies, γ = M/r =
-//!   x[1 + (1 − η/3)x + (1 − 65η/12)x²] with x = (M ω₂₂/2)^{2/3}
-//!   (Blanchet, Living Rev. Rel. 17, 2 (2014)). Spin terms are omitted, and PN
-//!   breaks down in the last orbits: positions there are schematic.
-//! - Sizes: horizon radius r₊ = m(1 + √(1 − χ²)) (Kerr, Boyer–Lindquist/Kerr–
+//!   x[1 + (1 − η/3)x + (1 − 65η/12)x²] with x = (M ω)^{2/3}, ω the orbital
+//!   frequency (Blanchet, Living Rev. Rel. 17, 2 (2014)). Spin terms are
+//!   omitted, and PN breaks down in the last orbits: positions there are
+//!   schematic.
+//! - Sizes: horizon radius r₊ = m(1 + √(1 − |χ|²)) (Kerr, Boyer–Lindquist/Kerr–
 //!   Schild radius). Mixing this with harmonic-coordinate positions is a
 //!   visual approximation, stated in the app.
 //! - Merger: the two holes cross-fade into the remnant over [−20 M, +5 M]
 //!   around the waveform peak (t = 0); afterwards the remnant drifts with its
-//!   recoil kick.
+//!   recoil kick. The orbital frame is frozen at the end of the cross-fade
+//!   (in the ringdown NRSur7dq4's frame drifts and no longer means an orbit).
 
-use crate::surrogate::{Params, Remnant, Waveform};
+use crate::nrsur7dq4::{Params, Remnant, Waveform};
+use crate::quaternion;
 
 /// Start and end of the cross-fade from the two holes to the remnant, in M.
 pub const MERGE_WINDOW: (f64, f64) = (-20.0, 5.0);
-const ALIGN_TIME: f64 = -1000.0;
 
-/// One disk to draw: center, radius (M) and opacity in [0, 1].
+/// One sphere to draw: center, radius (M) and opacity in [0, 1].
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Disk {
     pub x: f64,
     pub y: f64,
+    pub z: f64,
     pub radius: f64,
     pub opacity: f64,
 }
@@ -43,14 +47,14 @@ pub struct BinaryState {
 pub struct Binary {
     t0: f64,
     dt: f64,
-    angle: Vec<f64>,
+    /// Unit vector toward the heavier hole (co-orbital x-axis).
+    axis: Vec<[f64; 3]>,
     separation: Vec<f64>,
     m1: f64,
     m2: f64,
     r1: f64,
     r2: f64,
     remnant_radius: f64,
-    kick: [f64; 2],
     pub remnant: Remnant,
 }
 
@@ -71,98 +75,93 @@ fn smoothstep(a: f64, b: f64, t: f64) -> f64 {
     u * u * (3.0 - 2.0 * u)
 }
 
+fn norm(v: [f64; 3]) -> f64 {
+    (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt()
+}
+
 impl Binary {
-    /// `wf` must start at or before t = −1000 M.
+    /// `wf` must be on a uniform grid (`Nrsur7dq4::evaluate`).
     pub fn new(wf: &Waveform, p: Params, remnant: Remnant) -> Self {
-        let n = wf.len();
-        assert!(
-            wf.t0 <= ALIGN_TIME,
-            "waveform must cover t = {ALIGN_TIME} M"
-        );
+        assert!(wf.len() >= 2, "waveform too short");
         let eta = p.q / (1.0 + p.q).powi(2);
         let m1 = p.q / (1.0 + p.q);
         let m2 = 1.0 / (1.0 + p.q);
-
-        let phase_at = |t: f64| {
-            let x = (t - wf.t0) / wf.dt;
-            let i = (x.floor() as usize).min(n - 2);
-            let f = x - i as f64;
-            wf.phase22[i] + f * (wf.phase22[i + 1] - wf.phase22[i])
-        };
-        let ref_phase = phase_at(ALIGN_TIME);
-        let angle: Vec<f64> = wf.phase22.iter().map(|p| (p - ref_phase) / 2.0).collect();
-        let separation = wf
-            .omega22()
-            .iter()
-            .map(|w| pn_separation(w / 2.0, eta))
+        let axis = (0..wf.len())
+            .map(|i| quaternion::rotate(wf.coorbital_frame(i), [1.0, 0.0, 0.0]))
             .collect();
-
-        // Kick: rotate from the co-orbital frame at t = −100 M (x toward the
-        // heavier hole) into the inertial frame.
-        let a = (phase_at(-100.0) - ref_phase) / 2.0;
-        let [vx, vy] = remnant.kick_coorbital;
-        let kick = [vx * a.cos() - vy * a.sin(), vx * a.sin() + vy * a.cos()];
-
+        let separation = wf
+            .omega_orb()
+            .iter()
+            .map(|w| pn_separation(*w, eta))
+            .collect();
         Self {
-            t0: wf.t0,
-            dt: wf.dt,
-            angle,
+            t0: wf.t[0],
+            dt: wf.t[1] - wf.t[0],
+            axis,
             separation,
             m1,
             m2,
-            r1: horizon_radius(m1, p.chi1),
-            r2: horizon_radius(m2, p.chi2),
-            remnant_radius: horizon_radius(remnant.mass, remnant.spin),
-            kick,
+            r1: horizon_radius(m1, norm(p.chi_a)),
+            r2: horizon_radius(m2, norm(p.chi_b)),
+            remnant_radius: horizon_radius(remnant.mass, norm(remnant.spin)),
             remnant,
         }
     }
 
-    fn sample(v: &[f64], t0: f64, dt: f64, t: f64) -> f64 {
-        let x = ((t - t0) / dt).clamp(0.0, (v.len() - 1) as f64);
-        let i = (x.floor() as usize).min(v.len() - 2);
-        let f = x - i as f64;
-        v[i] + f * (v[i + 1] - v[i])
+    fn index(&self, n: usize, t: f64) -> (usize, f64) {
+        let x = ((t - self.t0) / self.dt).clamp(0.0, (n - 1) as f64);
+        let i = (x.floor() as usize).min(n - 2);
+        (i, x - i as f64)
     }
 
-    /// Angle of the heavier hole at time t (radians, counter-clockwise from +x).
+    /// Unit vector toward the heavier hole at time t (frozen after the merger window).
+    pub fn axis(&self, t: f64) -> [f64; 3] {
+        let (i, f) = self.index(self.axis.len(), t.min(MERGE_WINDOW.1));
+        let (a, b) = (self.axis[i], self.axis[i + 1]);
+        let v: [f64; 3] = std::array::from_fn(|k| a[k] + f * (b[k] - a[k]));
+        let n = norm(v);
+        v.map(|c| c / n)
+    }
+
+    /// Angle of the heavier hole's direction projected on the xy-plane
+    /// (radians, counter-clockwise from +x).
     pub fn orbital_angle(&self, t: f64) -> f64 {
-        Self::sample(&self.angle, self.t0, self.dt, t)
+        let a = self.axis(t);
+        a[1].atan2(a[0])
     }
 
     /// PN separation at time t (M); only meaningful well before merger.
     pub fn separation(&self, t: f64) -> f64 {
-        Self::sample(&self.separation, self.t0, self.dt, t.min(MERGE_WINDOW.0))
+        let (i, f) = self.index(self.separation.len(), t.min(MERGE_WINDOW.0));
+        self.separation[i] + f * (self.separation[i + 1] - self.separation[i])
     }
 
     /// Inertial-frame recoil velocity (units of c).
-    pub fn kick(&self) -> [f64; 2] {
-        self.kick
+    pub fn kick(&self) -> [f64; 3] {
+        self.remnant.kick
     }
 
     pub fn state(&self, t: f64) -> BinaryState {
         let s = smoothstep(MERGE_WINDOW.0, MERGE_WINDOW.1, t);
-        let phi = self.orbital_angle(t.min(MERGE_WINDOW.1));
+        let ax = self.axis(t);
         // Freeze the PN separation once the cross-fade starts.
         let a = self.separation(t);
-        let (c, sn) = (phi.cos(), phi.sin());
         let drift = t.max(0.0);
+        let k = self.remnant.kick;
+        let at = |scale: f64, radius: f64, opacity: f64| Disk {
+            x: scale * ax[0],
+            y: scale * ax[1],
+            z: scale * ax[2],
+            radius,
+            opacity,
+        };
         BinaryState {
-            heavy: Disk {
-                x: self.m2 * a * c,
-                y: self.m2 * a * sn,
-                radius: self.r1,
-                opacity: 1.0 - s,
-            },
-            light: Disk {
-                x: -self.m1 * a * c,
-                y: -self.m1 * a * sn,
-                radius: self.r2,
-                opacity: 1.0 - s,
-            },
+            heavy: at(self.m2 * a, self.r1, 1.0 - s),
+            light: at(-self.m1 * a, self.r2, 1.0 - s),
             remnant: Disk {
-                x: self.kick[0] * drift,
-                y: self.kick[1] * drift,
+                x: k[0] * drift,
+                y: k[1] * drift,
+                z: k[2] * drift,
                 radius: self.remnant_radius,
                 opacity: s,
             },

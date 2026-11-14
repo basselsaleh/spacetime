@@ -57,11 +57,11 @@ It runs best in a recent desktop browser.
 
 ## Credits
 
-- Waveforms: the NRHybSur3dq8 surrogate (V. Varma et al.,
-  [Phys. Rev. D 99, 064045 (2019)](https://arxiv.org/abs/1812.07865)) and the NRSur3dq8Remnant
-  fits ([arXiv:1809.09125](https://arxiv.org/abs/1809.09125)). Data
-  [doi:10.5281/zenodo.3348115](https://doi.org/10.5281/zenodo.3348115), licensed
-  CC BY 4.0; the app ships a trimmed copy.
+- Waveforms: the NRSur7dq4 surrogate and the NRSur7dq4Remnant fits (V. Varma et al.,
+  [Phys. Rev. Research 1, 033015 (2019)](https://arxiv.org/abs/1905.09300)). Data
+  [doi:10.5281/zenodo.3348115](https://doi.org/10.5281/zenodo.3348115) and
+  [doi:10.5281/zenodo.3455886](https://doi.org/10.5281/zenodo.3455886), licensed CC BY 4.0;
+  the app ships a trimmed copy.
 - Color map: Berlin, from F. Crameri's
   [Scientific Colour Maps](https://doi.org/10.5281/zenodo.1243862) (MIT).
 

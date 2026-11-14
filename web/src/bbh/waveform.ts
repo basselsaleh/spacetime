@@ -1,5 +1,6 @@
-// Evaluates the surrogate for one binary and prepares everything the views
-// need: the packed mode table, harmonic table, orbits and timing info.
+// Evaluates the NRSur7dq4 surrogate for one binary and prepares everything the
+// views need: the packed mode table, harmonic table, orbits and timing info.
+// The sliders set aligned spins for now (spin vectors come with step 7e).
 
 import { WaveformModel, type BinaryTrack, type ModeTableData } from "../wasm/spacetime_wasm.js";
 
@@ -7,14 +8,21 @@ export interface BinaryParams {
   q: number;
   chi1: number;
   chi2: number;
+  /**
+   * Full spin vectors (heavier, lighter), co-orbital frame at the start of the
+   * data. When absent, the spins are aligned: (0, 0, chi1) and (0, 0, chi2).
+   */
+  spins?: { a: [number, number, number]; b: [number, number, number] };
 }
 
 export interface PreparedWaveform {
   params: BinaryParams;
   table: ModeTableData;
   tableData: Float32Array;
-  /** Flat [l0, m0, l1, m1, ...]; row 0 is (2,2). */
+  /** Flat [l0, m0, l1, m1, ...] of the mode rows, in (l, ±m) groups, strongest first. */
   rows: Int32Array;
+  /** Mode rows forming the three strongest groups (the volume sums only these). */
+  volumeRows: number;
   /** θ-dependence of the harmonics, RG × thetaSamples × rows. */
   harmonics: Float32Array;
   thetaSamples: number;
@@ -22,7 +30,7 @@ export interface PreparedWaveform {
   binary: BinaryTrack;
   /** Color-scale unit: peak r·|h₊| in the plane from the (2,2) mode. */
   peak: number;
-  /** ω₂₂(t) at each sample, for the near-zone radius. */
+  /** Twice the orbital frequency (≈ ω₂₂) at each sample, for the near-zone radius. */
   omega22: Float64Array;
   t0: number;
   dt: number;
@@ -34,13 +42,13 @@ export const TABLE_WIDTH = 2048; // WebGL2 guarantees at least this texture size
 export const THETA_SAMPLES = 1025; // odd, so θ = π/2 is sampled exactly
 const SAMPLE_DT = 1; // M
 
-export const PARAM_RANGE = { q: [1, 8], chi: [-0.8, 0.8] } as const;
+export const PARAM_RANGE = { q: [1, 4], chi: [-0.8, 0.8] } as const;
 export const DEFAULT_PARAMS: BinaryParams = { q: 3, chi1: 0.6, chi2: 0.2 };
 
 export async function loadModel(): Promise<WaveformModel> {
   // web/public/ is served at the site root; this page lives one level down (/bbh/).
   // Relative to the page, so the build works at any URL prefix (base: "./").
-  const response = await fetch(new URL("../nrhybsur3dq8.stsur", document.baseURI));
+  const response = await fetch(new URL("../nrsur7dq4.stsur", document.baseURI));
   if (!response.ok) throw new Error(`Waveform data: HTTP ${response.status}`);
   return new WaveformModel(new Uint8Array(await response.arrayBuffer()));
 }
@@ -49,16 +57,19 @@ export function prepare(model: WaveformModel, params: BinaryParams): PreparedWav
   const [tMin] = model.timeRange;
   const tStart = Math.ceil(tMin) + 1;
   const start = performance.now();
-  const wf = model.evaluate(params.q, params.chi1, params.chi2, tStart, SAMPLE_DT);
+  const chiA = new Float64Array(params.spins?.a ?? [0, 0, params.chi1]);
+  const chiB = new Float64Array(params.spins?.b ?? [0, 0, params.chi2]);
+  const wf = model.evaluate(params.q, chiA, chiB, new Float64Array(0), tStart, SAMPLE_DT);
   const evaluateMs = performance.now() - start;
 
   const table = wf.modeTable(TABLE_WIDTH);
-  const binary = model.binary(params.q, params.chi1, params.chi2, wf);
+  const binary = wf.binary();
   const prepared: PreparedWaveform = {
     params,
     table,
     tableData: table.data(),
     rows: Int32Array.from(table.rows()),
+    volumeRows: table.leadingRows,
     harmonics: table.harmonicTable(THETA_SAMPLES),
     thetaSamples: THETA_SAMPLES,
     binary,
