@@ -1,6 +1,6 @@
 # Black hole lensing app: plan
 
-Nov 13, 2026 · @Bassel · **steps 0 and 1 done**, merged to `main` (PR #3). Step 2 is next.
+Nov 13, 2026 (updated Nov 14) · @Bassel · **steps 0 and 1 done**, merged to `main` (PR #3). Step 2 (Kerr) is next.
 
 A second app in this repository, alongside the binary black hole (BBH) wave visualizer ([bbh.md](bbh.md)).
 
@@ -27,11 +27,11 @@ This needs no thin-lens or weak-field approximation. The only approximations are
 
 - numerical integration of each ray
 - background sources treated as infinitely far away
-- the camera being a static observer (stage 1; see open questions)
+- the camera being a static observer (see open questions)
 
 All the lensing features listed under Goal fall out of this one calculation.
 
-### Stage 1 physics: Schwarzschild (no spin)
+### Step 1 physics: Schwarzschild (no spin)
 
 Light around a non-spinning hole stays in the plane containing the hole, the camera and the initial ray. Each ray reduces to the orbit equation
 
@@ -51,7 +51,7 @@ Known results that become tests:
 - exact deflection angle, from the standard integral (computed independently in Rust)
 - shadow angular radius seen by a static observer at r₀: sin α = (b_c / r₀) √(1 − 2M/r₀)
 
-### Stage 3 physics: Kerr (spin)
+### Step 2 physics: Kerr (spin)
 
 A spinning hole has no planar reduction.
 
@@ -67,11 +67,9 @@ A spinning hole has no planar reduction.
 
 The background is a "celestial sphere" at infinity, sampled by direction:
 
-- **Procedural first.** A starfield with a range of brightnesses and colors, plus a few galaxy-like smudges and nebula-like glows. It is generated in the shader or baked into a cube map. Free, sharp at any zoom, and no licensing questions.
-- **Reference grid** (optional). A latitude–longitude grid that makes the distortion easy to read; good for teaching.
-- **Real all-sky star map** (optional, later). Only after checking its license, as was done for the surrogate data.
+- **Procedural.** A starfield with a range of brightnesses and colors, plus a few galaxy-like smudges and nebula-like glows, generated in the shader. Free, sharp at any zoom, and no licensing questions.
 
-**Aliasing is the main rendering risk.** Near the photon ring, a single pixel's ray bundle covers a huge patch of sky, so point-like stars sparkle and flicker. Mitigations, in order:
+**Aliasing is the main rendering risk.** Near the photon ring, a single pixel's ray bundle covers a huge patch of sky, so point-like stars sparkle and flicker. No step schedules a fix yet; if it's needed, the mitigations, in order, are:
 
 1. supersampling near the ring
 2. ray differentials (track the bundle's spread and blur the sky lookup to match)
@@ -82,12 +80,10 @@ The background is a "celestial sphere" at infinity, sampled by direction:
 Turn `web/` into a multi-page Vite site with two apps sharing common code. Rust stays one physics crate and one wasm crate.
 
 ```
-plans/
-  bbh.md, lensing.md          one plan per app
 crates/physics/src/
   (BBH modules unchanged)
   geodesic.rs                 Schwarzschild null geodesics: reference integrator, deflection, shadow
-  kerr.rs                     stage 3
+  kerr.rs                     step 2
 crates/physics/tests/
   geodesic.rs                 analytic limits and exact-deflection checks
 crates/wasm/src/lib.rs        BBH bindings + lensing references for the GPU self-test
@@ -105,8 +101,10 @@ web/
 
 - **One npm project, one build, one CI job.** CI needs no changes beyond what the build already does.
 - **What's reused.** The lensing renderer is structurally the BBH volume pass with a different shader: full-screen ray per pixel built from the camera basis (accurate in float32), reduced resolution adapted to frame rate, and compositing.
-- **Rust's role.** CPU reference geodesics for the tests and the GPU self-test, as the mode-table reference does for the BBH shaders. The browser may need no wasm for lensing in stage 1 except in the self-test.
-- **BBH URLs move** from `/` to `/bbh/` (for example `/bbh/?q=3&3d`). The repo is private and not deployed, so nothing external breaks.
+- **Rust's role.** CPU reference geodesics for the tests and the GPU self-test, as the mode-table reference does for the BBH shaders. With Schwarzschild the browser loads wasm for lensing only in the self-test.
+- **BBH URLs moved** from `/` to `/bbh/` (for example `/bbh/?q=3&3d`) in step 0, before the repo went public, so no external links broke.
+- **Plans** live on the plans-only `dev` branch, checked out as the gitignored `plans/` worktree, not on `main`.
+- **Deploy.** The repo is public, and the site (landing page and both apps) deploys to GitHub Pages from `main`.
 
 ## Stages
 
@@ -115,7 +113,7 @@ web/
 - Multi-page Vite config (`web/vite.config.ts`), landing page (`web/index.html`), BBH moved under `web/bbh/` and `web/src/bbh/`, and a placeholder `web/lensing/index.html`.
 - Shared code in `web/src/common/`: `rays.ts` (`rayMatrix`), `reducedPass.ts` (the adaptive reduced-resolution full-screen pass and composite, extracted from the BBH volume) and `theme.css`.
 - Deferred to step 1, when there's a second user: an orbit-camera helper and a generic self-test harness.
-- The BBH data file stays in `web/public/` (the Rust tests read it there). The page fetches it relative to itself (`../nrhybsur3dq8.stsur`), so the build works at any URL prefix.
+- The BBH data file stays in `web/public/` (the Rust tests read it there). The page fetches it relative to itself, so the build works at any URL prefix. (It was `nrhybsur3dq8.stsur` then; since BBH step 7c it is `nrsur7dq4.stsur`.)
 - README and `plans/bbh.md` paths updated.
 - **Result:** the BBH app behaves exactly as before. Its self-test passes with unchanged numbers (worst 4.4e-4) in both the production build and the dev server.
 
@@ -146,17 +144,10 @@ The `web/src/common/` entry in the repository layout above lists only what exist
   - three galaxies, one directly behind the hole as seen from the default camera, so the Einstein ring shows on load
 - **App** (`/lensing/`): orbit camera around the hole, a distance slider (logarithmic, 3.5–300 M, kept in sync with scroll-zoom), a field-of-view slider (20–140°: close in the shadow covers most of the sky) and a shadow-radius readout. URL options: `?r=`, `?fov=`, `?selftest`, `?lensbench`.
 - **GPU self-test** (`?selftest`): the escape direction of every pixel in 4 views (default, close, just outside the photon sphere looking sideways, far and narrow) vs the Rust quadrature. Worst error 3.3e-5 rad over 9750 rays. Rays within 2% of b_c are skipped (490), and capture/escape must agree everywhere else. The Rust reference loads via wasm only on the self-test page.
-- **Checks against known results in the image:** at 60 M the Einstein ring of the galaxy behind the hole sits at 15.3°, against √(4M/r) = 14.8°. The shadow-radius readout uses the exact formula.
+- **Checks against known results in the image:** at 60 M (the default distance was 20 M then, and is 40 M now) the Einstein ring of the galaxy behind the hole sits at 15.3°, against √(4M/r) = 14.8°. The shadow-radius readout uses the exact formula.
 - **Performance** (Apple M4, `?lensbench`): 720×407 3.7 ms, 1440×813 11.2 ms, 2880×1626 (full retina) 38.9 ms. The pass adapts between 0.35× and the device-pixel ratio.
 
-### Step 2: sky and teaching aids
-
-- Reference grid option, and a lensed ⇄ unlensed toggle.
-- Overlays: shadow outline, photon ring, Einstein-ring radius for a chosen source.
-- Anti-aliasing near the photon ring.
-- Possibly a real star map (license permitting).
-
-### Step 3: Kerr
+### Step 2: Kerr
 
 - Spin slider, full geodesic integration, zero-angular-momentum observer, Kerr reference integrator and tests.
 
@@ -180,8 +171,7 @@ The `web/src/common/` entry in the repository layout above lists only what exist
 
 ## Open questions
 
-- [x] Camera model for stage 1: a static observer at 3.5–300 M (outside the photon sphere, so the planar escape logic holds). An orbiting or falling camera remains a "maybe later".
-- [ ] Sky: procedural only, or also a real star map? Which one, and under what license?
+- [x] Camera model for step 1: a static observer at 3.5–300 M (outside the photon sphere, so the planar escape logic holds). An orbiting or falling camera remains a "maybe later".
 - [x] Integration variable and step control for the GPU, Schwarzschild: RK4 in φ, step min(0.02, ½u/|du/dφ|) ≥ 0.002; 3.3e-5 rad worst against the reference.
 - [ ] Kerr formulation: Boyer–Lindquist (singular at the horizon, fine for rays that stop there) or Kerr–Schild (regular)? Prototype both.
 - [ ] Should the lensing app and the BBH app share one URL-parameter and panel style, or diverge?
