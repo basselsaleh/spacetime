@@ -2,7 +2,6 @@
 // wave's stretching and squeezing, plus the strain-versus-time (chirp) plot
 // an observer at that point receives.
 
-import { sliceFrom3D, sliceToPixel, type Camera, type SliceConfig } from "./strainView";
 import type { PreparedWaveform } from "./waveform";
 
 export interface ProbePoint {
@@ -169,15 +168,6 @@ export class Probe {
     ctx.textAlign = "right";
     ctx.fillText("peak (0 M)", X(0) - 4, 12);
     ctx.fillText(`${tB.toFixed(0)} M`, W - 4, H - 4);
-  }
-
-  /** Positions the probe marker over the view, hollow if the probe is off the slice. */
-  placeMarker(marker: HTMLElement, canvas: HTMLCanvasElement, camera: Camera, slice: SliceConfig) {
-    const { x, y, z } = this.point;
-    const s = sliceFrom3D(slice, [x, y, z]);
-    const p = sliceToPixel(camera, s.x, s.y, canvas.clientWidth, canvas.clientHeight);
-    marker.style.transform = `translate(${p.px}px, ${p.py}px)`;
-    marker.classList.toggle("off-slice", Math.abs(s.offset) > 1e-6 * Math.max(1, this.r));
   }
 }
 

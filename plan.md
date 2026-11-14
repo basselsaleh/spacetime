@@ -79,7 +79,7 @@ Browser only.
 
 - **Physics core: Rust → WebAssembly.** One pure-Rust crate (f64, no GPU or web dependencies) holds the waveform model, orbit model, spherical harmonics and remnant fits. It's built with `wasm-pack` and tested on your own machine with `cargo test`.
 - **Frontend: TypeScript + Vite.** Handles the UI, layout, linked views and the chirp plot.
-- **Rendering: WebGL2 fragment shaders.** The strain field is evaluated per pixel. WebGL2 runs in every browser today. WebGPU is needed only if and when geodesic ray tracing (Layer 4) starts.
+- **Rendering: WebGL2 via three.js (since Phase 3 stage 1).** The strain field is evaluated per pixel by a custom shader on slice planes in a 3D scene. WebGL2 runs in every browser today. WebGPU is needed only if the volume view or geodesic ray tracing (Layer 4) demands it.
 - **Data flow.** When parameters change, Rust generates h\_lm(t) once (about 1 ms). The result is uploaded as a float texture in the surrogate's co-orbital form: A₂₂ and φ₂₂, plus each other mode as H\_lm = h\_lm e^{i m φ₂₂/2}. These vary slowly and interpolate cleanly; the shader rotates back with h\_lm = H\_lm e^{−i m φ₂₂/2}. Each frame, the shader only does texture lookups and the mode sum.
 - **Offline pipeline: Python, managed with `uv`.** gwsurrogate exports the trimmed model and generates golden waveforms for the Rust tests. sxs provides NR data for validation mode; lalsuite is kept for cross-checks.
 
@@ -147,10 +147,18 @@ tests/golden/        Small reference files committed for the Rust tests
 - Audio
 - Slice azimuth control (tilt is done in step 4b)
 
-**Phase 3: Go/no-go on 3D.**
+**Phase 3: 3D. Decided Nov 14, 2026: go, before Phase 2, so tendex/vortex lines can be built directly in 3D.**
 
-- If pursued: move rendering to WebGPU and place the existing slices in a 3D scene with a camera.
-- Add the volume view, where wavefronts appear as glowing shells.
+Order: 3D scene → tendex/vortex lines as 3D curves (weak-field quadrupole solution) → volume view → ray-traced lensing (Phase 4).
+
+- **Stage 1: 3D scene with flat field surfaces.** Built Nov 14, 2026 (branch `step-5-3d-scene`).
+  - three.js (r181) on WebGL2. The strain shader now runs on plane meshes (RawShaderMaterial), so any slice can be placed in space. Black holes and the probe are spheres: solid where visible, a faint outline where hidden behind a slice (depth test, ghost pass). Guides: the orbital axis and the outline of the orbital plane.
+  - One perspective camera for both views. Flat view: 1° field of view from far away, looking straight at the slice; a perspective view of a plane perpendicular to the line of sight is an exact scaling, so this matches the 2D app. 3D view: 40° orbit camera with +z up (OrbitControls). Switching is a 1.6 s dolly zoom (logarithmic field-of-view interpolation, quaternion slerp, distance chosen to keep the slice framed).
+  - In 3D, a translucent orbital plane can accompany a tilted slice. Clicking a slice places the probe (ray cast).
+  - Precision: in the flat view and the self-test, slice coordinates come from the pixel position, not interpolated vertex positions. Rasterizers snap vertices to 1/256 px, which in the self-test's 64×40 images moved points by ~0.05 M and raised the GPU−CPU error to 2.5e-3. With the exact mapping the self-test is unchanged from step 4b (worst 4.4e-4).
+  - Size: three.js brings the JavaScript bundle to 542 KB (141 KB gzipped). WebGPU is still not needed; revisit for the volume view or ray tracing.
+- **Stage 2:** tendex and vortex lines as 3D curves.
+- **Stage 3:** volume view, where wavefronts appear as glowing shells.
 
 **Phase 4: Near zone.**
 

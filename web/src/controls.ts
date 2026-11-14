@@ -1,7 +1,7 @@
 // Playback controls, per-view pan/zoom with click-to-probe, and the binary
 // parameter sliders.
 
-import { pixelToSlice, type Camera, type SceneState } from "./strainView";
+import { pixelToSlice, type Camera, type SceneState } from "./slice";
 import { PARAM_RANGE, type BinaryParams } from "./waveform";
 
 export interface Playback {
@@ -69,14 +69,17 @@ export function setupPlayback(scene: SceneState, playback: Playback): { sync: ()
 }
 
 /**
- * Drag to pan, wheel to zoom around the cursor, double-click to reset, and a
- * click without dragging calls `onClick` with the point in slice coordinates.
+ * Pointer handling for the view. In the flat view: drag to pan, wheel to zoom
+ * around the cursor, double-click to reset. In the 3D view the orbit controls
+ * handle dragging and zooming. In both, a click without dragging calls
+ * `onClick` with the pixel position (CSS px).
  */
-export function setupCamera(
+export function setupPointer(
   canvas: HTMLCanvasElement,
   camera: Camera,
-  defaults: Camera,
-  onClick: (x: number, y: number) => void,
+  isFlat: () => boolean,
+  onClick: (px: number, py: number) => void,
+  onDoubleClick: () => void,
 ): void {
   const local = (e: { clientX: number; clientY: number }) => {
     const rect = canvas.getBoundingClientRect();
@@ -85,29 +88,31 @@ export function setupCamera(
   let drag: { x: number; y: number; moved: number } | null = null;
   canvas.addEventListener("pointerdown", (e) => {
     drag = { x: e.clientX, y: e.clientY, moved: 0 };
-    canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener("pointermove", (e) => {
     if (!drag) return;
-    const { w } = local(e);
-    const perPixel = (2 * camera.halfWidth) / w;
-    camera.centerX -= (e.clientX - drag.x) * perPixel;
-    camera.centerY += (e.clientY - drag.y) * perPixel;
-    drag.moved += Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y);
+    const dx = e.clientX - drag.x;
+    const dy = e.clientY - drag.y;
+    drag.moved += Math.abs(dx) + Math.abs(dy);
     drag.x = e.clientX;
     drag.y = e.clientY;
+    if (isFlat()) {
+      const perPixel = (2 * camera.halfWidth) / local(e).w;
+      camera.centerX -= dx * perPixel;
+      camera.centerY += dy * perPixel;
+    }
   });
   canvas.addEventListener("pointerup", (e) => {
     if (drag && drag.moved < 4) {
-      const { px, py, w, h } = local(e);
-      const p = pixelToSlice(camera, px, py, w, h);
-      onClick(p.x, p.y);
+      const { px, py } = local(e);
+      onClick(px, py);
     }
     drag = null;
   });
   canvas.addEventListener(
     "wheel",
     (e) => {
+      if (!isFlat()) return;
       e.preventDefault();
       const { px, py, w, h } = local(e);
       const before = pixelToSlice(camera, px, py, w, h);
@@ -118,7 +123,7 @@ export function setupCamera(
     },
     { passive: false },
   );
-  canvas.addEventListener("dblclick", () => Object.assign(camera, defaults));
+  canvas.addEventListener("dblclick", onDoubleClick);
 }
 
 /** Parameter sliders; `onChange` fires (at most once per frame) while dragging. */

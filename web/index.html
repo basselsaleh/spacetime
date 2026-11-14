@@ -10,7 +10,6 @@
     <main id="app">
       <section id="stage" aria-label="Strain field">
         <canvas id="view"></canvas>
-        <div id="marker" class="marker" aria-hidden="true"></div>
         <div id="view-panel" class="panel">
           <div id="view-title">Top view · orbital plane</div>
           <div class="view-row">
@@ -20,6 +19,8 @@
             </div>
             <button id="swap" type="button">⇄ Side view</button>
           </div>
+          <button id="mode" type="button" class="wide">3D view</button>
+          <label class="check" hidden><input id="orbital-plane" type="checkbox" /> Also show the orbital plane</label>
           <label class="tilt">Tilt <input id="tilt" type="range" min="0" max="90" step="1" value="0" /><span id="tilt-value">0°</span></label>
           <canvas id="gizmo" aria-label="Orientation of the slice relative to the orbit"></canvas>
           <div id="legend">
@@ -93,8 +94,13 @@
             <p>
               Inside the ring is the near zone, where this far-zone formula does not apply. Black
               discs: horizons where the slice cuts them, at true size (at least a few pixels); faint
-              outlines: holes off the slice. Orbits are post-Newtonian, derived from the wave phase,
-              and schematic in the last orbits. Click the view to move the probe.
+              outlines: the parts of holes hidden behind a slice. Orbits are post-Newtonian, derived
+              from the wave phase, and schematic in the last orbits. Click a slice to move the
+              probe (the warm sphere).
+            </p>
+            <p>
+              The 3D view shows the same slices placed in space, with the orbital axis and the
+              outline of the orbital plane; drag to orbit, scroll to zoom, double-click to reset.
             </p>
           </details>
           <div id="status">Loading…</div>

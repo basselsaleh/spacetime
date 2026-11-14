@@ -1,13 +1,12 @@
-#version 300 es
-// Gravitational-wave strain on a 2D slice through the source, from the
-// NRHybSur3dq8 modes.
+// Gravitational-wave strain on a slice plane through the source, from the
+// NRHybSur3dq8 modes. Drawn on a plane mesh in the 3D scene (three.js
+// RawShaderMaterial; three prepends "#version 300 es").
 //
-// Each pixel is a 3D point at distance r, polar angle θ (from the orbital
+// Each fragment is a 3D point at distance r, polar angle θ (from the orbital
 // angular momentum, +z) and azimuth φ. It shows r·h₊ or r·h× at retarded time
 // t − r, where h₊ − i h× = (1/r) Σ_lm h_lm(t − r) ₋₂Y_lm(θ, φ) (LAL convention).
-// The slice is the plane through the source spanned by u_axisU (screen right)
-// and u_axisV (screen up): the orbital plane seen from +z is (x̂, ŷ), the side
-// view is (x̂, ẑ), and any tilt in between is a genuine slice too.
+// The slice is spanned by u_axisU and u_axisV: the orbital plane is (x̂, ŷ), the
+// side view (x̂, ẑ), and any tilt in between is a genuine slice too.
 //
 // The waveform-table arithmetic mirrors `ModeTable::strain` in
 // crates/physics/src/mode_table.rs; the ?selftest page compares the two.
@@ -15,13 +14,13 @@ precision highp float;
 precision highp int;
 precision highp sampler2D;
 
+in vec3 vWorld;
+out vec4 outColor;
+
 #define MAX_ROWS 16
 #define PI 3.141592653589793
 #define TAU 6.283185307179586
 #define FOUR_PI 12.566370614359172
-
-in vec2 v_uv;
-out vec4 outColor;
 
 uniform sampler2D u_table;    // RG32F: row 0 (A22, φ22 mod 4π); others (Re H, Im H)
 uniform int u_width;          // table texture width in texels
@@ -34,21 +33,21 @@ uniform ivec2 u_lm[MAX_ROWS];
 uniform sampler2D u_harmonics;
 uniform int u_thetaSamples;
 
-uniform vec3 u_axisU;         // slice axis shown left→right (unit)
-uniform vec3 u_axisV;         // slice axis shown bottom→top (unit, ⟂ u_axisU)
-uniform vec3 u_normal;        // u_axisU × u_axisV
+uniform vec3 u_axisU;         // in-slice unit vector (screen right in the flat view)
+uniform vec3 u_axisV;         // in-slice unit vector ⟂ u_axisU (screen up in the flat view)
 uniform int u_component;      // 0: h₊, 1: h×
 
-uniform vec2 u_resolution;    // pixels
-uniform vec2 u_center;        // view centre in slice coordinates, M
-uniform float u_halfWidth;    // half the view width, M
 uniform float u_time;         // coordinate time at the source, M
 uniform float u_scale;        // colour units per r·h (1/peak × gain)
 uniform float u_maskRadius;   // near zone: far-zone formula not valid inside, M
 uniform bool u_raw;           // self-test: output raw (r·h₊, r·h×, valid)
-// Heavier hole, lighter hole, remnant: (x, y, horizon radius, opacity), in M; z = 0.
-uniform vec4 u_discs[3];
-uniform float u_minDiscRadius; // M; keeps discs visible when zoomed out
+uniform float u_opacity;      // < 1 for a secondary plane in the 3D view
+// When the camera looks straight at the slice (flat view, self-test), take the
+// slice position from the pixel itself, exactly; otherwise interpolate it.
+uniform bool u_screenMapped;
+uniform vec2 u_resolution;    // drawing-buffer pixels
+uniform vec2 u_center;        // slice coordinates at the view centre, M
+uniform float u_halfWidth;    // half the view width, M
 
 vec2 cmul(vec2 a, vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x); }
 vec2 conj2(vec2 a) { return vec2(a.x, -a.y); }
@@ -121,16 +120,22 @@ vec3 diverging(float v) {
 }
 
 void main() {
-  float aspect = u_resolution.x / u_resolution.y;
-  vec2 q = u_center + (v_uv * 2.0 - 1.0) * vec2(u_halfWidth, u_halfWidth / aspect);
-
-  // 3D point and its spherical angles (θ from +z, the orbital angular momentum).
+  // Slice coordinates. Interpolated positions carry rasterizer snapping error
+  // (1/256 px), so the flat view maps pixels to the slice directly.
+  vec2 q;
+  if (u_screenMapped) {
+    float aspect = u_resolution.x / u_resolution.y;
+    q = u_center + (gl_FragCoord.xy / u_resolution * 2.0 - 1.0) * vec2(u_halfWidth, u_halfWidth / aspect);
+  } else {
+    q = vec2(dot(vWorld, u_axisU), dot(vWorld, u_axisV));
+  }
+  // Rebuild the point on the slice, so the orbital plane has z = 0 exactly.
   vec3 p3 = q.x * u_axisU + q.y * u_axisV;
+  float r = length(p3);
   // atan(y, 0) is legal GLSL but some GPU backends mishandle it; the orbital
   // plane (z = 0 exactly) is the common case, so take it directly.
   float theta = p3.z == 0.0 ? 0.5 * PI : atan(length(p3.xy), p3.z);
   float phi = atan(p3.y, p3.x);
-  float r = length(p3);
 
   bool valid;
   vec2 h = strain(u_time - r, theta, phi, valid);
@@ -148,31 +153,9 @@ void main() {
   // Near zone: fade to background where the far-zone formula does not apply.
   float mask = smoothstep(0.75 * u_maskRadius, u_maskRadius, r);
   color = mix(background, color, mask);
-  // Faint ring marking the near-zone boundary.
-  float px = u_halfWidth / (0.5 * u_resolution.x);  // M per pixel
-  float ring = 1.0 - smoothstep(0.0, 1.5 * px, abs(r - u_maskRadius));
+  // Faint ring marking the near-zone boundary (width from screen derivatives).
+  float aa = max(fwidth(r), 1e-4);
+  float ring = 1.0 - smoothstep(0.0, 1.5 * aa, abs(r - u_maskRadius));
   color = mix(color, vec3(0.55, 0.6, 0.7), 0.35 * ring);
-
-  // Black holes. Where the slice cuts a horizon sphere: a black disc (the true
-  // cross-section, at least a few pixels) with a bright rim. A hole off the
-  // slice: a faint outline at its projected position.
-  for (int k = 0; k < 3; k++) {
-    vec4 d = u_discs[k];
-    if (d.w <= 0.0) continue;
-    vec3 c = vec3(d.xy, 0.0);
-    float off = dot(c, u_normal);
-    float dist = length(p3 - (c - off * u_normal));
-    if (abs(off) < d.z) {
-      float radius = max(sqrt(d.z * d.z - off * off), u_minDiscRadius);
-      float inside = 1.0 - smoothstep(radius - px, radius + px, dist);
-      float rim = 1.0 - smoothstep(0.0, 1.5 * px, abs(dist - radius));
-      color = mix(color, vec3(0.0), inside * d.w);
-      color = mix(color, vec3(0.92, 0.94, 1.0), 0.8 * rim * d.w);
-    } else {
-      float radius = max(d.z, u_minDiscRadius);
-      float rim = 1.0 - smoothstep(0.0, 1.2 * px, abs(dist - radius));
-      color = mix(color, vec3(0.92, 0.94, 1.0), 0.35 * rim * d.w);
-    }
-  }
-  outColor = vec4(color, 1.0);
+  outColor = vec4(color, u_opacity);
 }
