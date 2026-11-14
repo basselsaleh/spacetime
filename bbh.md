@@ -6,12 +6,12 @@ Other applications in this repository get their own planning documents; this one
 
 ## Status
 
-**Phases 1 and 3 are done and public; Phase 5 (precessing spins) is in progress: steps 7a and 7b done.** The original goal, visualizing gravitational waves away from the binary faithfully and beautifully, is met. Phase 5 replaces the waveform model so the spins can point in any direction and the orbit visibly precesses.
+**Phases 1 and 3 are done and public; Phase 5 (precessing spins) is in progress: steps 7a–7c done; the app runs on NRSur7dq4 (aligned-spin sliders until step 7e).** The original goal, visualizing gravitational waves away from the binary faithfully and beautifully, is met. Phase 5 replaces the waveform model so the spins can point in any direction and the orbit visibly precesses.
 
 - Phase 1 (2D wave-zone app): merged, PR #1.
 - Phase 3 (3D view with the ray-marched strain volume): merged, PR #2. The user reviewed the 3D view interactively and approved it.
 - Phase 2 was cut. Phase 4 (the near zone) is **parked**: it may be attempted in the future (see "If this app is revisited").
-- Phase 5 (precession, NRSur7dq4): planned Nov 14, 2026. Step 7a (offline prototype) done on `step-7a-precession-prototype` (`6e2276f`); step 7b (Rust evaluator) done on `step-7b-rust-evaluator` (`6a8ac92`), stacked on 7a. Both local, not pushed. Next is step 7c.
+- Phase 5 (precession, NRSur7dq4): planned Nov 14, 2026. Step 7a (offline prototype) done on `step-7a-precession-prototype` (`6e2276f`); step 7b (Rust evaluator) on `step-7b-rust-evaluator` (`6a8ac92`); step 7c (mode table, shaders, app switched over, NRHybSur3dq8 removed) on `step-7c-mode-table` (`97bcaac`). Each is stacked on the previous one. All local, not pushed. Next is step 7d.
 
 **Not verified by a person**
 
@@ -42,6 +42,7 @@ Other applications in this repository get their own planning documents; this one
 | Nov 14 | Phase 5 display frame: **+z along J at the start of the data** (t ≈ −4300 M), L̂ there in the x–z plane | L̂ then sweeps a cone about a fixed axis. J uses the 2PN orbital angular momentum without spin terms; it only picks the axes. Check: the remnant spin comes out within ~2° of this axis |
 | Nov 14 | Phase 5 spin reference: **the sliders set the spins at the start of the data** (t ≈ −4300 M), in the co-orbital frame there | gwsurrogate's default (fM_ref = 0): the ODE integrates forward only, avoiding the backward RK4/AB4 start. The loop starts at −2500 M, so the spins shown at the loop start have already precessed a little. Revisit if that confuses |
 | Nov 14 | STSUR002 stores bases and polynomial coefficients as **f32**; times and the remnant as f64 | 4.24 MB instead of 6.94 MB; costs 1.3e-6 of peak in the modes and 8e-7 in the frame dynamics |
+| Nov 14 | Step 7c mode table: **frame + co-orbital modes, rotated per direction in the shader**, not inertial modes | Inertial modes of a precessing binary mix the co-orbital m′ = ±2 parts, so no single phase factor makes them smooth enough for a 1 M table. The cost is a quaternion rotation and a polarization factor per sample |
 | Nov 13 | **Cut Phase 2 entirely**: no in-app NR validation overlay, no audio, no slice azimuth control. Phase numbers are kept as they were (1, 3, 4) | User doesn't want these features; validation stays as offline golden tests |
 
 ## Vision and goals
@@ -140,8 +141,9 @@ Browser only.
 - **Front end: TypeScript + Vite.** Handles the UI, the probe and chirp plot (Canvas 2D), and the orientation sketch.
 - **Rendering: WebGL2 via three.js r181.** Custom `RawShaderMaterial`s evaluate the strain per pixel on the slice plane and ray-march it through the volume; holes and the probe are spheres. WebGPU was not needed.
 - **Data flow.**
-  - When parameters change, Rust evaluates the surrogate once (about 1 ms) and packs a mode table. That's an RG32F texture, 2048 texels wide (WebGL2's guaranteed minimum): row 0 holds (A₂₂, φ₂₂ mod 4π), the other rows (Re H, Im H).
-  - A second RG32F texture holds the θ-dependence of the harmonics (1025 samples, so θ = π/2 is exact).
+  - When parameters change, Rust evaluates NRSur7dq4 once (14.5 ms in wasm; it was ~1 ms with NRHybSur3dq8) and packs a mode table. That's an RG32F texture, 2048 texels wide (WebGL2's guaranteed minimum). Rows 0–1 hold the coprecessing-frame quaternion, row 2 holds the orbital phase Φ mod 2π, and the remaining 21 rows hold the co-orbital modes (Re H, Im H) in (l, ±m) groups, strongest first. *(Since step 7c; before that, row 0 was (A₂₂, φ₂₂ mod 4π) and the other rows were m ≥ 0 co-orbital modes.)*
+  - For each point, the shader rotates the direction into the coprecessing frame (θ_c, φ_c), sums H_lm ₋₂Y_lm(θ_c, φ_c − Φ), and multiplies by e^{−2iγ}, where γ is the angle between the two frames' θ̂ at that point (no trig needed). The inertial modes of a precessing binary can't be stored smoothly, since each mixes the co-orbital m′ = ±2 parts.
+  - A second RG32F texture holds the θ-dependence of the harmonics: one row per mode row, 1025 samples, so θ = π/2 is exact.
   - Each frame the shader only does texelFetch lookups, hand interpolation and the mode sum.
 - **Offline pipeline: Python, managed with `uv`.**
   - gwsurrogate and surfinBH export the trimmed model and generate golden data.
@@ -330,13 +332,17 @@ Fits are forward-stepwise polynomial basis functions (`bfOrders`, `coefs`; C ker
   - Tests (`crates/physics/tests/nrsur7dq4_golden.rs`) compare against gwsurrogate and surfinBH: modes within 1.15e-6 of peak, dynamics within 7.8e-7, remnant fits within 1e-10, and the full path to the remnant. They also check the aligned-spin planar symmetry (3.6e-3 of peak before the peak, i.e. model noise), uniform resampling, and range rejection. Wigner-D is checked for unitarity and composition.
   - One evaluation takes ~4 ms natively (release build); wasm is untimed.
   - **Changed from the plan:** NRHybSur3dq8 stays until step 7c. `mode_table.rs`, `binary.rs` and the wasm bindings all use it, so removing it here would have left the app unbuildable.
-- **Step 7c: mode table and shaders.** Also remove the NRHybSur3dq8 evaluator, its data and its golden tests (moved here from 7b), once the app reads NRSur7dq4.
-  - All 21 modes; drop the h\_{l,−m} = (−1)^l h\*\_{lm} symmetry (it fails with precession) and raise `MAX_ROWS`.
-  - Rotate to inertial modes on the CPU, then keep the co-orbital storage trick: divide by a common orbital phase. Precession is slow, so the rows stay smooth at 1 M sampling.
-  - Slices sum every mode, so they cost roughly twice as much; measure. The volume keeps its 3 strongest modes.
-  - Self-test unchanged in method.
+- **Step 7c: mode table and shaders. Done** (Nov 14, branch `step-7c-mode-table`).
+  - **Design changed from the plan.** Dividing inertial modes by a common phase doesn't make them smooth for a precessing binary. The table holds the frame and the co-orbital modes instead, and the shader rotates each direction (see Platform and stack → Data flow). `ModeTable::strain_rows` mirrors the shader on the CPU.
+  - Against the exact sum over the Wigner-rotated inertial modes, the table is within 8e-6 of peak at sample times, for aligned, precessing, and rotated-frame binaries. Between samples, linear interpolation adds up to 1.9–4.9e-3, all at the merger (t ≈ 0–5 M), where the co-orbital phase turns fastest and the color map is near saturation. A 0.5 M table would cut that ~4×.
+  - The GPU self-test (Metal) now also renders a precessing binary (q = 4, χ_A = 0.8 in-plane): 2.3e-4 of peak over 39,100 pixels.
+  - The volume sums the three strongest (l, ±m) groups: 6 rows, where it used to be 3 rows with their −m partners implied. GPU cost (`?volbench`, M4): at 550×407 / 825×610 / 1100×813, it's 15.7 / 33.6 / 57.2 ms, against the old 8.5 / 18.8 / 31. That's ~2×; the adaptive resolution absorbs it. **Follow-up:** pack each ±m pair into one RGBA32F texel (and pair the harmonics) to halve the texture fetches.
+  - `binary.rs` was ported: 3D hole positions from the co-orbital frame, frozen after the merger window, with the separation still from 2PN. The disks now carry z (`BinaryTrack.state` is 5 floats per body), and the scene places the spheres in 3D.
+  - Front end: loads `nrsur7dq4.stsur`; q range [1, 4]; the sliders still set aligned spins (`BinaryParams.spins` already carries vectors for step 7e). The README credits now name NRSur7dq4.
+  - Removed NRHybSur3dq8: the evaluator, its data file, `export_surrogate.py`, `gen_golden.py`, `gen_remnant_golden.py`, and its golden data. The orientation golden data was regenerated with NRSur7dq4.
+  - Visual check: aligned binaries look as before (the remnant matches the old model's to 2e-4). The 3D view has the same polarization-basis seam along the axis as before.
 - **Step 7d: orbits and spins in the scene.**
-  - Hole positions from the dynamics' orbital frame and phase, replacing the φ₂₂ heuristics in `binary.rs`; the separation is still from PN.
+  - ~~Hole positions from the dynamics' orbital frame~~ (done in 7c). Display frame: compute the J-aligned `init_quat` (as `tools/proto_precession.py` does) and pass it to `evaluate`.
   - Spin arrows on each hole, precessing.
   - Remnant spin direction and 3D kick.
   - The near-zone radius from the orbital frequency.
