@@ -5,7 +5,6 @@
 #view { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
 #view:active { cursor: grabbing; }
 
-#title { top: 16px; left: 16px; padding: 8px 12px; font-weight: 600; }
 #remnant, #eval, #status { color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
 #eval { font-size: 12px; }
 #status.error { color: #ff8a80; }
