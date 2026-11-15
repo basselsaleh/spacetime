@@ -10,11 +10,13 @@
 //! - [`binary`]: black-hole positions and remnant, derived from the waveform.
 //! - [`geodesic`]: light rays around a Schwarzschild black hole (lensing app).
 //! - [`kerr`]: light rays around a spinning (Kerr) black hole (lensing app).
+//! - [`embedding`]: embedding diagrams of curved spatial slices (curvature app).
 //! - [`harmonics`]: spin-weighted spherical harmonics.
 //! - [`mode_table`]: GPU packing of a waveform, plus a CPU reference of the shader.
 //! - [`newtonian`]: Newtonian placeholder relations (drives the step 0 demo field).
 
 pub mod binary;
+pub mod embedding;
 pub mod geodesic;
 pub mod harmonics;
 pub mod kerr;

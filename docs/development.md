@@ -58,7 +58,11 @@ Black hole lensing (`/lensing/`):
   spins 0.5 and 0.998
 - `?lensbench`: GPU timing at spins 0 (both integrators), 0.5 and 0.998 (needs real time)
 
-Curvature (`/curvature/`): a placeholder page for now, with no URL options.
+Curvature (`/curvature/`):
+
+- `?grid=cartesian|polar|proper` (default cartesian), `?rmax=30` (outer radius, 6–150 M)
+- `?probe=12`: measure the circle at r = 12 M; `?flat`: show the flat comparison grid
+- `?selftest`: the TypeScript embedding vs the Rust reference and Flamm's closed forms
 
 ## GPU self-tests and screenshots (headless Chrome on macOS)
 
@@ -68,12 +72,14 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 FLAGS="--headless=new --use-angle=metal --enable-gpu --ignore-gpu-blocklist"
 "$CHROME" $FLAGS --virtual-time-budget=8000 --dump-dom "http://localhost:4173/bbh/?selftest" | grep -o "<title>[^<]*</title>"
 "$CHROME" $FLAGS --virtual-time-budget=8000 --dump-dom "http://localhost:4173/lensing/?selftest" | grep -o "<title>[^<]*</title>"
+"$CHROME" $FLAGS --virtual-time-budget=8000 --dump-dom "http://localhost:4173/curvature/?selftest" | grep -o "<title>[^<]*</title>"
 "$CHROME" $FLAGS --window-size=1440,900 --force-device-scale-factor=1 \
   --virtual-time-budget=12000 --screenshot=out.png "http://localhost:4173/bbh/?paused&t=-400&3d"
 ```
 
 - Use `--use-angle=metal` for the real GPU; SwiftShader's float arithmetic is less accurate.
 - `--force-device-scale-factor=1` keeps screenshots at the window size on scaled displays.
+- Headless windows are at least 500 px wide; a narrower `--window-size` crops a 500 px layout.
 - `--virtual-time-budget` freezes `performance.now()` during synchronous work, so the benchmarks
   need real time: run headless with `--remote-debugging-port=9333 --user-data-dir=<tmp>` and poll
   `curl -s localhost:9333/json` for the page title.

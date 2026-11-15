@@ -5,7 +5,7 @@ use spacetime_physics::binary::Binary;
 use spacetime_physics::harmonics::spin_weighted_ylm_theta;
 use spacetime_physics::mode_table::{FRAME_ROWS, ModeTable, equatorial_peak_22};
 use spacetime_physics::nrsur7dq4::{Nrsur7dq4, Params, Remnant, Waveform};
-use spacetime_physics::{geodesic, kerr};
+use spacetime_physics::{embedding, geodesic, kerr};
 use wasm_bindgen::prelude::*;
 
 /// Version of the physics crate this module was built from.
@@ -356,4 +356,17 @@ pub fn lens_shadow_edge(cam: &[f64], a: f64, n: usize) -> Vec<f64> {
         .into_iter()
         .flatten()
         .collect()
+}
+
+/// Curvature self-test reference: the embedding of a slice at `radii`
+/// (increasing, outside the horizon), as flat `[height..., distance..., curvature...]`.
+/// `slice` is `"schwarzschild"` (more in step 2).
+#[wasm_bindgen(js_name = curvatureProfile)]
+pub fn curvature_profile(slice: &str, radii: &[f64]) -> Result<Vec<f64>, JsError> {
+    let p = match slice {
+        "schwarzschild" => embedding::profile(&embedding::Schwarzschild, radii),
+        _ => return Err(JsError::new(&format!("unknown slice {slice}"))),
+    }
+    .map_err(|e| JsError::new(&e.to_string()))?;
+    Ok([p.height, p.distance, p.curvature].concat())
 }

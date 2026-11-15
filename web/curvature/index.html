@@ -12,15 +12,45 @@
       <canvas id="view"></canvas>
       <div id="title" class="panel"><a href="../">Spacetime</a> <span class="muted">· curvature</span></div>
       <div id="panel" class="panel">
-        <details id="about" open>
+        <div class="row-grid">
+          <span>Grid</span>
+          <div class="toggle" id="grid">
+            <button data-grid="cartesian" title="Lines of constant x and y">Cartesian</button>
+            <button data-grid="polar" title="Circles of constant r, every 15° around">Polar</button>
+            <button data-grid="proper" title="Circles at equal proper distance from the horizon">Proper</button>
+          </div>
+        </div>
+        <label class="row">Outer radius <input id="rmax" type="range" min="0" max="1000" step="1" /><span id="rmax-value"></span></label>
+        <label class="check"><input id="curvature" type="checkbox" checked /> Color by curvature</label>
+        <div id="legend">
+          <div class="bar"></div>
+          <div class="ticks"></div>
+          <div class="caption">Gaussian curvature K (1/M², log scale)</div>
+        </div>
+        <label class="check"><input id="flat" type="checkbox" /> Flat grid for comparison</label>
+        <div id="probe">Click the sheet to measure it there.</div>
+        <details id="about">
           <summary>About this view</summary>
           <p>
-            This page will show embedding diagrams: a slice of space around a black hole or a star,
-            drawn as a curved sheet whose lengths match the real, curved geometry of that slice.
+            Space around a black hole, at one moment, cut through the hole's equator. That slice of
+            space is curved, and this sheet is the shape a surface in ordinary 3D space needs so
+            that every distance measured along it matches the real distance in the slice
+            (Flamm's paraboloid, 1916).
           </p>
           <p>
-            For now the sheet is flat, as space would be with no mass in it. Drag to orbit, scroll to
-            zoom, double-click to reset.
+            Near the hole there is more room between two circles than their circumferences
+            suggest: the grid squares stretch toward the center, and the sheet turns vertical at
+            the horizon (r = 2 M), where it ends. Far away it flattens out.
+          </p>
+          <p>
+            Only the sheet's own geometry is physical: lengths along it and its curvature, colored
+            here. Its height and the direction "down" mean nothing; it is not a rubber sheet that
+            things roll into, and it shows space, not time. (Falling comes mostly from time running
+            slower near the hole, which no picture of space can show.)
+          </p>
+          <p>
+            Click to measure a circle's circumference and its distance from the horizon. Drag to
+            orbit, scroll to zoom, double-click to reset. Distances are in units of the hole's mass M.
           </p>
         </details>
         <div id="status">Loading…</div>

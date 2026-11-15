@@ -52,8 +52,15 @@ This app is newer, and more is on the way.
 
 ## Curvature
 
-Coming soon: embedding diagrams, which draw the curved space around a black hole or a star as a
-warped sheet with a grid on it.
+The curved space around a black hole, drawn as a warped sheet with a grid on it: Flamm's
+paraboloid, the shape a surface needs so that every distance along it matches the real distance
+around the hole. The grid stretches toward the horizon, where the sheet turns vertical.
+
+- **Measure it:** click the sheet to see a circle's circumference, its distance from the horizon
+  (more than flat space would give) and the curvature there.
+- **Compare grids:** Cartesian, polar, or circles spaced by true distance.
+
+This app is new; a star and the Einstein–Rosen bridge are on the way.
 
 ## How it works
 
