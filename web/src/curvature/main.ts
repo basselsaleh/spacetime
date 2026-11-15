@@ -1,7 +1,7 @@
 // Curvature app: embedding diagrams of curved spatial slices (plan: curvature.md
 // on the dev branch). Flamm's paraboloid: the equatorial slice of Schwarzschild
 // space as a surface in R³ with the same lengths, drawn as a well.
-// URL options: ?grid=cartesian|polar|proper, ?rmax=<outer radius in M>, ?probe=<r in M>, ?flat, ?selftest.
+// URL options: ?grid=cartesian|polar|proper, ?rmax=<outer radius in M>, ?probe=<r in M>, ?selftest.
 
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -62,27 +62,24 @@ async function main() {
   const probe0 = Number(url.get("probe"));
   let probeR: number | null = probe0 > schwarzschild.horizon ? probe0 : null;
 
-  const flatBox = $<HTMLInputElement>("flat");
-  flatBox.checked = url.has("flat");
   const writeUrl = () => {
     const u = new URL(window.location.href);
     if (grid !== "cartesian") u.searchParams.set("grid", grid);
     else u.searchParams.delete("grid");
     if (rMax !== R_DEFAULT) u.searchParams.set("rmax", String(Math.round(rMax)));
     else u.searchParams.delete("rmax");
-    if (flatBox.checked) u.searchParams.set("flat", "");
-    else u.searchParams.delete("flat");
     if (probeR !== null) u.searchParams.set("probe", probeR.toFixed(2));
     else u.searchParams.delete("probe");
     history.replaceState(null, "", u);
   };
 
-  const rim = () => sheet.profile.circ[sheet.profile.circ.length - 1];
+  const rim = () => sheet.rim;
 
-  // Frame the whole sheet: the camera looks at a point partway down the well.
+  // Frame the well with the sheet fading into the distance beyond it: the camera
+  // looks at a point partway down the well from 3.7 view radii away.
   const frame = () => {
     controls.target.set(0, 0, -0.45 * sheet.depth);
-    camera.position.copy(controls.target).addScaledVector(VIEW_DIR, 2.3 * rim());
+    camera.position.copy(controls.target).addScaledVector(VIEW_DIR, 3.7 * rim());
     controls.minDistance = 3;
     controls.maxDistance = 12 * rMax;
   };
@@ -90,7 +87,7 @@ async function main() {
   // --- Probe ---
   const probeInfo = $("probe");
   const showProbe = () => {
-    if (probeR === null || probeR > rMax) {
+    if (probeR === null || probeR > sheet.rFar) {
       if (probeR !== null) {
         probeR = null;
         writeUrl();
@@ -167,11 +164,6 @@ async function main() {
   curvatureBox.addEventListener("change", () => {
     sheet.curvature = curvatureBox.checked;
     legend.hidden = !curvatureBox.checked;
-  });
-  sheet.showFlat = flatBox.checked;
-  flatBox.addEventListener("change", () => {
-    sheet.showFlat = flatBox.checked;
-    writeUrl();
   });
 
   // Legend: the bar is linear in the tint, so ticks sit where curvatureScale puts them.

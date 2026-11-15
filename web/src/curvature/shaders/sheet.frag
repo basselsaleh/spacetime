@@ -1,6 +1,7 @@
 // Grid lines drawn per pixel from the slice's coordinates, anti-aliased with
 // screen-space derivatives, over a lit sheet optionally tinted by its
-// Gaussian curvature K on a symmetric log scale.
+// Gaussian curvature K on a symmetric log scale. Past the framed radius the
+// sheet fades into the background.
 precision highp float;
 
 uniform vec3 u_eye;
@@ -9,10 +10,12 @@ uniform float u_spacing;    // line spacing in M (major lines every 5)
 uniform bool u_curvature;   // tint by K
 uniform float u_k0;         // the log scale's linear width
 uniform float u_kmax;       // |K| at full tint
+uniform vec2 u_fade;        // fade from u_fade.x to u_fade.y (distance from the axis)
 uniform vec3 u_base;
 uniform vec3 u_neg;
 uniform vec3 u_pos;
 uniform vec3 u_line;
+uniform vec3 u_bg;
 
 in vec3 vWorld;
 in vec3 vNormal;
@@ -64,5 +67,8 @@ void main() {
   float shade = 0.3 + 0.4 * abs(dot(n, light)) + 0.35 * abs(dot(n, v));
 
   vec3 color = mix(base * shade, u_line, 0.8 * grid);
-  outColor = vec4(color, 1.0);
+  // Fade evenly in log radius, so most of it is gone a few framed radii out.
+  float rho = length(vWorld.xy);
+  float fade = smoothstep(0.0, 1.0, log(max(rho, u_fade.x) / u_fade.x) / log(u_fade.y / u_fade.x));
+  outColor = vec4(mix(color, u_bg, fade), 1.0);
 }

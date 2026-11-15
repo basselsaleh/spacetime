@@ -60,8 +60,8 @@ Black hole lensing (`/lensing/`):
 
 Curvature (`/curvature/`):
 
-- `?grid=cartesian|polar|proper` (default cartesian), `?rmax=30` (outer radius, 6–150 M)
-- `?probe=12`: measure the circle at r = 12 M; `?flat`: show the flat comparison grid
+- `?grid=cartesian|polar|proper` (default cartesian), `?rmax=30` (view radius, 6–150 M; the sheet extends, fading, to 10× it)
+- `?probe=12`: measure the circle at r = 12 M
 - `?selftest`: the TypeScript embedding vs the Rust reference and Flamm's closed forms
 
 ## GPU self-tests and screenshots (headless Chrome on macOS)

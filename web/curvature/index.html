@@ -20,14 +20,13 @@
             <button data-grid="proper" title="Circles at equal proper distance from the horizon">Proper</button>
           </div>
         </div>
-        <label class="row">Outer radius <input id="rmax" type="range" min="0" max="1000" step="1" /><span id="rmax-value"></span></label>
+        <label class="row" title="The region the view frames; the sheet carries on, fading, far beyond it">View radius <input id="rmax" type="range" min="0" max="1000" step="1" /><span id="rmax-value"></span></label>
         <label class="check"><input id="curvature" type="checkbox" checked /> Color by curvature</label>
         <div id="legend">
           <div class="bar"></div>
           <div class="ticks"></div>
           <div class="caption">Gaussian curvature K (1/M², log scale)</div>
         </div>
-        <label class="check"><input id="flat" type="checkbox" /> Flat grid for comparison</label>
         <div id="probe">Click the sheet to measure it there.</div>
         <details id="about">
           <summary>About this view</summary>
@@ -40,7 +39,7 @@
           <p>
             Near the hole there is more room between two circles than their circumferences
             suggest: the grid squares stretch toward the center, and the sheet turns vertical at
-            the horizon (r = 2 M), where it ends. Far away it flattens out.
+            the horizon (r = 2 M), where it ends. Far away it keeps going, ever flatter, fading out of view.
           </p>
           <p>
             Only the sheet's own geometry is physical: lengths along it and its curvature, colored
