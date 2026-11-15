@@ -1,0 +1,4 @@
+# Only the built PDFs are committed; the LaTeX sources, data and scripts stay local.
+*
+!.gitignore
+!*.pdf
