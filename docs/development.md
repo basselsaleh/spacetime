@@ -58,6 +58,8 @@ Black hole lensing (`/lensing/`):
   spins 0.5 and 0.998
 - `?lensbench`: GPU timing at spins 0 (both integrators), 0.5 and 0.998 (needs real time)
 
+Curvature (`/curvature/`): a placeholder page for now, with no URL options.
+
 ## GPU self-tests and screenshots (headless Chrome on macOS)
 
 ```sh

@@ -1,0 +1,12 @@
+@import "../common/theme.css";
+
+#app { position: relative; height: 100vh; overflow: hidden; }
+#view { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+#view:active { cursor: grabbing; }
+#panel { top: 16px; right: 16px; width: 280px; padding: 10px 12px; display: grid; gap: 8px; }
+#status { color: var(--muted); font-size: 12px; }
+#status.error { color: #ff8a80; }
+#about { color: var(--muted); font-size: 12px; }
+#about summary { cursor: pointer; color: var(--fg); }
+#about p { margin: 6px 0 0; }
+@media (max-width: 600px) { #panel { width: calc(100% - 32px); top: auto; bottom: 16px; } }

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <title>Spacetime · curvature</title>
+    <link rel="stylesheet" href="../src/curvature/style.css" />
+  </head>
+  <body>
+    <main id="app">
+      <canvas id="view"></canvas>
+      <div id="title" class="panel"><a href="../">Spacetime</a> <span class="muted">· curvature</span></div>
+      <div id="panel" class="panel">
+        <details id="about" open>
+          <summary>About this view</summary>
+          <p>
+            This page will show embedding diagrams: a slice of space around a black hole or a star,
+            drawn as a curved sheet whose lengths match the real, curved geometry of that slice.
+          </p>
+          <p>
+            For now the sheet is flat, as space would be with no mass in it. Drag to orbit, scroll to
+            zoom, double-click to reset.
+          </p>
+        </details>
+        <div id="status">Loading…</div>
+      </div>
+    </main>
+    <script type="module" src="../src/curvature/main.ts"></script>
+  </body>
+</html>

@@ -16,6 +16,7 @@ export default defineConfig({
         index: resolve(import.meta.dirname, "index.html"),
         bbh: resolve(import.meta.dirname, "bbh/index.html"),
         lensing: resolve(import.meta.dirname, "lensing/index.html"),
+        curvature: resolve(import.meta.dirname, "curvature/index.html"),
       },
     },
   },

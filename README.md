@@ -50,6 +50,11 @@ and the doubled images of the sky all appear on their own. Drag to orbit, scroll
 
 This app is newer, and more is on the way.
 
+## Curvature
+
+Coming soon: embedding diagrams, which draw the curved space around a black hole or a star as a
+warped sheet with a grid on it.
+
 ## How it works
 
 The physics is written in Rust and compiled to WebAssembly; the pictures are computed per
