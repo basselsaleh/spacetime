@@ -359,12 +359,18 @@ pub fn lens_shadow_edge(cam: &[f64], a: f64, n: usize) -> Vec<f64> {
 }
 
 /// Curvature self-test reference: the embedding of a slice at `radii`
-/// (increasing, outside the horizon), as flat `[height..., distance..., curvature...]`.
-/// `slice` is `"schwarzschild"` (more in step 2).
+/// (increasing, outside the inner edge), as flat `[height..., distance..., curvature...]`.
+/// `slice` is `"schwarzschild"` (also the bridge's sheets) or `"star"` with
+/// `param` its radius r_s (> 2 M).
 #[wasm_bindgen(js_name = curvatureProfile)]
-pub fn curvature_profile(slice: &str, radii: &[f64]) -> Result<Vec<f64>, JsError> {
+pub fn curvature_profile(slice: &str, param: f64, radii: &[f64]) -> Result<Vec<f64>, JsError> {
     let p = match slice {
         "schwarzschild" => embedding::profile(&embedding::Schwarzschild, radii),
+        "star" => {
+            let star = embedding::Star::new(param)
+                .ok_or_else(|| JsError::new("star radius must exceed 2 M"))?;
+            embedding::profile(&star, radii)
+        }
         _ => return Err(JsError::new(&format!("unknown slice {slice}"))),
     }
     .map_err(|e| JsError::new(&e.to_string()))?;

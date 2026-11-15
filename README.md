@@ -59,8 +59,9 @@ around the hole. The grid stretches toward the horizon, where the sheet turns ve
 - **Measure it:** click the sheet to see a circle's circumference, its distance from the horizon
   (more than flat space would give) and the curvature there.
 - **Compare grids:** Cartesian, polar, or circles spaced by true distance.
-
-This app is new; a star and the Einstein–Rosen bridge are on the way.
+- **Swap the mass:** a star of uniform density (a glowing ball resting in its smooth bowl of
+  space, with no hole), or the Einstein–Rosen bridge, where the black hole's space joins a
+  second copy through a throat.
 
 ## How it works
 

@@ -49,7 +49,7 @@ void main() {
   } else {
     float r = length(vCoord);
     // φ's change per pixel without atan's jump at ±π: dφ = (x dy − y dx)/r².
-    float fwPhi = (abs(x * dFdx(y) - y * dFdx(x)) + abs(x * dFdy(y) - y * dFdy(x))) / (r * r);
+    float fwPhi = (abs(x * dFdx(y) - y * dFdx(x)) + abs(x * dFdy(y) - y * dFdy(x))) / max(r * r, 1e-12); // r = 0 at a star's center
     float radial = family(atan(y, x), ANGLE, fwPhi, 3.0);
     float circles = u_grid == 1 ? family(r, u_spacing, fwidth(r), 5.0) : family(vDist, u_spacing, fwidth(vDist), 5.0);
     grid = max(radial, circles);
