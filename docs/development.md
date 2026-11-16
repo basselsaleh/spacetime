@@ -63,7 +63,8 @@ Curvature (`/curvature/`):
 - `?s=schwarzschild|bridge|star` (default schwarzschild); for the star, `?m=0.167` (mass in
   units of its radius, M/R, 0.01–4/9; default 1/6) and `?nostar` (hide the glowing ball). The
   star view measures lengths in units of its radius R; the others in M
-- `?grid=cartesian|polar|proper` (default cartesian), `?rmax=30` (view radius, 6–150 M; the sheet extends, fading, to 10× it)
+- `?grid=cartesian|polar|proper` (default cartesian), `?rmax=30` (view radius: 6–150 M, default 30; for the star 2–50 R, default 5; the sheet
+  extends, fading, to 4× it)
 - `?probe=12`: measure the circle at r = 12 (in M, or R for the star; add `&lower` for the
   bridge's lower sheet)
 - `?selftest`: the TypeScript embedding vs the Rust reference and the closed forms (Flamm's
