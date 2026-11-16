@@ -60,10 +60,12 @@ Black hole lensing (`/lensing/`):
 
 Curvature (`/curvature/`):
 
-- `?s=schwarzschild|bridge|star` (default schwarzschild); for the star, `?rs=6` (radius,
-  2.25–25 M; default 6) and `?nostar` (hide the glowing ball)
+- `?s=schwarzschild|bridge|star` (default schwarzschild); for the star, `?m=0.167` (mass in
+  units of its radius, M/R, 0.01–4/9; default 1/6) and `?nostar` (hide the glowing ball). The
+  star view measures lengths in units of its radius R; the others in M
 - `?grid=cartesian|polar|proper` (default cartesian), `?rmax=30` (view radius, 6–150 M; the sheet extends, fading, to 10× it)
-- `?probe=12`: measure the circle at r = 12 M (add `&lower` for the bridge's lower sheet)
+- `?probe=12`: measure the circle at r = 12 (in M, or R for the star; add `&lower` for the
+  bridge's lower sheet)
 - `?selftest`: the TypeScript embedding vs the Rust reference and the closed forms (Flamm's
   paraboloid; the star at 2.25, 6 and 20 M)
 

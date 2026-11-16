@@ -45,6 +45,12 @@ export interface SheetSpec {
   mirror: boolean;
   /** Ring drawn on the sheet: the horizon/throat (at the inner edge) or a star's surface. */
   mark: { r: number; color: THREE.ColorRepresentation };
+  /**
+   * The displayed unit of length, in M: 1 for the black hole, the star's radius
+   * for the star. Grid lines fall on round numbers of it, and curvature colors
+   * are of K in 1/unit².
+   */
+  unit: number;
 }
 
 export class Sheet {
@@ -134,7 +140,8 @@ export class Sheet {
     this.rFar = radii[rings - 1];
     this.rim = p.circ[rimIndex];
     this.depth = p.height[rimIndex];
-    this.material.uniforms.u_spacing.value = niceStep(rMax / 15);
+    this.material.uniforms.u_spacing.value = spec.unit * niceStep(rMax / spec.unit / 15);
+    const kScale = spec.unit * spec.unit; // K in 1/M² → 1/unit²
     (this.material.uniforms.u_fade.value as THREE.Vector2).set(FADE_START * this.rim, p.circ[rings - 1]);
 
     const sheets = spec.mirror ? 2 : 1;
@@ -156,7 +163,7 @@ export class Sheet {
           pos.set([p.circ[i] * c, p.circ[i] * sn, z], 3 * v);
           coord.set([p.r[i] * c, p.r[i] * sn], 2 * v);
           dist[v] = p.distance[i];
-          k[v] = p.curvature[i];
+          k[v] = p.curvature[i] * kScale;
         }
       }
       for (let i = 0; i < rings - 1; i++) {

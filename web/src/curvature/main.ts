@@ -2,9 +2,14 @@
 // on the dev branch). The equatorial slice of a black hole's space (Flamm's
 // paraboloid), the Einstein–Rosen bridge, or a uniform-density star, each as a
 // surface in R³ with the same lengths, drawn as a well.
-// URL options: ?s=schwarzschild|bridge|star, ?rs=<star radius in M>, ?nostar,
-// ?grid=cartesian|polar|proper, ?rmax=<view radius in M>, ?probe=<r in M> (&lower
-// for the bridge's lower sheet), ?selftest.
+//
+// Lengths are shown in units of the mass M, except for the star, which is shown
+// in units of its radius R so that its mass can vary under a ball of fixed size.
+// The physics is always computed in M: the star's radius is R/M = 1/(M/R).
+//
+// URL options: ?s=schwarzschild|bridge|star, ?m=<star mass M/R>, ?nostar,
+// ?grid=cartesian|polar|proper, ?rmax=<view radius, in M or R>, ?probe=<r, in M
+// or R> (&lower for the bridge's lower sheet), ?selftest.
 
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -14,14 +19,18 @@ import { type GridStyle, Sheet, type SheetSpec, curvatureScale } from "./sheet";
 import { StarGlow } from "./star";
 
 type Spacetime = "schwarzschild" | "bridge" | "star";
+type Unit = "M" | "R";
 const SPACETIMES: Spacetime[] = ["schwarzschild", "bridge", "star"];
 const GRIDS: GridStyle[] = ["cartesian", "polar", "proper"];
-const R_MIN = 6; // M; view radius range
-const R_MAX = 150;
-const R_DEFAULT = 30;
-const RS_MIN = BUCHDAHL; // star radius range
-const RS_MAX = 25;
-const RS_DEFAULT = 6; // about a neutron star's
+/** View radius range and default, per unit of length. */
+const VIEW: Record<Unit, { min: number; max: number; def: number }> = {
+  M: { min: 6, max: 150, def: 30 },
+  R: { min: 2, max: 50, def: 5 },
+};
+// The star's mass in units of its radius, M/R: up to Buchdahl's limit 4/9.
+const MASS_MIN = 0.01;
+const MASS_MAX = 1 / BUCHDAHL;
+const MASS_DEFAULT = 1 / 6; // about a neutron star's
 const VIEW_DIR = new THREE.Vector3(0, -1, 0.62).normalize();
 // The bridge from nearly side-on, at the throat's level: the camera sits between
 // the two sheets, so both show, joined at the throat like an hourglass.
@@ -39,9 +48,13 @@ function sci(x: number): string {
 }
 const fmt = (x: number) => (x < 10 ? x.toFixed(2) : x < 100 ? x.toFixed(1) : x.toFixed(0));
 
-/** A log-scale slider mapping [lo, hi] to 0–1000. */
+/** A log-scale slider mapping [lo, hi] to 0–1000; the range can change. */
 function logSlider(input: HTMLInputElement, lo: number, hi: number) {
   return {
+    range(l: number, h: number) {
+      lo = l;
+      hi = h;
+    },
     set: (x: number) => (input.value = String((1000 * Math.log(x / lo)) / Math.log(hi / lo))),
     get: () => lo * Math.pow(hi / lo, Number(input.value) / 1000),
   };
@@ -68,7 +81,7 @@ async function main() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setClearColor(0x090a0e);
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 5e3);
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 5e3); // clipping set by fitCamera
   camera.up.set(0, 0, 1);
 
   const sheet = new Sheet();
@@ -85,9 +98,20 @@ async function main() {
     url.has(key) ? Math.min(Math.max(Number(url.get(key)) || fallback, lo), hi) : fallback;
   let spacetime = pick("s", SPACETIMES);
   let grid = pick("grid", GRIDS);
-  let rMax = clamp("rmax", R_MIN, R_MAX, R_DEFAULT);
-  let rs = clamp("rs", RS_MIN, RS_MAX, RS_DEFAULT);
+  let mass = clamp("m", MASS_MIN, MASS_MAX, MASS_DEFAULT);
   let showStar = !url.has("nostar");
+  const unitName = (): Unit => (spacetime === "star" ? "R" : "M");
+  /** The displayed unit of length, in M. */
+  const unit = () => (spacetime === "star" ? 1 / mass : 1);
+  /** View radius in the displayed unit, kept per unit so switching back restores it. */
+  const view: Record<Unit, number> = { M: VIEW.M.def, R: VIEW.R.def };
+  {
+    const v = VIEW[unitName()];
+    view[unitName()] = clamp("rmax", v.min, v.max, v.def);
+  }
+  /** The view radius in M, for the sheet. */
+  const rMax = () => view[unitName()] * unit();
+  /** Probe radius in the displayed unit. */
   let probe: { r: number; lower: boolean } | null = url.has("probe")
     ? { r: Number(url.get("probe")), lower: url.has("lower") }
     : null;
@@ -95,21 +119,33 @@ async function main() {
   const writeUrl = () => {
     const u = new URL(window.location.href);
     const put = (key: string, value: string | null) => (value === null ? u.searchParams.delete(key) : u.searchParams.set(key, value));
+    const star = spacetime === "star";
     put("s", spacetime !== "schwarzschild" ? spacetime : null);
-    put("rs", spacetime === "star" && rs !== RS_DEFAULT ? rs.toFixed(2) : null);
-    put("nostar", spacetime === "star" && !showStar ? "" : null);
+    put("m", star && mass !== MASS_DEFAULT ? mass.toFixed(3) : null);
+    put("nostar", star && !showStar ? "" : null);
     put("grid", grid !== "cartesian" ? grid : null);
-    put("rmax", rMax !== R_DEFAULT ? String(Math.round(rMax)) : null);
+    const v = view[unitName()];
+    put("rmax", v !== VIEW[unitName()].def ? String(v) : null);
     put("probe", probe ? probe.r.toFixed(2) : null);
     put("lower", probe?.lower ? "" : null);
     history.replaceState(null, "", u);
   };
 
-  const sliceOf = (): Slice => (spacetime === "star" ? star(rs) : schwarzschild);
+  const sliceOf = (): Slice => (spacetime === "star" ? star(1 / mass) : schwarzschild);
   const specOf = (): SheetSpec =>
     spacetime === "star"
-      ? { slice: star(rs), mirror: false, mark: { r: rs, color: STAR_COLOR } }
-      : { slice: schwarzschild, mirror: spacetime === "bridge", mark: { r: 2, color: HORIZON_COLOR } };
+      ? { slice: star(1 / mass), mirror: false, mark: { r: 1 / mass, color: STAR_COLOR }, unit: 1 / mass }
+      : { slice: schwarzschild, mirror: spacetime === "bridge", mark: { r: 2, color: HORIZON_COLOR }, unit: 1 };
+
+  // Orbit limits and clipping planes in proportion to the sheet, whose size in M
+  // ranges over a factor of ~1000 (a light star's radius is 100 M).
+  const fitCamera = () => {
+    controls.minDistance = 0.1 * sheet.rim;
+    controls.maxDistance = 12 * sheet.rim;
+    camera.near = 0.003 * sheet.rim;
+    camera.far = 200 * sheet.rim;
+    camera.updateProjectionMatrix();
+  };
 
   // Frame the well with the sheet fading into the distance beyond it: the camera
   // looks at a point partway down the well from 3.7 view radii away. The bridge
@@ -119,15 +155,15 @@ async function main() {
     controls.target.set(0, 0, bridge ? -sheet.depth : -0.45 * sheet.depth);
     const dist = bridge ? 3.2 : 3.7;
     camera.position.copy(controls.target).addScaledVector(bridge ? BRIDGE_DIR : VIEW_DIR, dist * sheet.rim);
-    controls.minDistance = 3;
-    controls.maxDistance = 12 * rMax;
+    fitCamera();
   };
 
   // --- Probe ---
   const probeInfo = $("probe");
   const showProbe = () => {
     const s = sliceOf();
-    if (probe && (!(probe.r > s.inner) || probe.r > sheet.rFar || (probe.lower && spacetime !== "bridge"))) {
+    const u = unit();
+    if (probe && (!(probe.r * u > s.inner) || probe.r * u > sheet.rFar || (probe.lower && spacetime !== "bridge"))) {
       probe = null;
       writeUrl();
     }
@@ -136,40 +172,43 @@ async function main() {
       probeInfo.textContent = "Click the sheet to measure it there.";
       return;
     }
-    const r = probe.r;
+    const r = probe.r * u;
     const p = profile(s, [s.inner, r]);
     const [circ, height, dist, k] = [p.circ[1], p.height[1], p.distance[1], p.curvature[1]];
     sheet.setProbe({ circ, height, lower: probe.lower });
     // In flat space, circles of these two circumferences would be this far apart.
     const flat = circ - p.circ[0];
     const where =
-      spacetime === "star" ? (r <= rs ? " (inside the star)" : " (outside the star)") : probe.lower ? " (lower sheet)" : "";
+      spacetime === "star" ? (r <= 1 / mass ? " (inside the star)" : " (outside the star)") : probe.lower ? " (lower sheet)" : "";
     const edge = spacetime === "star" ? "center" : spacetime === "bridge" ? "throat" : "horizon";
+    const n = unitName();
+    const ku = k * u * u;
     probeInfo.innerHTML =
-      `<strong>Circle at r = ${fmt(r)} M</strong>${where}\n` +
-      `Circumference ${fmt(2 * Math.PI * circ)} M (2π × ${fmt(circ)} M)\n` +
-      `Distance to the ${edge} ${fmt(dist)} M (flat space: ${fmt(flat)} M)\n` +
-      `Curvature K = ${k > 0 ? "+" : ""}${sci(k)} / M²`;
+      `<strong>Circle at r = ${fmt(r / u)} ${n}</strong>${where}\n` +
+      `Circumference ${fmt((2 * Math.PI * circ) / u)} ${n} (2π × ${fmt(circ / u)} ${n})\n` +
+      `Distance to the ${edge} ${fmt(dist / u)} ${n} (flat space: ${fmt(flat / u)} ${n})\n` +
+      `Curvature K = ${ku > 0 ? "+" : ""}${sci(ku)} / ${n}²`;
   };
 
   // --- Building ---
   const rebuild = () => {
-    sheet.build(specOf(), rMax);
+    sheet.build(specOf(), rMax());
     glow.group.visible = spacetime === "star" && showStar;
     // The star rests at the bottom of its bowl, the center of its slice.
-    if (spacetime === "star") glow.place(rs, sheet.drawnHeight(0));
+    if (spacetime === "star") glow.place(1 / mass, sheet.drawnHeight(0));
     showProbe();
   };
-  // A new view radius: rebuild, and scale the camera and target with the sheet to keep the view.
-  const rescale = (next: number) => {
+  // Rebuild after `change`, scaling the camera and target with the sheet to keep
+  // the view. For the star's mass this keeps the ball the same size on screen.
+  const rescale = (change: () => void) => {
     const oldDepth = sheet.depth;
     const oldRim = sheet.rim;
-    rMax = next;
+    change();
     rebuild();
     const offset = camera.position.clone().sub(controls.target).multiplyScalar(sheet.rim / oldRim);
     controls.target.set(0, 0, controls.target.z * (sheet.depth / oldDepth));
     camera.position.copy(controls.target).add(offset);
-    controls.maxDistance = 12 * rMax;
+    fitCamera();
   };
   sheet.grid = grid;
   rebuild();
@@ -191,15 +230,31 @@ async function main() {
     sync();
   };
 
+  const viewInput = $<HTMLInputElement>("rmax");
+  const viewSlider = logSlider(viewInput, VIEW.M.min, VIEW.M.max);
+  const viewLabel = $("rmax-value");
+  const fmtView = (v: number) => `${v < 10 ? v.toFixed(1) : Math.round(v)} ${unitName()}`;
+  const syncView = () => {
+    const v = VIEW[unitName()];
+    viewSlider.range(v.min, v.max);
+    viewSlider.set(view[unitName()]);
+    viewLabel.textContent = fmtView(view[unitName()]);
+  };
+
   const starOnly = [...document.querySelectorAll<HTMLElement>(".star-only")];
   const aboutParas = [...document.querySelectorAll<HTMLElement>("#about p[data-about]")];
+  const kUnit = $("k-unit");
   const syncSpacetime = () => {
     for (const el of starOnly) el.hidden = spacetime !== "star";
     for (const el of aboutParas) el.hidden = !el.dataset.about!.split(" ").includes(spacetime);
+    kUnit.textContent = `1/${unitName()}²`;
+    syncView();
   };
   toggle("spacetime", "s", () => spacetime, (v) => {
     if (v === spacetime) return;
+    const oldUnit = unitName();
     spacetime = v as Spacetime;
+    if (unitName() !== oldUnit) probe = null; // its radius was in the other unit
     syncSpacetime();
     rebuild();
     frame();
@@ -211,28 +266,29 @@ async function main() {
     sheet.grid = grid;
   });
 
-  const rSlider = logSlider($<HTMLInputElement>("rmax"), R_MIN, R_MAX);
-  const rLabel = $("rmax-value");
-  rSlider.set(rMax);
-  rLabel.textContent = `${Math.round(rMax)} M`;
-  $<HTMLInputElement>("rmax").addEventListener("input", () => {
-    const r = Math.round(rSlider.get());
-    rLabel.textContent = `${r} M`;
-    if (r !== rMax) {
-      rescale(r);
+  viewInput.addEventListener("input", () => {
+    const raw = viewSlider.get();
+    const v = raw < 10 ? Math.round(raw * 10) / 10 : Math.round(raw);
+    viewLabel.textContent = fmtView(v);
+    if (v !== view[unitName()]) {
+      rescale(() => (view[unitName()] = v));
       writeUrl();
     }
   });
 
-  const rsSlider = logSlider($<HTMLInputElement>("rs"), RS_MIN, RS_MAX);
-  const rsLabel = $("rs-value");
-  rsSlider.set(rs);
-  rsLabel.textContent = `${rs.toFixed(2)} M`;
-  $<HTMLInputElement>("rs").addEventListener("input", () => {
-    rs = Math.round(rsSlider.get() * 100) / 100;
-    rsLabel.textContent = `${rs.toFixed(2)} M`;
-    rebuild();
-    writeUrl();
+  const massInput = $<HTMLInputElement>("mass");
+  const massSlider = logSlider(massInput, MASS_MIN, MASS_MAX);
+  const massLabel = $("mass-value");
+  massSlider.set(mass);
+  massLabel.textContent = mass.toFixed(3);
+  massInput.addEventListener("input", () => {
+    // The top of the slider is exactly Buchdahl's limit.
+    const m = massInput.value === "1000" ? MASS_MAX : Math.round(massSlider.get() * 1000) / 1000;
+    massLabel.textContent = m.toFixed(3);
+    if (m !== mass) {
+      rescale(() => (mass = m));
+      writeUrl();
+    }
   });
 
   const starBox = $<HTMLInputElement>("show-star");
@@ -288,7 +344,7 @@ async function main() {
     const hit = raycaster.intersectObject(sheet.mesh)[0];
     if (!hit) return;
     probe = {
-      r: radiusAtCirc(sheet.profile, Math.hypot(hit.point.x, hit.point.y)),
+      r: radiusAtCirc(sheet.profile, Math.hypot(hit.point.x, hit.point.y)) / unit(),
       lower: spacetime === "bridge" && hit.point.z < sheet.drawnHeight(0),
     };
     showProbe();
