@@ -5,8 +5,8 @@
 <h1 align="center">Spacetime</h1>
 
 <p align="center">
-  Interactive, real-time visualizations of black holes and gravitational waves,<br />
-  running in your browser and faithful to general relativity.
+  Interactive, real-time visualizations of extreme spacetimes,<br />
+  exploring general relativity in your browser.
 </p>
 
 <p align="center">
@@ -17,16 +17,22 @@
 
 ## Curvature
 
-The curved space around a black hole, drawn as a warped sheet with a grid on it: Flamm's
-paraboloid, the shape a surface needs so that every distance along it matches the real distance
-around the hole. The grid stretches toward the horizon, where the sheet turns vertical.
+How matter curves space, made visible. A slice of space around a mass is drawn as a warped
+sheet with a grid on it, shaped so that every distance measured along the sheet matches the real
+distance in curved space (an embedding diagram). Far away the sheet flattens out; near the mass,
+there is more room between two circles than their circumferences suggest, and the grid
+stretches to show it.
 
-- **Measure it:** click the sheet to see a circle's circumference, its distance from the horizon
-  (more than flat space would give) and the curvature there.
-- **Compare grids:** Cartesian, polar, or circles spaced by true distance.
-- **Swap the mass:** a star of uniform density (a glowing ball resting in its smooth bowl of
-  space, with no hole), or the Einstein–Rosen bridge, where the black hole's space joins a
-  second copy through a throat.
+- **A star:** a glowing ball resting in its bowl of space. Turn up its mass and the bowl
+  deepens, up to the most a stable star can hold for its size. Inside the star the sheet curves
+  like a sphere; outside it is saddle-shaped, and the colors show the switch.
+- **A black hole:** the same outside, but the sheet now plunges to vertical at the horizon,
+  where it ends (Flamm's paraboloid).
+- **The Einstein–Rosen bridge:** the black hole's sheet joined through a throat to a second
+  copy of space.
+- **Measure it:** click the sheet to see a circle's circumference, its distance from the center
+  or horizon (more than flat space would give) and the curvature there. Compare Cartesian and
+  polar grids, or circles spaced by true distance.
 
 ## Black hole lensing
 
@@ -41,8 +47,6 @@ and the doubled images of the sky all appear on their own. Drag to orbit, scroll
 - **Spin it:** turn up the hole's spin (up to a/M = 0.998) and watch the shadow shift and
   flatten on the side turning toward you, while frame dragging twists the sky around it. The
   spin goes in the URL (`?a=0.9`) so you can share the view.
-
-This app is newer, and more is on the way.
 
 ## Gravitational waves
 
@@ -60,15 +64,16 @@ supercomputer simulations, evaluated live in your browser.
 - **See them in 3D:** the waves as glowing spiral sheets around the binary.
 - **Feel them:** click anywhere to drop a probe and watch a ring of free particles stretch and
   squeeze as the wave passes, with the "chirp" signal a detector there would record.
-- **Change the binary:** mass ratio and spins update everything instantly, and the URL updates
+- **Change the binary:** set the mass ratio and each hole's spin, pointing in any direction.
+  Tilted spins make the orbit precess, and everything updates instantly. The URL updates too,
   so you can share what you see.
 
 ## How it works
 
-The physics is written in Rust and compiled to WebAssembly; the pictures are computed per
-pixel on your GPU with WebGL2. Built-in self-tests check the GPU's results against the Rust
-reference, and the physics is tested against standard research codes (LALSuite,
-gwsurrogate, surfinBH).
+The physics is written in Rust and compiled to WebAssembly; the pictures are drawn on your GPU
+with WebGL2, with the waves and the lensed light computed per pixel. Built-in self-tests check
+each app's results against the Rust reference. The physics is tested against standard research
+codes (LALSuite, gwsurrogate, surfinBH) and against exact solutions.
 
 It runs best in a recent desktop browser.
 
