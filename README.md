@@ -17,6 +17,10 @@
 
 ## Curvature
 
+<p align="center">
+  <img src="docs/images/curvature.jpg" width="400" alt="A glowing star resting in a bowl of warped grid lines: the curved space around it" />
+</p>
+
 How matter curves space, made visible. A slice of space around a mass is drawn as a warped
 sheet with a grid on it, shaped so that every distance measured along the sheet matches the real
 distance in curved space (an embedding diagram). Far away the sheet flattens out; near the mass,
