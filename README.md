@@ -5,8 +5,7 @@
 <h1 align="center">Spacetime</h1>
 
 <p align="center">
-  Interactive, real-time visualizations of extreme spacetimes,<br />
-  exploring general relativity in your browser.
+  Interactive, real-time visualizations of extreme spacetimes.
 </p>
 
 <p align="center">
