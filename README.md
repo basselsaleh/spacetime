@@ -23,20 +23,9 @@
 
 How matter curves space, made visible. A slice of space around a mass is drawn as a warped
 sheet with a grid on it, shaped so that every distance measured along the sheet matches the real
-distance in curved space (an embedding diagram). Far away the sheet flattens out; near the mass,
-there is more room between two circles than their circumferences suggest, and the grid
-stretches to show it.
+distance in curved space (an embedding diagram).
 
-- **A star:** a glowing ball resting in its bowl of space. Turn up its mass and the bowl
-  deepens, up to the most a stable star can hold for its size. Inside the star the sheet curves
-  like a sphere; outside it is saddle-shaped, and the colors show the switch.
-- **A black hole:** the same outside, but the sheet now plunges to vertical at the horizon,
-  where it ends (Flamm's paraboloid).
-- **The Einstein–Rosen bridge:** the black hole's sheet joined through a throat to a second
-  copy of space.
-- **Measure it:** click the sheet to see a circle's circumference, its distance from the center
-  or horizon (more than flat space would give) and the curvature there. Compare Cartesian and
-  polar grids, or circles spaced by true distance.
+See how space is warped by a **star**, a **black hole**, and an **Einstein-Rosen bridge**.
 
 ## Black hole lensing
 
