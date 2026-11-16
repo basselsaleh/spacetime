@@ -5,8 +5,7 @@
 <h1 align="center">Spacetime</h1>
 
 <p align="center">
-  Interactive, real-time visualizations of black holes and gravitational waves,<br />
-  running in your browser and faithful to general relativity.
+  Interactive, real-time visualizations of extreme spacetimes.
 </p>
 
 <p align="center">
@@ -14,6 +13,32 @@
 </p>
 
 ---
+
+## Curvature
+
+<p align="center">
+  <img src="docs/images/curvature.jpg" width="400" alt="A glowing star resting in a bowl of warped grid lines: the curved space around it" />
+</p>
+
+How matter curves space, made visible. A slice of space around a mass is drawn as a warped
+sheet with a grid on it, shaped so that every distance measured along the sheet matches the real
+distance in curved space (an embedding diagram).
+
+See how space is warped by a **star**, a **black hole**, and an **Einstein-Rosen bridge**.
+
+## Black hole lensing
+
+<p align="center">
+  <img src="docs/images/lensing.jpg" width="400" alt="A black hole's shadow and Einstein ring against a field of stars" />
+</p>
+
+A black hole in front of a sky of stars and galaxies. Every pixel's light ray is traced exactly
+through the curved spacetime around the hole, so the shadow, the photon ring, the Einstein ring
+and the doubled images of the sky all appear on their own. Drag to orbit, scroll to fly closer.
+
+- **Spin it:** turn up the hole's spin (up to a/M = 0.998) and watch the shadow shift and
+  flatten on the side turning toward you, while frame dragging twists the sky around it. The
+  spin goes in the URL (`?a=0.9`) so you can share the view.
 
 ## Gravitational waves
 
@@ -31,31 +56,16 @@ supercomputer simulations, evaluated live in your browser.
 - **See them in 3D:** the waves as glowing spiral sheets around the binary.
 - **Feel them:** click anywhere to drop a probe and watch a ring of free particles stretch and
   squeeze as the wave passes, with the "chirp" signal a detector there would record.
-- **Change the binary:** mass ratio and spins update everything instantly, and the URL updates
+- **Change the binary:** set the mass ratio and each hole's spin, pointing in any direction.
+  Tilted spins make the orbit precess, and everything updates instantly. The URL updates too,
   so you can share what you see.
-
-## Black hole lensing
-
-<p align="center">
-  <img src="docs/images/lensing.jpg" width="400" alt="A black hole's shadow and Einstein ring against a field of stars" />
-</p>
-
-A black hole in front of a sky of stars and galaxies. Every pixel's light ray is traced exactly
-through the curved spacetime around the hole, so the shadow, the photon ring, the Einstein ring
-and the doubled images of the sky all appear on their own. Drag to orbit, scroll to fly closer.
-
-- **Spin it:** turn up the hole's spin (up to a/M = 0.998) and watch the shadow shift and
-  flatten on the side turning toward you, while frame dragging twists the sky around it. The
-  spin goes in the URL (`?a=0.9`) so you can share the view.
-
-This app is newer, and more is on the way.
 
 ## How it works
 
-The physics is written in Rust and compiled to WebAssembly; the pictures are computed per
-pixel on your GPU with WebGL2. Built-in self-tests check the GPU's results against the Rust
-reference, and the physics is tested against standard research codes (LALSuite,
-gwsurrogate, surfinBH).
+The physics is written in Rust and compiled to WebAssembly; the pictures are drawn on your GPU
+with WebGL2, with the waves and the lensed light computed per pixel. Built-in self-tests check
+each app's results against the Rust reference. The physics is tested against standard research
+codes (LALSuite, gwsurrogate, surfinBH) and against exact solutions.
 
 It runs best in a recent desktop browser.
 

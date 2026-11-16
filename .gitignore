@@ -21,3 +21,9 @@ tools/out/
 
 # Planning docs: the dev branch, checked out here with `git worktree add plans dev`
 /plans/
+
+# Technical notes: only the built PDFs are committed (on the docs-notes branch);
+# the LaTeX sources, data, scripts and build outputs stay local
+/docs/notes/*
+!/docs/notes/.gitignore
+!/docs/notes/*.pdf

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <title>Spacetime · curvature</title>
+    <link rel="stylesheet" href="../src/curvature/style.css" />
+  </head>
+  <body>
+    <main id="app">
+      <canvas id="view"></canvas>
+      <div id="title" class="panel"><a href="../">Spacetime</a> <span class="muted">· curvature</span></div>
+      <div id="panel" class="panel">
+        <div class="row-grid">
+          <span>Spacetime</span>
+          <div class="toggle" id="spacetime">
+            <button data-s="schwarzschild" title="Space around a black hole, out from its horizon">Black hole</button>
+            <button data-s="bridge" title="The black hole's space joined at the horizon to a second copy">Bridge</button>
+            <button data-s="star" title="Space inside and around a star of uniform density">Star</button>
+          </div>
+        </div>
+        <label class="row star-only" title="The star's mass in units of its radius (G = c = 1). The Sun is 2 × 10⁻⁶, a white dwarf about 10⁻⁴, a neutron star about 0.17; no static star exceeds 4/9 (Buchdahl's limit)">Mass M/R <input id="mass" type="range" min="0" max="1000" step="1" /><span id="mass-value"></span></label>
+        <label class="check star-only"><input id="show-star" type="checkbox" checked /> Show the star</label>
+        <div class="row-grid">
+          <span>Grid</span>
+          <div class="toggle" id="grid">
+            <button data-grid="cartesian" title="Lines of constant x and y">Cartesian</button>
+            <button data-grid="polar" title="Circles of constant r, every 15° around">Polar</button>
+            <button data-grid="proper" title="Circles at equal proper distance from the horizon or center">Proper</button>
+          </div>
+        </div>
+        <label class="row" title="The region the view frames; the sheet carries on, fading, far beyond it">View radius <input id="rmax" type="range" min="0" max="1000" step="1" /><span id="rmax-value"></span></label>
+        <label class="check"><input id="curvature" type="checkbox" checked /> Color by curvature</label>
+        <div id="legend">
+          <div class="bar"></div>
+          <div class="ticks"></div>
+          <div class="caption">Gaussian curvature K (<span id="k-unit">1/M²</span>, log scale)</div>
+        </div>
+        <div id="probe">Click the sheet to measure it there.</div>
+        <details id="about">
+          <summary>About this view</summary>
+          <p data-about="schwarzschild bridge">
+            Space around a black hole, at one moment, cut through the hole's equator. That slice of
+            space is curved, and this sheet is the shape a surface in ordinary 3D space needs so
+            that every distance measured along it matches the real distance in the slice
+            (Flamm's paraboloid, 1916).
+          </p>
+          <p data-about="schwarzschild">
+            Near the hole there is more room between two circles than their circumferences
+            suggest: the grid squares stretch toward the center, and the sheet turns vertical at
+            the horizon (r = 2 M), where it ends. Far away it keeps going, ever flatter, fading out of view.
+          </p>
+          <p data-about="bridge">
+            The same sheet doesn't have to end at the horizon. The full solution continues it
+            through a throat into a second, identical sheet: another outside region, another
+            universe (Einstein and Rosen, 1935). The two join smoothly, with the throat as the
+            narrowest circle. It can't be crossed: the throat pinches off faster than light could
+            get through. Real black holes, formed from collapsing stars, have no second sheet.
+          </p>
+          <p data-about="star">
+            Space inside and around a star of uniform density, at one moment, cut through its
+            center. The glowing ball marks where the star is; the sheet under it is the star's
+            own interior space, a smooth bowl (a piece of a sphere) with no hole and no edge.
+            Outside the star the sheet is exactly the black hole's, the same well, because space
+            outside depends only on the mass.
+          </p>
+          <p data-about="star">
+            The curvature changes sign at the surface: inside, the bowl curves the same way in
+            every direction (positive, like a sphere); outside, it is saddle-shaped (negative).
+            Add mass and the bowl deepens under a star of the same size. No star can hold more
+            than 4/9 of its radius in mass (Buchdahl's limit, in units where G = c = 1) without
+            collapsing. The Sun's mass is two millionths of its radius, so its sheet is almost flat.
+          </p>
+          <p>
+            Only the sheet's own geometry is physical: lengths along it and its curvature, colored
+            here. Its height and the direction "down" mean nothing; it is not a rubber sheet that
+            things roll into, and it shows space, not time. (Falling comes mostly from time running
+            slower near the mass, which no picture of space can show.)
+          </p>
+          <p>
+            Click to measure a circle's circumference and its distance from the center or horizon.
+            Drag to orbit, scroll to zoom, double-click to reset. Distances are in units of the mass M
+            (for the star, of its radius R).
+          </p>
+        </details>
+        <div id="status">Loading…</div>
+      </div>
+    </main>
+    <script type="module" src="../src/curvature/main.ts"></script>
+  </body>
+</html>

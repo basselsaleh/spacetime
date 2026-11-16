@@ -58,6 +58,18 @@ Black hole lensing (`/lensing/`):
   spins 0.5 and 0.998
 - `?lensbench`: GPU timing at spins 0 (both integrators), 0.5 and 0.998 (needs real time)
 
+Curvature (`/curvature/`):
+
+- `?s=schwarzschild|bridge|star` (default schwarzschild); for the star, `?m=0.167` (mass in
+  units of its radius, M/R, 0.01–4/9; default 1/6) and `?nostar` (hide the glowing ball). The
+  star view measures lengths in units of its radius R; the others in M
+- `?grid=cartesian|polar|proper` (default cartesian), `?rmax=30` (view radius: 6–150 M, default 30; for the star 2–50 R, default 5; the sheet
+  extends, fading, to 4× it)
+- `?probe=12`: measure the circle at r = 12 (in M, or R for the star; add `&lower` for the
+  bridge's lower sheet)
+- `?selftest`: the TypeScript embedding vs the Rust reference and the closed forms (Flamm's
+  paraboloid; the star at 2.25, 6 and 20 M)
+
 ## GPU self-tests and screenshots (headless Chrome on macOS)
 
 ```sh
@@ -66,12 +78,14 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 FLAGS="--headless=new --use-angle=metal --enable-gpu --ignore-gpu-blocklist"
 "$CHROME" $FLAGS --virtual-time-budget=8000 --dump-dom "http://localhost:4173/bbh/?selftest" | grep -o "<title>[^<]*</title>"
 "$CHROME" $FLAGS --virtual-time-budget=8000 --dump-dom "http://localhost:4173/lensing/?selftest" | grep -o "<title>[^<]*</title>"
+"$CHROME" $FLAGS --virtual-time-budget=8000 --dump-dom "http://localhost:4173/curvature/?selftest" | grep -o "<title>[^<]*</title>"
 "$CHROME" $FLAGS --window-size=1440,900 --force-device-scale-factor=1 \
   --virtual-time-budget=12000 --screenshot=out.png "http://localhost:4173/bbh/?paused&t=-400&3d"
 ```
 
 - Use `--use-angle=metal` for the real GPU; SwiftShader's float arithmetic is less accurate.
 - `--force-device-scale-factor=1` keeps screenshots at the window size on scaled displays.
+- Headless windows are at least 500 px wide; a narrower `--window-size` crops a 500 px layout.
 - `--virtual-time-budget` freezes `performance.now()` during synchronous work, so the benchmarks
   need real time: run headless with `--remote-debugging-port=9333 --user-data-dir=<tmp>` and poll
   `curl -s localhost:9333/json` for the page title.
