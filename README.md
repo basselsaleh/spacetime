@@ -15,6 +15,35 @@
 
 ---
 
+## Curvature
+
+The curved space around a black hole, drawn as a warped sheet with a grid on it: Flamm's
+paraboloid, the shape a surface needs so that every distance along it matches the real distance
+around the hole. The grid stretches toward the horizon, where the sheet turns vertical.
+
+- **Measure it:** click the sheet to see a circle's circumference, its distance from the horizon
+  (more than flat space would give) and the curvature there.
+- **Compare grids:** Cartesian, polar, or circles spaced by true distance.
+- **Swap the mass:** a star of uniform density (a glowing ball resting in its smooth bowl of
+  space, with no hole), or the Einstein–Rosen bridge, where the black hole's space joins a
+  second copy through a throat.
+
+## Black hole lensing
+
+<p align="center">
+  <img src="docs/images/lensing.jpg" width="400" alt="A black hole's shadow and Einstein ring against a field of stars" />
+</p>
+
+A black hole in front of a sky of stars and galaxies. Every pixel's light ray is traced exactly
+through the curved spacetime around the hole, so the shadow, the photon ring, the Einstein ring
+and the doubled images of the sky all appear on their own. Drag to orbit, scroll to fly closer.
+
+- **Spin it:** turn up the hole's spin (up to a/M = 0.998) and watch the shadow shift and
+  flatten on the side turning toward you, while frame dragging twists the sky around it. The
+  spin goes in the URL (`?a=0.9`) so you can share the view.
+
+This app is newer, and more is on the way.
+
 ## Gravitational waves
 
 <p align="center">
@@ -33,35 +62,6 @@ supercomputer simulations, evaluated live in your browser.
   squeeze as the wave passes, with the "chirp" signal a detector there would record.
 - **Change the binary:** mass ratio and spins update everything instantly, and the URL updates
   so you can share what you see.
-
-## Black hole lensing
-
-<p align="center">
-  <img src="docs/images/lensing.jpg" width="400" alt="A black hole's shadow and Einstein ring against a field of stars" />
-</p>
-
-A black hole in front of a sky of stars and galaxies. Every pixel's light ray is traced exactly
-through the curved spacetime around the hole, so the shadow, the photon ring, the Einstein ring
-and the doubled images of the sky all appear on their own. Drag to orbit, scroll to fly closer.
-
-- **Spin it:** turn up the hole's spin (up to a/M = 0.998) and watch the shadow shift and
-  flatten on the side turning toward you, while frame dragging twists the sky around it. The
-  spin goes in the URL (`?a=0.9`) so you can share the view.
-
-This app is newer, and more is on the way.
-
-## Curvature
-
-The curved space around a black hole, drawn as a warped sheet with a grid on it: Flamm's
-paraboloid, the shape a surface needs so that every distance along it matches the real distance
-around the hole. The grid stretches toward the horizon, where the sheet turns vertical.
-
-- **Measure it:** click the sheet to see a circle's circumference, its distance from the horizon
-  (more than flat space would give) and the curvature there.
-- **Compare grids:** Cartesian, polar, or circles spaced by true distance.
-- **Swap the mass:** a star of uniform density (a glowing ball resting in its smooth bowl of
-  space, with no hole), or the Einstein–Rosen bridge, where the black hole's space joins a
-  second copy through a throat.
 
 ## How it works
 
