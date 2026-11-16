@@ -22,6 +22,9 @@ import type { PreparedWaveform } from "./waveform";
 
 export type ViewMode = "flat" | "3d";
 
+/** Spin arrows are hidden in the top-down flat view and fade in over this much tilt. */
+const ARROW_FADE_TILT = THREE.MathUtils.degToRad(15);
+
 const MAX_ROWS = 24; // strain.glsl
 const FLAT_FOV = 1; // degrees
 const ORBIT_FOV = 40; // degrees
@@ -556,18 +559,21 @@ export class SpacetimeScene {
       (sprite.material as THREE.SpriteMaterial).opacity = LOOK.haloStrength * opacity;
 
       // Spin arrow from the horizon outward, length ∝ |χ| (at least a few pixels).
+      // Hidden in the flat top-down view (tilt 0), fading in over the first
+      // ARROW_FADE_TILT of tilt, or with the switch to 3D.
       const arrow = this.spinArrows[k];
       const chi = new THREE.Vector3(scene.spins[3 * k], scene.spins[3 * k + 1], scene.spins[3 * k + 2]);
       const mag = chi.length();
-      arrow.visible = opacity > 0.01 && mag > 0.01;
+      const arrowOpacity = opacity * Math.max(blend, THREE.MathUtils.smoothstep(slice.tilt, 0, ARROW_FADE_TILT));
+      arrow.visible = arrowOpacity > 0.01 && mag > 0.01;
       if (arrow.visible) {
         const dir = chi.divideScalar(mag);
         const len = mag * Math.max(LOOK.spinLength * d[5 * k + 3], LOOK.spinMinPx * pxWorld(p));
         arrow.position.copy(p).addScaledVector(dir, radius);
         arrow.setDirection(dir);
         arrow.setLength(len, 0.35 * len, 0.2 * len);
-        (arrow.line.material as THREE.LineBasicMaterial).opacity = opacity;
-        (arrow.cone.material as THREE.MeshBasicMaterial).opacity = opacity;
+        (arrow.line.material as THREE.LineBasicMaterial).opacity = arrowOpacity;
+        (arrow.cone.material as THREE.MeshBasicMaterial).opacity = arrowOpacity;
       }
     });
     const pp = new THREE.Vector3(...probe);
